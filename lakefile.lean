@@ -95,6 +95,25 @@ lean_lib IotaktHttp where
   globs := #[.one `Iotakt.Http]
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- Connection actor abstraction: callback lifecycle, ActorRegistry (v0.5). -/
+lean_lib IotaktActor where
+  globs := #[.one `Iotakt.Actor]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- Per-connection and global I/O statistics counters (v0.5). -/
+lean_lib IotaktStats where
+  globs := #[.one `Iotakt.Stats]
+
+/-- HTTP/1.1 keep-alive benchmark server: uses ConnectionActor + ActorRegistry. -/
+lean_exe «iotakt-bench-server» where
+  root := `examples.BenchServer
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- RFC 025 throughput benchmark: N sequential keep-alive requests, reports req/s. -/
+lean_exe «iotakt-bench» where
+  root := `examples.Bench
+  extraDepTargets := #[`iotaktNativeLib.static]
+
 /-- Minimal HTTP/1.0 server demo: EventLoop + WriteBuffer + HTTP parsing. -/
 lean_exe «iotakt-http-server» where
   root := `examples.HttpServer
@@ -127,4 +146,9 @@ lean_exe «iotakt-v3-test» where
     invariants, RFC 026 native conformance edge cases. -/
 lean_exe «iotakt-v4-test» where
   root := `examples.V4Test
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.5 integration test: ConnectionActor, Stats, keep-alive HTTP, throughput. -/
+lean_exe «iotakt-v5-test» where
+  root := `examples.V5Test
   extraDepTargets := #[`iotaktNativeLib.static]

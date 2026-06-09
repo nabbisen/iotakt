@@ -6,6 +6,58 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.5.0-dev] — 2026-06-08
+
+### Added
+
+**`Iotakt.Actor` — ConnectionActor lifecycle (v0.5)**
+
+- `ActorAction` — `continue | enableWrite | disableWrite | close`.
+- `ConnectionActor` — closure-based actor with `onReadable / onWritable / onEof / onError` callbacks and `dispatch` method.
+- `ConnectionActor.mkEcho` — one-liner echo actor builder.
+- `ConnectionActor.mkBuffered` — accumulates recv bytes into an `IO.Ref ByteArray`.
+- `ActorRegistry` — `register / lookup / remove / runStep`; dispatches `dataReady` events to registered actors, returns unhandled `newConnection` events.
+- `IotaktActor` Lake library target.
+
+**`Iotakt.Stats` — I/O statistics counters (v0.5)**
+
+- `ConnStats` — per-connection bytes read/written, event counts, partial-write count, closed flag.
+- `GlobalStats` — server-lifetime aggregates: connections, closedConns, errorConns, totalBytes, totalRequests.
+- `GlobalStats.reqPerSec` — requests/sec given elapsed nanoseconds.
+- `GlobalStats.report` — multi-line benchmark summary.
+- `IotaktStats` Lake library target.
+
+**HTTP/1.1 keep-alive improvements**
+
+- `HttpResponse.toBytes` — no longer appends duplicate `Connection: close` when `Connection` header is already present.
+- `HttpResponse.okKeepAlive` — `Connection: keep-alive` response builder.
+- `HttpResponse.okClose` — `Connection: close` response builder.
+- `HttpRequest.keepAlive` — detects whether the request requests a persistent connection (HTTP/1.1 default: true; HTTP/1.0 default: false).
+- `HttpRequest.header` — case-insensitive header lookup.
+
+**RFC 025 — Throughput benchmark (done)**
+
+- `Io.monoNs` — `CLOCK_MONOTONIC` nanosecond timestamp via native C shim.
+- `iotakt_mono_ns` C function in `iotakt_io.c`.
+- `iotakt-bench` executable — 1000 keep-alive round-trips via Unix socketpair; baseline ~300,000–350,000 req/s.
+- `iotakt-bench-server` — HTTP/1.1 keep-alive benchmark server on port 49995.
+- `docs/src/benchmark.md` — methodology, baseline, and interpretation.
+- RFC 025 moved to `rfcs/done/`.
+
+**Gap 004 resolution**
+
+- `docs/src/gap004-actorid.md` — documents `nextActorId` counter pattern as the official ActorId allocation approach for v0.5; records remaining Gap 006 (actor lifecycle notification).
+
+**v0.5 integration test (35/35 PASS + RFC 025 benchmark)**
+
+- `iotakt-v5-test`: ConnectionActor (8), ActorRegistry (6), Stats (12), HTTP keep-alive (6), throughput baseline (3).
+
+**CI gate extended to 14 steps**
+
+- Step 13: v0.5 integration test.
+- Step 14: throughput benchmark (RFC 025).
+- 23 RFCs in done/, 38 in proposed/.
+
 ## [0.4.0-dev] — 2026-06-08
 
 ### Added

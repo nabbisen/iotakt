@@ -14,7 +14,17 @@ RFC 036 UDP, RFC 039 outbound connect, RFC 016 kqueue analysis, persistent conne
 ## Released: v0.4.0-dev — WriteBuffer + HTTP/1.0 + FFI hardening
 `WriteBuffer`, `Iotakt.Http`, HTTP server+client, RFC 028 FFI contract, RFC 026 conformance. 12 steps, 22 RFCs done.
 
-## Next: v0.5.0 — Connection actor lifecycle + henejt integration
+## Released: v0.5.0-dev — ConnectionActor + Stats + Throughput baseline
+`ConnectionActor` + `ActorRegistry`, `ConnStats`/`GlobalStats`, HTTP/1.1 keep-alive, RFC 025 benchmark (~330k req/s baseline), Gap 004 resolved. 14-step CI, 23 RFCs done.
+
+## Next: v0.6.0 — henejt integration + actor lifecycle
+
+Priority items:
+- **RFC 035** — Henret wait-queue parking: when the Henret maintainer ships it, replace 100ms poll loops with park/wake for ≥10× idle CPU reduction.
+- **Gap 006** — Actor lifecycle: call `Henret.terminate actorId` when closing a connection to free the mailbox.
+- **henejt prototype** — First real HTTP/1.1 GET/POST request handling using `Iotakt.Actor` in the henejt layer.
+- **RFC 021** — BSD/macOS kqueue native backend (macOS CI runner).
+- **RFC 041** — TLS boundary document: where TLS sits relative to iotakt (iotakt hands off raw fd after accept; TLS layer wraps it).
 
 Priority items:
 - **`Iotakt.Actor`** — `ConnectionActor` abstraction: state machine (connecting / reading / writing / closing), integrates with Henret task model (RFC 035 prep).

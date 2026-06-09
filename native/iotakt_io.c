@@ -10,6 +10,7 @@
  * Send reads from a borrowed (read-only) Lean ByteArray and returns the
  * number of bytes written or -errno. Partial writes are normal.
  */
+#include <time.h>
 #include "iotakt.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -204,4 +205,16 @@ LEAN_EXPORT lean_obj_res iotakt_sendto(
 
     lean_dec(w);
     return lean_io_result_mk_ok(lean_int64_to_int(status));
+}
+
+/*
+ * Monotonic nanosecond timestamp (CLOCK_MONOTONIC).
+ * Returns IO Int.
+ */
+LEAN_EXPORT lean_obj_res iotakt_mono_ns(lean_obj_arg w) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    int64_t ns = (int64_t)ts.tv_sec * (int64_t)1000000000 + (int64_t)ts.tv_nsec;
+    lean_dec(w);
+    return lean_io_result_mk_ok(lean_int64_to_int(ns));
 }

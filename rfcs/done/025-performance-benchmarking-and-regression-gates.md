@@ -1,5 +1,7 @@
 # RFC 025: Performance Benchmarking and Regression Gates
 
+**Status.** Implemented (v0.5.0-dev)
+
 **Status:** Proposed / Post-Core Hardening  
 **Milestone:** M7/M8  
 **Priority:** Medium  

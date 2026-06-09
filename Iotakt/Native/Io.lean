@@ -36,6 +36,11 @@ Returns IO Int:
 @[extern "iotakt_send"]
 opaque sendRaw (fd : Int32) (ba : @& ByteArray) (offset len : USize) : IO Int
 
+/-- Monotonic nanosecond wall-clock timestamp (CLOCK_MONOTONIC).
+Suitable for measuring elapsed time in benchmarks. -/
+@[extern "iotakt_mono_ns"]
+opaque monoNs : IO Int
+
 /-! ## UDP datagram operations (RFC 036) -/
 
 /-- Non-blocking recvfrom for UDP datagrams (Option A allocation policy).

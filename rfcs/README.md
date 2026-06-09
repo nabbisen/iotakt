@@ -27,6 +27,7 @@ The folder is the source of truth for each RFC's state.
 | 017 | [Public API Surface and Developer Experience](./done/017-public-api-surface-and-developer-experience.md) | Implemented (v0.2.0-dev) |
 | 018 | [CI, Packaging, and Release Gates](./done/018-ci-packaging-and-release-gates.md) | Implemented (v0.1.0-dev) |
 | 019 | [Architecture Gap Register and Risk Management](./done/019-architecture-gap-register-and-risk-management.md) | Implemented (v0.1.0-dev) |
+| 025 | [Formal Throughput Benchmark](./done/025-performance-benchmarking-and-regression-gates.md) | Implemented (v0.5.0-dev) |
 | 026 | [Native Conformance Test Suite](./done/026-native-conformance-test-suite.md) | Implemented (v0.4.0-dev) |
 | 028 | [Lean FFI Compatibility and Native Boundary Hardening](./done/028-lean-ffi-compatibility-and-native-boundary-hardening.md) | Implemented (v0.4.0-dev) |
 

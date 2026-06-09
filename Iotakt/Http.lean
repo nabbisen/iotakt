@@ -107,6 +107,20 @@ def parse (raw : ByteArray) : Option HttpRequest :=
               some { method, path, version, headers }
   | _ => none
 
+/-- True when the request asks for a persistent connection (keep-alive). -/
+def keepAlive (req : HttpRequest) : Bool :=
+  -- HTTP/1.1 default is keep-alive; HTTP/1.0 default is close
+  let connHdr := req.headers.find? (fun (k, _) => k.toLower == "connection")
+  match req.version, connHdr with
+  | "HTTP/1.1", some (_, v) => v.toLower != "close"
+  | "HTTP/1.1", none        => true
+  | _,          some (_, v) => v.toLower == "keep-alive"
+  | _,          none        => false
+
+/-- Look up a header value (case-insensitive key). -/
+def header (req : HttpRequest) (key : String) : Option String :=
+  req.headers.find? (fun (k, _) => k.toLower == key.toLower) |>.map (·.2)
+
 end HttpRequest
 
 /-! ## Response -/
@@ -137,12 +151,50 @@ def notFound (path : String) : HttpResponse :=
     headers    := [("Content-Type", "text/plain"), ("Content-Length", toString body.size)]
     body       := body }
 
+/-- Build a response with an explicit `Connection` header for HTTP/1.1 keep-alive. -/
+def okKeepAlive (body : String) : HttpResponse :=
+  let ba := body.toUTF8
+  { statusCode := 200
+    statusText := "OK"
+    headers    := [("Content-Type", "text/plain"),
+                   ("Content-Length", toString ba.size),
+                   ("Connection", "keep-alive")]
+    body       := ba }
+
+/-- Build a connection-close response. -/
+def okClose (body : String) : HttpResponse :=
+  let ba := body.toUTF8
+  { statusCode := 200
+    statusText := "OK"
+    headers    := [("Content-Type", "text/plain"),
+                   ("Content-Length", toString ba.size),
+                   ("Connection", "close")]
+    body       := ba }
+
+/-- Parse the `Content-Length` header value from a response's raw bytes. -/
+def contentLength (raw : ByteArray) : Option Nat :=
+  let s := String.fromUTF8? raw |>.getD ""
+  let headerPart := (s.splitOn "\r\n\r\n").head?
+  headerPart.bind fun h =>
+    h.splitOn "\r\n" |>.findSome? fun line =>
+      let parts := line.splitOn ": "
+      if parts.head?.map (·.toLower) == some "content-length" then
+        parts.get? 1 |>.bind (·.toNat?)
+      else none
+
+/-- HTTP version to use in requests/responses. -/
+def version11 : String := "HTTP/1.1"
+def version10 : String := "HTTP/1.0"
+
 /-- Serialise the response to bytes (headers + body). -/
 def toBytes (r : HttpResponse) : ByteArray :=
   let headerLines := r.headers.map fun (k, v) => s!"{k}: {v}"
   let headerStr := String.intercalate "\r\n" headerLines
+  -- Only add Connection: close if not already provided in headers
+  let hasConnHdr := r.headers.any fun (k, _) => k.toLower == "connection"
+  let connLine := if hasConnHdr then "" else "Connection: close\r\n"
   let headersBA :=
-    s!"HTTP/1.0 {r.statusCode} {r.statusText}\r\n{headerStr}\r\nConnection: close\r\n\r\n"
+    s!"HTTP/1.0 {r.statusCode} {r.statusText}\r\n{headerStr}\r\n{connLine}\r\n"
     |>.toUTF8
   -- Concatenate headers + body
   let total := headersBA.size + r.body.size

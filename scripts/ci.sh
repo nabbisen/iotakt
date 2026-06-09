@@ -107,6 +107,31 @@ else
   fail "v0.3-test: $V3_FAIL failed, $V3_PASS passed"
 fi
 
+step "13. v0.5 integration test (Actor, Stats, HTTP keep-alive, throughput)"
+lake build iotakt-v5-test 2>/dev/null && \
+  .lake/build/bin/iotakt-v5-test > /tmp/v5_out.txt 2>&1
+V5_FAIL=$(grep -c "\[FAIL\]" /tmp/v5_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V5_PASS=$(grep -c "\[PASS\]" /tmp/v5_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V5_FAIL" -eq 0 ] && [ "$V5_PASS" -gt 0 ]; then
+  pass "v0.5-test: $V5_PASS checks (Actor + Stats + HTTP + throughput) all PASS"
+else
+  cat /tmp/v5_out.txt
+  fail "v0.5-test: $V5_FAIL failed, $V5_PASS passed"
+fi
+
+step "14. Throughput benchmark (RFC 025)"
+lake build iotakt-bench 2>/dev/null && \
+  .lake/build/bin/iotakt-bench > /tmp/bench_out.txt 2>&1
+BENCH_PASS=$(grep -c "\[PASS\]" /tmp/bench_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+BENCH_FAIL=$(grep -c "\[FAIL\]" /tmp/bench_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+RPS=$(grep "Throughput:" /tmp/bench_out.txt 2>/dev/null | head -1 || echo "0")
+if [ "$BENCH_FAIL" -eq 0 ] && [ "$BENCH_PASS" -gt 0 ]; then
+  pass "benchmark: $BENCH_PASS checks PASS ($RPS)"
+else
+  cat /tmp/bench_out.txt
+  fail "benchmark: $BENCH_FAIL failed"
+fi
+
 step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1
