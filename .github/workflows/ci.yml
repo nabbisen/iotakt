@@ -77,6 +77,20 @@ jobs:
           RESP=$(echo "hello from iotakt" | nc -q1 127.0.0.1 49900)
           kill %% 2>/dev/null || true
           echo "$RESP" | grep -q "hello from iotakt"
+      - name: v0.4 integration test (WriteBuffer, HTTP, FFI, conformance)
+        run: |
+          lake build iotakt-v4-test
+          .lake/build/bin/iotakt-v4-test | tee /tmp/v4_out.txt
+          FAIL=$(grep -c '\[FAIL\]' /tmp/v4_out.txt || true)
+          test "${FAIL:-0}" -eq 0
+      - name: HTTP/1.0 server+client smoke test
+        run: |
+          lake build iotakt-http-server iotakt-http-client
+          .lake/build/bin/iotakt-http-server &
+          sleep 1
+          HTTP_OUT=$(.lake/build/bin/iotakt-http-client)
+          kill %% 2>/dev/null || true
+          echo "$HTTP_OUT" | grep -q "status 200"
       - name: Multi-connection echo server test
         run: |
           lake build iotakt-multi-echo

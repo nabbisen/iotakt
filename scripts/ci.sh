@@ -98,8 +98,8 @@ fi
 
 step "9. v0.3 integration test (RFC 036 UDP, RFC 039 connect, persistent)"
 lake build iotakt-v3-test 2>/dev/null &&   .lake/build/bin/iotakt-v3-test > /tmp/v3_out.txt 2>&1
-V3_FAIL=$(grep -c "\[FAIL\]" /tmp/v3_out.txt || true)
-V3_PASS=$(grep -c "\[PASS\]" /tmp/v3_out.txt || true)
+V3_FAIL=$(grep -c "\[FAIL\]" /tmp/v3_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V3_PASS=$(grep -c "\[PASS\]" /tmp/v3_out.txt 2>/dev/null | tr -d "\n" || echo 0)
 if [ "$V3_FAIL" -eq 0 ] && [ "$V3_PASS" -gt 0 ]; then
   pass "v0.3-test: $V3_PASS checks (UDP + connect + persistent) all PASS"
 else
@@ -107,7 +107,39 @@ else
   fail "v0.3-test: $V3_FAIL failed, $V3_PASS passed"
 fi
 
-step "10. Multi-connection echo server"
+step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
+lake build iotakt-v4-test 2>/dev/null && \
+  .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1
+V4_FAIL=$(grep -c "\[FAIL\]" /tmp/v4_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V4_PASS=$(grep -c "\[PASS\]" /tmp/v4_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V4_FAIL" -eq 0 ] && [ "$V4_PASS" -gt 0 ]; then
+  pass "v0.4-test: $V4_PASS checks (WriteBuffer + HTTP + FFI + conformance) all PASS"
+else
+  cat /tmp/v4_out.txt
+  fail "v0.4-test: $V4_FAIL failed, $V4_PASS passed"
+fi
+
+step "11. HTTP/1.0 server+client smoke test"
+if require nc; then
+  lake build iotakt-http-server iotakt-http-client 2>/dev/null
+  .lake/build/bin/iotakt-http-server > /tmp/http_srv.txt 2>&1 &
+  HTTP_SRV_PID=$!
+  sleep 1
+  HTTP_OUT=$(.lake/build/bin/iotakt-http-client 2>/dev/null)
+  sleep 2
+  kill "$HTTP_SRV_PID" 2>/dev/null || true
+  wait "$HTTP_SRV_PID" 2>/dev/null || true
+  if echo "$HTTP_OUT" | grep -q "\[PASS\].*status 200"; then
+    pass "HTTP server+client: GET /hello/iotakt → 200 OK ✓"
+  else
+    echo "$HTTP_OUT"
+    fail "HTTP server+client: unexpected output"
+  fi
+else
+  pass "HTTP smoke test: SKIP (nc not found)"
+fi
+
+step "12. Multi-connection echo server"
 if require nc; then
   lake build iotakt-multi-echo 2>/dev/null
   .lake/build/bin/iotakt-multi-echo > /dev/null 2>&1 &

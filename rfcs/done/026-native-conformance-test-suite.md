@@ -1,5 +1,7 @@
 # RFC 026: Native Conformance Test Suite
 
+**Status.** Implemented (v0.4.0-dev)
+
 **Status:** Proposed / Post-Core Hardening  
 **Milestone:** M5/M7  
 **Priority:** High before native release  

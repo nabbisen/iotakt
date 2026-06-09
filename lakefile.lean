@@ -85,6 +85,26 @@ lean_lib IotaktLoop where
   globs := #[.one `Iotakt.Loop]
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- Write buffering for partial-write and wouldBlock handling (v0.4). -/
+lean_lib IotaktWriteBuffer where
+  globs := #[.one `Iotakt.WriteBuffer]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- Minimal HTTP/1.0 parser + response builder (v0.4 henejt integration prep). -/
+lean_lib IotaktHttp where
+  globs := #[.one `Iotakt.Http]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- Minimal HTTP/1.0 server demo: EventLoop + WriteBuffer + HTTP parsing. -/
+lean_exe «iotakt-http-server» where
+  root := `examples.HttpServer
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- Minimal HTTP/1.0 client demo: outbound connect + WriteBuffer + response parsing. -/
+lean_exe «iotakt-http-client» where
+  root := `examples.HttpClient
+  extraDepTargets := #[`iotaktNativeLib.static]
+
 /-- RFC §21.4 acceptance criterion: minimal TCP echo server using the
     full iotakt native driver.  Binds to 127.0.0.1:49900. -/
 lean_exe «iotakt-echo-server» where
@@ -101,4 +121,10 @@ lean_exe «iotakt-multi-echo» where
     persistent multi-round connections. -/
 lean_exe «iotakt-v3-test» where
   root := `examples.V3Test
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.4 integration test: WriteBuffer, HTTP/1.0 round-trip, RFC 028 FFI
+    invariants, RFC 026 native conformance edge cases. -/
+lean_exe «iotakt-v4-test» where
+  root := `examples.V4Test
   extraDepTargets := #[`iotaktNativeLib.static]

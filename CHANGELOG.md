@@ -6,6 +6,49 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.4.0-dev] — 2026-06-08
+
+### Added
+
+**WriteBuffer (`Iotakt.WriteBuffer`, RFC 010 completion)**
+
+- `WriteBuffer` struct: `pending : ByteArray`, `offset : Nat`.
+- `empty`, `isEmpty`, `unsent`, `push`, `flush`, `flushAll` operations.
+- `flush` handles partial writes (`wrote n < len`) and `.wouldBlock`; returns `(buffer, allFlushed)`.
+- `flushAll` retries up to `maxRetries` times — for tests and tight loops.
+- `IotaktWriteBuffer` Lake library target.
+
+**HTTP/1.0 (`Iotakt.Http`, v0.4 henejt integration prep)**
+
+- `HttpRequest`: `get (host path)` builder; `readHeaders`; `parse`.
+- `HttpResponse`: `ok`, `notFound`, `toBytes`, `readAll`, `parseStatus`, `extractBody`.
+- `IotaktHttp` Lake library target.
+- `iotakt-http-server` executable: EventLoop + WriteBuffer + HTTP parsing; verified with GET /hello/iotakt.
+- `iotakt-http-client` executable: outbound connect + WriteBuffer + response parsing; 5/5 PASS.
+
+**RFC 028 — FFI hardening (done)**
+
+- `docs/src/ffi-hardening.md`: 6-clause formal ByteArray ownership contract (C.1–C.6).
+- Documents Option A allocation policy, nested Prod construction, the `recvfrom` double-free anti-pattern.
+- 2 known deviations documented (DEV-001, DEV-002) with risk assessment.
+- RFC 028 moved to `rfcs/done/`.
+
+**RFC 026 — Native conformance suite (done)**
+
+- v0.4 integration test section D: 6 edge-case checks (recv maxBytes=0, send offset-overflow, epoll fd reuse, FdKey generation).
+- RFC 026 moved to `rfcs/done/`.
+
+**v0.4 integration test (34/34 PASS)**
+
+- `iotakt-v4-test`: WriteBuffer (10), HTTP round-trip (9), FFI invariants (6), conformance (6), plus HTTP server+client smoke test.
+
+**CI gate extended to 12 steps**
+
+- Step 10: v0.4 integration test (34 checks).
+- Step 11: HTTP/1.0 server+client smoke test.
+- Step 12: multi-connection echo server (renumbered).
+- 22 RFCs in done/, 39 in proposed/.
+
 ## [0.3.0-dev] — 2026-06-08
 
 ### Added

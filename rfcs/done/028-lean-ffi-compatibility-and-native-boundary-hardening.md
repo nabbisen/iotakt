@@ -1,5 +1,7 @@
 # RFC 028: Lean FFI Compatibility and Native Boundary Hardening
 
+**Status.** Implemented (v0.4.0-dev)
+
 **Status:** Proposed / Hardening  
 **Milestone:** M5/M7  
 **Priority:** High  

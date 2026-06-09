@@ -23,9 +23,12 @@ The folder is the source of truth for each RFC's state.
 | 013 | [Security, Operational Limits, and Failure Policy](./done/013-security-operational-limits-and-failure-policy.md) | Implemented (v0.1.0-dev) |
 | 014 | [Proof, Trust, and Test Matrix](./done/014-proof-trust-and-test-matrix.md) | Implemented (v0.1.0-dev) |
 | 015 | [Observability, Debugging, and Trace Format](./done/015-observability-debugging-and-trace-format.md) | Implemented (v0.1.0-dev) |
+| 016 | [kqueue Compatibility and BSD/macOS Backend Plan](./done/016-kqueue-compatibility-and-bsd-macos-backend-plan.md) | Implemented (v0.3.0-dev) |
 | 017 | [Public API Surface and Developer Experience](./done/017-public-api-surface-and-developer-experience.md) | Implemented (v0.2.0-dev) |
 | 018 | [CI, Packaging, and Release Gates](./done/018-ci-packaging-and-release-gates.md) | Implemented (v0.1.0-dev) |
 | 019 | [Architecture Gap Register and Risk Management](./done/019-architecture-gap-register-and-risk-management.md) | Implemented (v0.1.0-dev) |
+| 026 | [Native Conformance Test Suite](./done/026-native-conformance-test-suite.md) | Implemented (v0.4.0-dev) |
+| 028 | [Lean FFI Compatibility and Native Boundary Hardening](./done/028-lean-ffi-compatibility-and-native-boundary-hardening.md) | Implemented (v0.4.0-dev) |
 
 ## Proposed (v0.1 scope — RFCs 001–015, 017–018)
 

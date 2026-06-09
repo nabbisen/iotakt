@@ -1,9 +1,35 @@
 # Roadmap
 
-See `rfcs/README.md` for the full RFC index. This file is a high-level
-milestone overview.
+See `rfcs/README.md` for the full RFC index.
 
 ## Released: v0.1.0-dev — Pure model + Henret bridge + Linux epoll
+All v0.1 RFCs (001–015, 018, 019) implemented. CI gate: 8 steps, 52+ checks.
+
+## Released: v0.2.0-dev — Public API + Multi-connection EventLoop
+RFC 017 stable API, `Iotakt.Loop` EventLoop, multi-connection echo server, GitHub Actions CI. 9 steps.
+
+## Released: v0.3.0-dev — UDP + Outbound connect + kqueue analysis
+RFC 036 UDP, RFC 039 outbound connect, RFC 016 kqueue analysis, persistent connections. 10 steps.
+
+## Released: v0.4.0-dev — WriteBuffer + HTTP/1.0 + FFI hardening
+`WriteBuffer`, `Iotakt.Http`, HTTP server+client, RFC 028 FFI contract, RFC 026 conformance. 12 steps, 22 RFCs done.
+
+## Next: v0.5.0 — Connection actor lifecycle + henejt integration
+
+Priority items:
+- **`Iotakt.Actor`** — `ConnectionActor` abstraction: state machine (connecting / reading / writing / closing), integrates with Henret task model (RFC 035 prep).
+- **RFC 035** — Henret wait-queue parking: when the Henret maintainer ships it, replace the poll loop with park/wake.
+- **RFC 025** — Formal throughput benchmark: connection reuse, concurrent clients, bytes/sec, latency histogram.
+- **Gap 004 resolution** — Document `nextActorId` counter as the official ActorId allocation pattern.
+- **henejt prototype** — First HTTP/1.1 GET using iotakt outbound connect in the henejt layer.
+
+## v0.6.0+ — Future
+
+- RFC 021: BSD/macOS kqueue native backend (macOS CI runner).
+- RFC 041: TLS boundary document (iotakt hands off the fd after handshake).
+- RFC 056: io_uring backend research.
+- RFC 059: post-v1 formal verification expansion (connection-level liveness proofs).
+
 
 All v0.1 RFCs (001–015, 018, 019) implemented. Highlights:
 - Pure model with 28+ machine-checked theorems.
