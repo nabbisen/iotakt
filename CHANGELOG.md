@@ -6,6 +6,55 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.2.0-dev] — 2026-06-08
+
+### Added
+
+**Public API surface (RFC 017)**
+
+- `Iotakt.Api` — stable module that henejt and applications should import;
+  exports `RawFd`, `FdKey`, `ActorId`, `Interest`, `InterestSet`, `IoEvent`,
+  `IoErrno`, `ReadResult`, `WriteResult`, `IoMessage`, `Registry`,
+  `RegistryWellFormed`, `CoalesceState`, `FakePollResult`, `FakePoller`,
+  plus convenience constructors `mkFdKey`, `FdKey.rawInt`, `FdKey.generation`.
+- `IotaktApi` Lake library target.
+
+**Multi-connection event loop (RFC 023)**
+
+- `Iotakt.Loop` — `EventLoop` wraps driver + epoll + registry into a
+  high-level event dispatch loop with `LoopEvent` (newConnection / dataReady / tick).
+- `EventLoop.create` / `destroy` / `addListener` / `runStep` / `enableWrite` /
+  `disableWrite` / `closeConnection` / `ackReady`.
+- `IotaktLoop` Lake library target.
+
+**Multi-connection echo server**
+
+- `iotakt-multi-echo` executable: accepts N concurrent TCP connections, echoes
+  all data, logs per-connection state. Verified with two simultaneous clients.
+- Demonstrates FdKey generation reuse: `fd=5/key=5/1` then `fd=5/key=5/2` on
+  the same raw fd after close.
+
+**GitHub Actions CI (`.github/workflows/ci.yml`)**
+
+- Three jobs: `lean-model` (pure Lean, no C), `native-linux` (full native), `sanitizer`.
+- Matrix covers: pure model, bridge, fake-demo, native FFI, native-test, echo-test,
+  echo-server, multi-echo, RFC invariant checks.
+
+**RFC lifecycle updates**
+
+- RFC 017 moved to `rfcs/done/` (implemented v0.2.0-dev).
+- RFCs 001–015, 018, 019 moved to `rfcs/done/` (implemented v0.1.0-dev).
+- 19 RFCs in done/, 42 in proposed/ (v0.2+ future work).
+
+**Throughput baseline script**
+
+- `scripts/bench.sh` (RFC 025 baseline): measures sequential echo throughput;
+  establishes baseline before any performance optimization.
+
+**CI gate extended to 9 steps**
+
+- Step 9: multi-connection echo server test (two concurrent connections).
+
 ## [0.1.0-dev] — 2026-06-08
 
 Initial development release. Not yet suitable for production use.

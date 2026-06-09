@@ -1,5 +1,7 @@
 # RFC 005: Registry, Event Translation, and Stale Event Rejection
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M2  
 **Priority:** Critical  

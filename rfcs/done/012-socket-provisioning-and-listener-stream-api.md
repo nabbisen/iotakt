@@ -1,5 +1,7 @@
 # RFC 012: Socket Provisioning and Listener/Stream API
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M4  
 **Priority:** Critical for v0.1 native backend  

@@ -1,5 +1,7 @@
 # RFC 009: Native C FFI Boundary and Build Policy
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M3  
 **Priority:** Critical  

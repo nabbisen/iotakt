@@ -1,5 +1,7 @@
 # RFC 015: Observability, Debugging, and Trace Format
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M5  
 **Priority:** High  

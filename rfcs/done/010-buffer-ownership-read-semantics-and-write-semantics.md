@@ -1,5 +1,7 @@
 # RFC 010: Buffer Ownership, Read Semantics, and Write Semantics
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M3  
 **Priority:** Critical  

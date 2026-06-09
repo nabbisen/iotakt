@@ -1,5 +1,7 @@
 # RFC 006: Readiness Coalescing and Mailbox Flood Prevention
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M2  
 **Priority:** Critical  

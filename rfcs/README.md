@@ -7,7 +7,25 @@ The folder is the source of truth for each RFC's state.
 
 | ID | Title | Status |
 |----|-------|--------|
-| 000 | [RFC lifecycle policy](./done/000-rfc-lifecycle-policy.md) | Implemented |
+| 000 | [RFC lifecycle policy](./done/000-rfc-lifecycle-policy.md) | Implemented (v0.1.0-dev) |
+| 001 | [Project Scope, Architecture, and Boundary Policy](./done/001-project-scope-architecture-and-boundary-policy.md) | Implemented (v0.1.0-dev) |
+| 002 | [Core Data Model and File Descriptor Identity](./done/002-core-data-model-and-file-descriptor-identity.md) | Implemented (v0.1.0-dev) |
+| 003 | [Resource Lifecycle Model](./done/003-resource-lifecycle-model.md) | Implemented (v0.1.0-dev) |
+| 004 | [Interest, Readiness, and Normalized Event Vocabulary](./done/004-interest-readiness-and-normalized-event-vocabulary.md) | Implemented (v0.1.0-dev) |
+| 005 | [Registry, Event Translation, and Stale Event Rejection](./done/005-registry-event-translation-and-stale-event-rejection.md) | Implemented (v0.1.0-dev) |
+| 006 | [Readiness Coalescing and Mailbox Flood Prevention](./done/006-readiness-coalescing-and-mailbox-flood-prevention.md) | Implemented (v0.1.0-dev) |
+| 007 | [Henret Bridge and Deterministic Driver Loop](./done/007-henret-bridge-and-deterministic-driver-loop.md) | Implemented (v0.1.0-dev) |
+| 008 | [Fake Poller and Deterministic Test Harness](./done/008-fake-poller-and-deterministic-test-harness.md) | Implemented (v0.1.0-dev) |
+| 009 | [Native C FFI Boundary and Build Policy](./done/009-native-c-ffi-boundary-and-build-policy.md) | Implemented (v0.1.0-dev) |
+| 010 | [Buffer Ownership, Read Semantics, and Write Semantics](./done/010-buffer-ownership-read-semantics-and-write-semantics.md) | Implemented (v0.1.0-dev) |
+| 011 | [Linux epoll Backend](./done/011-linux-epoll-backend.md) | Implemented (v0.1.0-dev) |
+| 012 | [Socket Provisioning and Listener/Stream API](./done/012-socket-provisioning-and-listener-stream-api.md) | Implemented (v0.1.0-dev) |
+| 013 | [Security, Operational Limits, and Failure Policy](./done/013-security-operational-limits-and-failure-policy.md) | Implemented (v0.1.0-dev) |
+| 014 | [Proof, Trust, and Test Matrix](./done/014-proof-trust-and-test-matrix.md) | Implemented (v0.1.0-dev) |
+| 015 | [Observability, Debugging, and Trace Format](./done/015-observability-debugging-and-trace-format.md) | Implemented (v0.1.0-dev) |
+| 017 | [Public API Surface and Developer Experience](./done/017-public-api-surface-and-developer-experience.md) | Implemented (v0.2.0-dev) |
+| 018 | [CI, Packaging, and Release Gates](./done/018-ci-packaging-and-release-gates.md) | Implemented (v0.1.0-dev) |
+| 019 | [Architecture Gap Register and Risk Management](./done/019-architecture-gap-register-and-risk-management.md) | Implemented (v0.1.0-dev) |
 
 ## Proposed (v0.1 scope — RFCs 001–015, 017–018)
 

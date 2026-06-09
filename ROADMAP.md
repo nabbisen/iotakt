@@ -3,7 +3,46 @@
 See `rfcs/README.md` for the full RFC index. This file is a high-level
 milestone overview.
 
-## Current milestone: v0.1.0-dev — Pure model + Henret bridge
+## Released: v0.1.0-dev — Pure model + Henret bridge + Linux epoll
+
+All v0.1 RFCs (001–015, 018, 019) implemented. Highlights:
+- Pure model with 28+ machine-checked theorems.
+- `inject_ok_of_mailbox` theorem (formal proof of Henret discrepancy mitigation).
+- Linux epoll native backend (Option A recv, MSG_NOSIGNAL send).
+- `iotakt-echo-server`: RFC §21.4 acceptance criterion ✓.
+- CI gate: 8 steps, 52+ checks.
+
+## Released: v0.2.0-dev — Public API + Multi-connection event loop
+
+- RFC 017: `Iotakt.Api` stable public API module.
+- `Iotakt.Loop` `EventLoop`: multi-connection accept/dispatch.
+- `iotakt-multi-echo`: N concurrent connections.
+- GitHub Actions CI (3 jobs: lean-model, native-linux, sanitizer).
+- 19 RFCs in done/, CI gate 9 steps.
+
+## Next: v0.2.1 — kqueue compatibility + performance baseline
+
+Remaining for v0.2 milestone:
+- RFC 016: kqueue model compatibility analysis (model constraints, no native impl yet).
+- RFC 025: formal throughput benchmark (not just the baseline script).
+- RFC 036: UDP socket support (small, high-value addition).
+- Henret open questions resolved (ActorId allocation, RFC 033, drain policy).
+- Gap 004 resolution: document the `nextActorId` counter pattern as the official approach.
+
+## v0.3.0 — API stabilization and henejt integration
+
+- RFC 028: Lean FFI hardening (ByteArray ownership formal contract).
+- RFC 035: Henret wait-queue parking integration (when available from Henret maintainer).
+- Stable API review based on henejt feedback.
+- RFC 026: native conformance test suite.
+
+## Future (v0.3+ → long-term)
+
+- RFC 021: BSD/macOS kqueue native backend.
+- RFC 041: TLS boundary.
+- RFC 056: io_uring backend research.
+- RFC 059: post-v1 formal verification expansion.
+
 
 **Status:** In progress.
 

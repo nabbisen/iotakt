@@ -1,0 +1,193 @@
+import Iotakt.Driver
+import Henret.Model
+
+/-!
+# Iotakt.Loop
+
+A multi-connection event loop for v0.2 (RFC 023).
+
+`EventLoop` wraps `NativeDriverState`, a Henret `RuntimeState`, and a
+`PollerHandle` and exposes a single `runStep` function that:
+
+1. Calls `epoll_wait` with a configurable blocking timeout.
+2. Parses events, translates through the registry, coalesces, injects
+   into Henret actor mailboxes.
+3. Delivers a `LoopEvent` per ready connection so the caller can dispatch:
+   - `.newConnection key fd` — an accepted connection
+   - `.dataReady key`        — a registered stream has a readable event
+   - `.tick now`             — a timeout expired
+
+## Multi-connection pattern
+
+```text
+loop:
+  (loop, events) ← EventLoop.runStep loop
+  for ev in events:
+    match ev with
+    | .newConnection key fd =>
+        register connection in app state
+    | .dataReady key =>
+        bytes ← Io.recv key.raw maxBytes
+        handle(bytes)
+    | .tick now =>
+        cleanup idle connections
+```
+
+## Connection lifetime
+
+The loop manages `FdKey` lifecycle automatically: `acceptConnections`
+adds new keys, `closeConnection` deregisters from both epoll and the
+registry. A closed key's events are dropped at the model boundary.
+-/
+
+namespace Iotakt.Loop
+
+open Iotakt.Model Iotakt.Bridge Iotakt.Driver Iotakt.Native Henret
+
+private def fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
+
+/-- An event delivered to the caller from one driver step. -/
+inductive LoopEvent where
+  /-- A new connection was accepted on the listener. -/
+  | newConnection (key : FdKey) (rawFd : Int) : LoopEvent
+  /-- A stream fd has a readiness event (readable, writable, eof, etc.). -/
+  | dataReady (key : FdKey) (event : IoEvent) : LoopEvent
+  /-- A timer tick (clock advanced). -/
+  | tick (now : Nat) : LoopEvent
+
+/-- An `EventLoop` holds all the state needed to drive iotakt connections.
+Pass it between loop iterations; it is purely functional except for the
+`PollerHandle` (which wraps the native epoll fd). -/
+structure EventLoop where
+  nds       : NativeDriverState
+  rt        : RuntimeState
+  ph        : PollerHandle
+  listeners : List (FdKey × Int)   -- (key, raw fd) for each active listener
+
+namespace EventLoop
+
+/-- Create a new event loop with a fresh epoll instance.
+Returns `none` if epoll creation fails. -/
+def create (config : DriverConfig := {}) : IO (Option EventLoop) := do
+  let epfd ← Epoll.create
+  if epfd < 0 then return none
+  let ds : DriverState := {
+    registry := Registry.empty,
+    coalesce := CoalesceState.empty,
+    clock    := 0,
+    config   := config
+  }
+  return some {
+    nds       := { ds := ds }
+    rt        := RuntimeState.init
+    ph        := { epfd := epfd }
+    listeners := []
+  }
+
+/-- Close the epoll handle and free all resources. -/
+def destroy (loop : EventLoop) : IO Unit := do
+  -- Close all tracked listener fds
+  for (_, lfd) in loop.listeners do
+    Socket.closeFdRaw (fd32 lfd)
+  Epoll.close (fd32 loop.ph.epfd)
+
+/-- Add a TCP listener on the given port (bound to 127.0.0.1).
+The listener actor ID is allocated from the next available slot. -/
+def addListener (loop : EventLoop) (port : UInt16) : IO (EventLoop × Bool) := do
+  let (nds1, rt1, setupR) ← setupListener loop.nds loop.rt loop.ph port loop.nds.nextActorId
+  -- Consume the actorId by incrementing
+  let (nds2, _) := nds1.freshActorId
+  match setupR with
+  | .fail _ => return (loop, false)
+  | .ok key lfd =>
+      return ({ loop with
+        nds       := nds2
+        rt        := rt1
+        listeners := (key, lfd) :: loop.listeners }, true)
+
+/-- Run one driver step: poll for events, accept new connections, deliver
+readiness messages. Returns the updated loop and the list of events that
+occurred this step. `timeoutMs = -1` blocks indefinitely. -/
+def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
+    IO (EventLoop × List LoopEvent) := do
+  let cfg := loop.nds.ds.config
+
+  -- ── 1. Poll for I/O events ──────────────────────────────────────────
+  let maxEv := (min cfg.maxEventsPerPoll 1024).toInt32
+  let (waitStatus, evtBytes) ← Epoll.wait (fd32 loop.ph.epfd) maxEv timeoutMs.toInt32
+
+  -- ── 2. Process readiness events through the bridge ──────────────────
+  let mut nds := loop.nds
+  let mut rt  := loop.rt
+  let mut loopEvents : List LoopEvent := []
+
+  if waitStatus > 0 then do
+    let rawEvts := Epoll.parseEvents evtBytes
+    let (ds1, rt1, _) := processEvents nds.ds rt rawEvts
+    nds := { nds with ds := ds1 }; rt := rt1
+    -- Collect dataReady events for streams (not listeners)
+    for ev in rawEvts do
+      match nds.ds.registry.resolveCurrent ev.rawFd with
+      | none => pure ()
+      | some key =>
+          match nds.ds.registry.lookup key with
+          | none => pure ()
+          | some entry =>
+              match entry.kind with
+              | .stream   => loopEvents := loopEvents ++ [.dataReady key ev.event]
+              | .listener => pure ()  -- handle via acceptConnections below
+  else if waitStatus == 0 then do
+    -- Timeout: advance clock
+    let now := nds.ds.clock + 1
+    let rt1  := (Henret.step rt (.tick now)).1
+    nds := { nds with ds := { nds.ds with clock := now } }
+    rt  := rt1
+    loopEvents := [.tick now]
+
+  -- ── 3. Accept new connections from all listeners ────────────────────
+  let mut newConns : List LoopEvent := []
+  for (_, lfd) in loop.listeners do
+    let (nds1, rt1, accepted) ← acceptBurst nds rt loop.ph lfd
+    nds := nds1; rt := rt1
+    for (key, rawFd) in accepted do
+      newConns := newConns ++ [.newConnection key rawFd]
+
+  return ({ loop with nds := nds, rt := rt }, newConns ++ loopEvents)
+
+/-- Register write interest for a connection (call when you have pending
+output; disable when the output buffer is drained). -/
+def enableWrite (loop : EventLoop) (key : FdKey) : IO EventLoop := do
+  let newInterests := InterestSet.readOnly.enableWrite
+  let reg1 := loop.nds.ds.registry.setInterests key newInterests
+  let _ ← Epoll.modify (fd32 loop.ph.epfd) (fd32 key.raw)
+            (Epoll.interestFlags newInterests)
+  return { loop with nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
+
+/-- Disable write interest for a connection (output buffer drained). -/
+def disableWrite (loop : EventLoop) (key : FdKey) : IO EventLoop := do
+  let newInterests := InterestSet.readOnly
+  let reg1 := loop.nds.ds.registry.setInterests key newInterests
+  let _ ← Epoll.modify (fd32 loop.ph.epfd) (fd32 key.raw)
+            (Epoll.interestFlags newInterests)
+  return { loop with nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
+
+/-- Close and deregister a connection fd. Must be called when the
+connection closes or the actor is done. -/
+def closeConnection (loop : EventLoop) (key : FdKey) : IO EventLoop := do
+  let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 key.raw)
+  Socket.closeFdRaw (fd32 key.raw)
+  let reg1 := loop.nds.ds.registry.close key
+  return { loop with nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
+
+/-- Acknowledge that a connection's readiness has been handled.
+Must be called after processing each `dataReady` event to allow
+the coalescing layer to deliver the next readiness for this key. -/
+def ackReady (loop : EventLoop) (key : FdKey) (ev : IoEvent) : EventLoop :=
+  let pk : Iotakt.Model.PendingKey :=
+    { fd := key, kind := ev.pendingKind }
+  let cs1 := loop.nds.ds.coalesce.ack pk
+  { loop with nds := { loop.nds with ds := { loop.nds.ds with coalesce := cs1 } } }
+
+end EventLoop
+
+end Iotakt.Loop

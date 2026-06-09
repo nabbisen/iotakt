@@ -1,5 +1,7 @@
 # RFC 017: Public API Surface and Developer Experience
 
+**Status.** Implemented (v0.2.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M7  
 **Priority:** High before first user-facing release  

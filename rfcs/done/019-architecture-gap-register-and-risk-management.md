@@ -1,5 +1,7 @@
 # RFC 019: Architecture Gap Register and Risk Management
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed / Living  
 **Milestone:** M7  
 **Priority:** Medium  

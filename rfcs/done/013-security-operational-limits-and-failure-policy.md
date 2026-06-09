@@ -1,5 +1,7 @@
 # RFC 013: Security, Operational Limits, and Failure Policy
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M5  
 **Priority:** Critical  

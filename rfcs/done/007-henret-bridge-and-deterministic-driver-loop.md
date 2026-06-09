@@ -1,5 +1,7 @@
 # RFC 007: Henret Bridge and Deterministic Driver Loop
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M2  
 **Priority:** Critical  

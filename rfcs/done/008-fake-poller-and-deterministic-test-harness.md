@@ -1,5 +1,7 @@
 # RFC 008: Fake Poller and Deterministic Test Harness
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M2  
 **Priority:** High  

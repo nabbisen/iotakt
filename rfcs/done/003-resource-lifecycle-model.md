@@ -1,5 +1,7 @@
 # RFC 003: Resource Lifecycle Model
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M1  
 **Priority:** Critical  

@@ -1,5 +1,7 @@
 # RFC 002: Core Data Model and File Descriptor Identity
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M1  
 **Priority:** Critical  

@@ -1,5 +1,7 @@
 # RFC 001: Project Scope, Architecture, and Boundary Policy
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M0  
 **Priority:** Critical  

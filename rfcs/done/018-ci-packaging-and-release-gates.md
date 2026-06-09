@@ -1,5 +1,7 @@
 # RFC 018: CI, Packaging, and Release Gates
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M7  
 **Priority:** High before release  

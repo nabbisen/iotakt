@@ -1,5 +1,7 @@
 # RFC 014: Proof, Trust, and Test Matrix
 
+**Status.** Implemented (v0.1.0-dev)
+
 **Status:** Proposed  
 **Milestone:** M5  
 **Priority:** Critical  

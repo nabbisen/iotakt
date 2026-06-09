@@ -20,6 +20,11 @@ lean_lib Iotakt where
   globs := #[.one `Iotakt, .andSubmodules `Iotakt.Model, .andSubmodules `Iotakt.Fake,
              .andSubmodules `Iotakt.Proofs]
 
+/-- Stable public API surface (RFC 017). Import this instead of internal
+    modules for code that needs API stability guarantees. -/
+lean_lib IotaktApi where
+  globs := #[.one `Iotakt.Api]
+
 /-- Henret bridge library (RFC 007). Imports `Henret.Model`; builds the
     deterministic translation of iotakt events into Henret operations. -/
 lean_lib IotaktBridge where
@@ -74,8 +79,20 @@ lean_lib IotaktDriver where
   globs := #[.one `Iotakt.Driver]
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- Multi-connection event loop (v0.2 / RFC 023). Wraps the driver with a
+    high-level EventLoop, LoopEvent dispatch, and connection management. -/
+lean_lib IotaktLoop where
+  globs := #[.one `Iotakt.Loop]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
 /-- RFC §21.4 acceptance criterion: minimal TCP echo server using the
     full iotakt native driver.  Binds to 127.0.0.1:49900. -/
 lean_exe «iotakt-echo-server» where
   root := `examples.EchoServer
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.2 multi-connection echo server: accepts N concurrent connections
+    using EventLoop, echoes bytes on each independently. -/
+lean_exe «iotakt-multi-echo» where
+  root := `examples.MultiEcho
   extraDepTargets := #[`iotaktNativeLib.static]

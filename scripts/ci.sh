@@ -96,6 +96,26 @@ else
   echo "SKIP: nc not found"
 fi
 
+step "9. Multi-connection echo server"
+if require nc; then
+  lake build iotakt-multi-echo 2>/dev/null
+  .lake/build/bin/iotakt-multi-echo > /dev/null 2>&1 &
+  SRV_PID=$!
+  sleep 1
+  R1=$(echo "hello" | nc -q1 127.0.0.1 49901 2>/dev/null || true)
+  sleep 0.3
+  R2=$(echo "world" | nc -q1 127.0.0.1 49901 2>/dev/null || true)
+  sleep 2
+  kill "$SRV_PID" 2>/dev/null || true; wait "$SRV_PID" 2>/dev/null || true
+  if echo "$R1" | grep -q "hello" && echo "$R2" | grep -q "world"; then
+    pass "multi-echo: two concurrent connections echoed correctly"
+  else
+    fail "multi-echo: echo mismatch (got: '$R1' / '$R2')"
+  fi
+else
+  echo "SKIP: nc not found"
+fi
+
 echo ""
 echo "══════════════════════════════════"
 echo "CI summary: $OK passed, $FAIL failed"
