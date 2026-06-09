@@ -34,6 +34,7 @@ inductive IoErrno where
   | addressInUse
   | addressNotAvailable
   | tooManyFiles
+  | inProgress   -- EINPROGRESS: non-blocking connect in progress (RFC 039)
   | other (code : Int)
   deriving DecidableEq, Repr, Inhabited
 

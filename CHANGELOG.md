@@ -6,6 +6,44 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.3.0-dev] — 2026-06-08
+
+### Added
+
+**RFC 036 — UDP datagram sockets**
+
+- `iotakt_socket_udp(af4)` — `SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC`.
+- `iotakt_recvfrom(fd, maxBytes)` — allocates Lean ByteArray (Option A), returns `(Int × ByteArray × ByteArray)` = `(status, payload, peerAddr)`.
+- `iotakt_sendto(fd, buf, offset, len, addr, port)` — sends datagram to IPv4 address.
+- `Io.RecvFromResult` — `datagram(bytes, peerAddr) | wouldBlock | interrupted | error`.
+- `Io.recvFrom / sendTo` — typed wrappers.
+- `Socket.socketUdpRaw` extern declaration.
+- `ResourceKind.datagram` — new model variant for UDP sockets.
+
+**RFC 039 — Outbound non-blocking TCP connect**
+
+- `iotakt_connect_tcp(fd, addr_hbo, port)` — returns 0/−EINPROGRESS/−errno.
+- `iotakt_get_socket_error(fd)` — checks `SO_ERROR` after EINPROGRESS.
+- `IoErrno.inProgress` — model constructor for EINPROGRESS (errno 115).
+- `Socket.ConnectResult` — `connected | inProgress | error`.
+- `Socket.connectIPv4 / checkConnect` — typed wrappers.
+- `EventLoop.ConnectOutcome` — `inProgress(key) | connected(key) | failed`.
+- `EventLoop.connectTo(addr, port)` — initiates non-blocking connect, registers write interest.
+
+**RFC 016 — kqueue model analysis (done)**
+
+- `docs/src/kqueue-analysis.md` — 5 model invariants proving `Iotakt.Model` accepts a kqueue backend without changes.
+- RFC 016 moved to `rfcs/done/`.
+
+**v0.3 integration test (18/18 PASS)**
+
+- `iotakt-v3-test`: UDP ping-pong (9 checks), outbound TCP connect (5 checks), persistent 5-round connection (4 checks).
+
+**CI gate extended to 10 steps**
+
+- Step 9: v0.3 integration test (UDP + connect + persistent).
+- Step 10: multi-connection echo server.
+
 ## [0.2.0-dev] — 2026-06-08
 
 ### Added

@@ -12,6 +12,8 @@
  */
 #include "iotakt.h"
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -95,6 +97,107 @@ LEAN_EXPORT lean_obj_res iotakt_send(
     } else {
         const uint8_t *buf = lean_sarray_cptr(ba) + offset;
         ssize_t n = send((int)fd, buf, len, MSG_NOSIGNAL | MSG_DONTWAIT);
+        int saved_errno = errno;
+        status = (n >= 0) ? (int64_t)n : -(int64_t)saved_errno;
+    }
+
+    lean_dec(w);
+    return lean_io_result_mk_ok(lean_int64_to_int(status));
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * UDP datagram operations (RFC 036)
+ * ─────────────────────────────────────────────────────────────────── */
+
+/*
+ * Non-blocking recvfrom for UDP datagrams (Option A allocation policy).
+ *
+ * Returns IO (Int × ByteArray × ByteArray):
+ *   Int > 0  = bytes received; first ByteArray = data; second = peer addr (6 bytes: 4 IPv4 + 2 port).
+ *   Int = 0  = empty datagram.
+ *   Int < 0  = -errno (EAGAIN = would-block, etc.).
+ *
+ * Each call allocates exactly one Lean ByteArray for the data and one
+ * for the peer address. Native code retains no pointer after returning.
+ */
+LEAN_EXPORT lean_obj_res iotakt_recvfrom(
+    int32_t fd, size_t max_bytes, lean_obj_arg w)
+{
+    lean_object *data_ba;
+    lean_object *addr_ba;
+    int64_t     status;
+
+    if (max_bytes == 0) {
+        data_ba = lean_alloc_sarray(1, 0, 0);
+        addr_ba = lean_alloc_sarray(1, 0, 0);
+        status  = 0;
+    } else {
+        struct sockaddr_in peer;
+        socklen_t plen = sizeof(peer);
+        data_ba = lean_alloc_sarray(1, max_bytes, max_bytes);
+        uint8_t *buf = lean_sarray_cptr(data_ba);
+        ssize_t n = recvfrom((int)fd, buf, max_bytes,
+                             MSG_NOSIGNAL | MSG_DONTWAIT,
+                             (struct sockaddr *)&peer, &plen);
+        int saved_errno = errno;
+        if (n >= 0) {
+            lean_to_sarray(data_ba)->m_size = (size_t)n;
+            status = (int64_t)n;
+            if (peer.sin_family == AF_INET && plen >= (socklen_t)sizeof(peer)) {
+                addr_ba = lean_alloc_sarray(1, 6, 6);
+                uint8_t *p = lean_sarray_cptr(addr_ba);
+                memcpy(p,     &peer.sin_addr.s_addr, 4);
+                memcpy(p + 4, &peer.sin_port,        2);
+            } else {
+                addr_ba = lean_alloc_sarray(1, 0, 0);
+            }
+        } else {
+            lean_to_sarray(data_ba)->m_size = 0;
+            addr_ba = lean_alloc_sarray(1, 0, 0);
+            status  = -(int64_t)saved_errno;
+        }
+    }
+    /* Prod Int (Prod ByteArray ByteArray) */
+    lean_object *inner = lean_alloc_ctor(0, 2, 0);
+    lean_ctor_set(inner, 0, data_ba);
+    lean_ctor_set(inner, 1, addr_ba);
+    lean_object *outer = lean_alloc_ctor(0, 2, 0);
+    lean_ctor_set(outer, 0, lean_int64_to_int(status));
+    lean_ctor_set(outer, 1, inner);
+    lean_dec(w);
+    return lean_io_result_mk_ok(outer);
+}
+
+/*
+ * Non-blocking sendto for UDP datagrams.
+ * Sends `len` bytes from `ba` starting at `offset` to IPv4 addr:port.
+ * addr is in host byte order; port is in host byte order.
+ *
+ * Returns IO Int: bytes sent (≥ 0) or -errno.
+ */
+LEAN_EXPORT lean_obj_res iotakt_sendto(
+    int32_t fd, b_lean_obj_arg ba,
+    size_t offset, size_t len,
+    uint32_t addr_hbo, uint16_t port_hbo, lean_obj_arg w)
+{
+    struct sockaddr_in sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family      = AF_INET;
+    sa.sin_addr.s_addr = htonl(addr_hbo);
+    sa.sin_port        = htons(port_hbo);
+
+    size_t ba_size = lean_sarray_size(ba);
+    if (offset > ba_size) len = 0;
+    else if (offset + len > ba_size) len = ba_size - offset;
+
+    int64_t status;
+    if (len == 0) {
+        status = 0;
+    } else {
+        const uint8_t *buf = lean_sarray_cptr(ba) + offset;
+        ssize_t n = sendto((int)fd, buf, len,
+                           MSG_NOSIGNAL | MSG_DONTWAIT,
+                           (struct sockaddr *)&sa, sizeof(sa));
         int saved_errno = errno;
         status = (n >= 0) ? (int64_t)n : -(int64_t)saved_errno;
     }

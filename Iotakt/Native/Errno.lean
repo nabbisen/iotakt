@@ -26,6 +26,7 @@ def classifyErrno : Int → Iotakt.Model.IoErrno
   | 99  => .addressNotAvailable -- EADDRNOTAVAIL
   | 24  => .tooManyFiles    -- EMFILE (open file descriptors)
   | 23  => .tooManyFiles    -- ENFILE (system-wide limit)
+  | 115 => .inProgress      -- EINPROGRESS (non-blocking connect in progress)
   | n   => .other n
 
 /-- True when the errno means "operation would block; try again". -/
@@ -33,5 +34,8 @@ def classifyErrno : Int → Iotakt.Model.IoErrno
 
 /-- True when the errno means "interrupted by signal; may retry". -/
 @[inline] def isInterrupted (e : Int) : Bool := e == 4
+
+/-- True when the errno means non-blocking connect is still in progress. -/
+@[inline] def isInProgress (e : Int) : Bool := e == 115
 
 end Iotakt.Native

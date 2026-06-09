@@ -96,3 +96,9 @@ lean_exe «iotakt-echo-server» where
 lean_exe «iotakt-multi-echo» where
   root := `examples.MultiEcho
   extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.3 integration test: RFC 036 UDP, RFC 039 outbound connect,
+    persistent multi-round connections. -/
+lean_exe «iotakt-v3-test» where
+  root := `examples.V3Test
+  extraDepTargets := #[`iotaktNativeLib.static]

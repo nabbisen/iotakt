@@ -135,7 +135,8 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
           | some entry =>
               match entry.kind with
               | .stream   => loopEvents := loopEvents ++ [.dataReady key ev.event]
-              | .listener => pure ()  -- handle via acceptConnections below
+              | .listener  => pure ()  -- handle via acceptConnections below
+              | .datagram  => loopEvents := loopEvents ++ [.dataReady key ev.event]
   else if waitStatus == 0 then do
     -- Timeout: advance clock
     let now := nds.ds.clock + 1
@@ -187,6 +188,57 @@ def ackReady (loop : EventLoop) (key : FdKey) (ev : IoEvent) : EventLoop :=
     { fd := key, kind := ev.pendingKind }
   let cs1 := loop.nds.ds.coalesce.ack pk
   { loop with nds := { loop.nds with ds := { loop.nds.ds with coalesce := cs1 } } }
+
+/-- Result of initiating an outbound connect. -/
+inductive ConnectOutcome where
+  /-- Connection initiated; `key` is the fd key to watch for `.dataReady writable`.
+      When writable arrives, call `Socket.checkConnect key.raw` to confirm. -/
+  | inProgress (key : FdKey) : ConnectOutcome
+  /-- Connection succeeded immediately (rare). -/
+  | connected (key : FdKey) : ConnectOutcome
+  /-- Connection failed. -/
+  | failed (msg : String) : ConnectOutcome
+
+/-- Initiate a non-blocking outbound TCP connect to `addr:port` (RFC 039).
+`addr` is host-byte-order IPv4 (e.g. `0x7f000001` = 127.0.0.1).
+The caller should watch for a `.dataReady key .writable` event, then
+call `Socket.checkConnect key.raw` to confirm the connection. -/
+def connectTo (loop : EventLoop) (addr : UInt32) (port : UInt16) :
+    IO (EventLoop × ConnectOutcome) := do
+  let fd_r ← Socket.socketTcpRaw 1  -- AF_INET
+  if fd_r < 0 then return (loop, .failed s!"socket() failed errno={-fd_r}")
+
+  let r ← Socket.connectIPv4 fd_r addr port
+  match r with
+  | .error e =>
+      Socket.closeFdRaw (fd32 fd_r)
+      return (loop, .failed s!"connect() failed: {repr e}")
+  | .connected =>
+      -- Connected immediately; allocate key with read+write interest
+      let (nds1, actorId) := loop.nds.freshActorId
+      let (reg1, key) := nds1.ds.registry.allocate fd_r actorId .stream
+      let reg2 := reg1.setInterests key (InterestSet.readOnly.enableWrite)
+                    |>.markActive key
+      let rt1 := (Henret.step loop.rt (.spawn actorId)).1
+      let _ ← Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
+                (Epoll.interestFlags (InterestSet.readOnly.enableWrite))
+      let loop1 := { loop with
+        nds := { nds1 with ds := { nds1.ds with registry := reg2 } }
+        rt  := rt1 }
+      return (loop1, .connected key)
+  | .inProgress =>
+      -- Register for write interest; writable event confirms connection
+      let (nds1, actorId) := loop.nds.freshActorId
+      let (reg1, key) := nds1.ds.registry.allocate fd_r actorId .stream
+      let reg2 := reg1.setInterests key (InterestSet.readOnly.enableWrite)
+                    |>.markActive key
+      let rt1 := (Henret.step loop.rt (.spawn actorId)).1
+      let _ ← Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
+                (Epoll.interestFlags (InterestSet.readOnly.enableWrite))
+      let loop1 := { loop with
+        nds := { nds1 with ds := { nds1.ds with registry := reg2 } }
+        rt  := rt1 }
+      return (loop1, .inProgress key)
 
 end EventLoop
 

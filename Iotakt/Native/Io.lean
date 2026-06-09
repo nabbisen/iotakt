@@ -36,6 +36,23 @@ Returns IO Int:
 @[extern "iotakt_send"]
 opaque sendRaw (fd : Int32) (ba : @& ByteArray) (offset len : USize) : IO Int
 
+/-! ## UDP datagram operations (RFC 036) -/
+
+/-- Non-blocking recvfrom for UDP datagrams (Option A allocation policy).
+Returns IO (Int × ByteArray × ByteArray):
+- Int > 0 = bytes received; first ByteArray = datagram payload;
+           second ByteArray = peer address (6 bytes: 4 IPv4 addr + 2 port, network order).
+- Int = 0 = empty datagram.
+- Int < 0 = -errno. -/
+@[extern "iotakt_recvfrom"]
+opaque recvFromRaw (fd : Int32) (maxBytes : USize) : IO (Int × ByteArray × ByteArray)
+
+/-- Non-blocking sendto for UDP datagrams.
+`addr` and `port` are in host byte order. Returns IO Int (bytes sent or -errno). -/
+@[extern "iotakt_sendto"]
+opaque sendToRaw (fd : Int32) (ba : @& ByteArray) (offset len : USize)
+    (addr : UInt32) (port : UInt16) : IO Int
+
 /-! ## Typed wrappers -/
 
 /-- Perform one non-blocking recv and return a typed `ReadResult`. -/
@@ -61,6 +78,36 @@ def send (fd : Int) (ba : ByteArray) (offset len : Nat) : IO WriteResult := do
     if isWouldBlock e then return .wouldBlock
     else if isInterrupted e then return .interrupted
     else if e == 32 || e == 104 then return .closed  -- EPIPE or ECONNRESET
+    else return .error (classifyErrno e)
+
+/-- UDP receive result: includes the datagram payload and peer address. -/
+inductive RecvFromResult where
+  | datagram (bytes : ByteArray) (peerAddr : ByteArray) : RecvFromResult
+  | wouldBlock  : RecvFromResult
+  | interrupted : RecvFromResult
+  | error (e : IoErrno) : RecvFromResult
+  deriving Inhabited
+
+/-- Perform one non-blocking UDP recvfrom. -/
+def recvFrom (fd : Int) (maxBytes : Nat) : IO RecvFromResult := do
+  let (status, data, addr) ← recvFromRaw fd.toInt32 maxBytes.toUSize
+  if status >= 0 then return .datagram data addr
+  else
+    let e := -status
+    if isWouldBlock e then return .wouldBlock
+    else if isInterrupted e then return .interrupted
+    else return .error (classifyErrno e)
+
+/-- Perform one non-blocking UDP sendto.
+`addr` is host-byte-order IPv4 (e.g. 0x7f000001 = 127.0.0.1). -/
+def sendTo (fd : Int) (ba : ByteArray) (offset len : Nat)
+    (addr : UInt32) (port : UInt16) : IO WriteResult := do
+  let status ← sendToRaw fd.toInt32 ba offset.toUSize len.toUSize addr port
+  if status >= 0 then return .wrote status.toNat.toUSize
+  else
+    let e := -status
+    if isWouldBlock e then return .wouldBlock
+    else if isInterrupted e then return .interrupted
     else return .error (classifyErrno e)
 
 end Iotakt.Native.Io

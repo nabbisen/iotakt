@@ -96,7 +96,18 @@ else
   echo "SKIP: nc not found"
 fi
 
-step "9. Multi-connection echo server"
+step "9. v0.3 integration test (RFC 036 UDP, RFC 039 connect, persistent)"
+lake build iotakt-v3-test 2>/dev/null &&   .lake/build/bin/iotakt-v3-test > /tmp/v3_out.txt 2>&1
+V3_FAIL=$(grep -c "\[FAIL\]" /tmp/v3_out.txt || true)
+V3_PASS=$(grep -c "\[PASS\]" /tmp/v3_out.txt || true)
+if [ "$V3_FAIL" -eq 0 ] && [ "$V3_PASS" -gt 0 ]; then
+  pass "v0.3-test: $V3_PASS checks (UDP + connect + persistent) all PASS"
+else
+  cat /tmp/v3_out.txt
+  fail "v0.3-test: $V3_FAIL failed, $V3_PASS passed"
+fi
+
+step "10. Multi-connection echo server"
 if require nc; then
   lake build iotakt-multi-echo 2>/dev/null
   .lake/build/bin/iotakt-multi-echo > /dev/null 2>&1 &

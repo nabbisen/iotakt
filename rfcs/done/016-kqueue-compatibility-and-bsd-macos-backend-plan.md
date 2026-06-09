@@ -1,5 +1,7 @@
 # RFC 016: kqueue Compatibility and BSD/macOS Backend Plan
 
+**Status.** Implemented (v0.3.0-dev — model analysis complete; native impl deferred)
+
 **Status:** Proposed / Implementation Deferred  
 **Milestone:** M6  
 **Priority:** Medium for v0.1, High for v0.2  

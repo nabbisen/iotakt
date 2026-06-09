@@ -41,8 +41,9 @@ structure FdKey where
 /-- The two resource kinds iotakt tracks. iotakt models ownership and
 lifecycle, not the TCP state machine, so this is deliberately tiny. -/
 inductive ResourceKind where
-  | listener
-  | stream
+  | listener   -- TCP listening socket (accepts incoming connections)
+  | stream     -- TCP accepted connection or non-blocking outbound connect
+  | datagram   -- UDP socket (connectionless; RFC 036)
   deriving DecidableEq, Repr, Inhabited
 
 /-- Lifecycle state of a resource (RFC 003). Models ownership and

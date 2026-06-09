@@ -191,3 +191,66 @@ LEAN_EXPORT lean_obj_res iotakt_socketpair(lean_obj_arg w) {
     lean_dec(w);
     return lean_io_result_mk_ok(pair);
 }
+
+/*
+ * Non-blocking TCP connect to an IPv4 address.
+ *
+ * Returns IO Int:
+ *   0          = connected immediately (rare)
+ *  -EINPROGRESS(-115) = connect in progress (normal; poll for EPOLLOUT)
+ *  -errno      = fatal error (ECONNREFUSED, ENETUNREACH, etc.)
+ *
+ * After EINPROGRESS: register the fd for write interest; when epoll
+ * reports writable, call iotakt_get_socket_error to confirm success.
+ */
+LEAN_EXPORT lean_obj_res iotakt_connect_tcp(
+    int32_t fd, uint32_t addr_hbo, uint16_t port, lean_obj_arg w)
+{
+    struct sockaddr_in sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family      = AF_INET;
+    sa.sin_addr.s_addr = htonl(addr_hbo);
+    sa.sin_port        = htons(port);
+    int r = connect(fd, (struct sockaddr *)&sa, sizeof(sa));
+    int ret = (r < 0) ? -errno : 0;
+    lean_dec(w);
+    return lean_io_result_mk_ok(lean_int_to_int(ret));
+}
+
+/*
+ * Check whether a pending non-blocking connect succeeded.
+ * Call after epoll reports EPOLLOUT on the connecting fd.
+ *
+ * Returns IO Int:
+ *   0      = connected successfully
+ *  -errno  = connection failed (ECONNREFUSED, ETIMEDOUT, etc.)
+ */
+LEAN_EXPORT lean_obj_res iotakt_get_socket_error(int32_t fd, lean_obj_arg w) {
+    int err = 0;
+    socklen_t len = sizeof(err);
+    int r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len);
+    int ret = (r < 0) ? -errno : (err != 0 ? -err : 0);
+    lean_dec(w);
+    return lean_io_result_mk_ok(lean_int_to_int(ret));
+}
+
+/*
+ * Create a non-blocking, close-on-exec UDP (datagram) socket.
+ * af4=1 → AF_INET; af4=0 → AF_INET6.
+ * Returns fd >= 0 or -errno.
+ */
+LEAN_EXPORT lean_obj_res iotakt_socket_udp(int32_t af4, lean_obj_arg w) {
+    int domain = af4 ? AF_INET : AF_INET6;
+    int fd = socket(domain, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    if (fd < 0) {
+        fd = socket(domain, SOCK_DGRAM, 0);
+        if (fd < 0) {
+            lean_dec(w);
+            return lean_io_result_mk_ok(lean_int_to_int(-errno));
+        }
+        int r = set_nonblocking_cloexec(fd);
+        if (r < 0) { close(fd); lean_dec(w); return lean_io_result_mk_ok(lean_int_to_int(r)); }
+    }
+    lean_dec(w);
+    return lean_io_result_mk_ok(lean_int_to_int(fd));
+}
