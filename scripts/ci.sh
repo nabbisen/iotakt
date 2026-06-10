@@ -165,6 +165,18 @@ else
   pass "routing server smoke test: SKIP (nc not found)"
 fi
 
+step "17. v0.7 integration test (adaptive timeout, idle reaping, receiveUntil infra)"
+lake build iotakt-v7-test 2>/dev/null && \
+  .lake/build/bin/iotakt-v7-test > /tmp/v7_out.txt 2>&1
+V7_FAIL=$(grep -c "\[FAIL\]" /tmp/v7_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V7_PASS=$(grep -c "\[PASS\]" /tmp/v7_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V7_FAIL" -eq 0 ] && [ "$V7_PASS" -gt 0 ]; then
+  pass "v0.7-test: $V7_PASS checks (adaptive timeout + idle reaping + receiveUntil) all PASS"
+else
+  cat /tmp/v7_out.txt
+  fail "v0.7-test: $V7_FAIL failed, $V7_PASS passed"
+fi
+
 step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1

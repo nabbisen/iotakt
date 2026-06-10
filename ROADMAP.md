@@ -20,7 +20,16 @@ RFC 036 UDP, RFC 039 outbound connect, RFC 016 kqueue analysis, persistent conne
 ## Released: v0.6.0-dev — henret v0.11.0 + Router + Gap 006 cancel-on-close
 Dependency bumped to henret v0.11.0 (RFCs 033–040). `inject_ok_of_mailbox` updated for timed-waiter queue. `Iotakt.Router` with path params. `EventLoop.closeConnection` issues `cancel` to free Henret runtime state. TLS boundary doc (RFC 041). 16-step CI, 24 RFCs done.
 
-## Next: v0.7.0 — receiveUntil driver + selective receive + RFC 044
+## Released: v0.7.0-dev — henret v0.12.1 + adaptive poll timeout + idle reaping
+Dependency to henret v0.12.1 (non-breaking through v0.11.1/v0.12.0/v0.12.1). `pollTimeoutMs`/`runStepAuto` park/wake driver (idle server = 0% CPU). Idle connection reaping. `receiveUntil` timer infrastructure verified. 17-step CI.
+
+## Next: v0.8.0 — scheduled connection actors + chunked encoding
+
+Priority items:
+- **Scheduled connection actors** — restructure so connection actors are genuine Henret-running tasks that can call `receiveUntil` directly, unifying iotakt's wall-clock park/wake with Henret's logical timer model. This is the deferred deep change from v0.7.
+- **HTTP/1.1 chunked transfer encoding** — `Transfer-Encoding: chunked` in `Iotakt.Http` for streaming responses.
+- **RFC 021** — BSD/macOS kqueue native backend (macOS CI runner).
+- **runStepAuto adoption in examples** — migrate the routing/bench servers to `runStepAuto` with idle timeouts to demonstrate the zero-CPU-idle property end-to-end.
 
 Priority items:
 - **`receiveUntil` driver** — replace the 100ms `epoll_wait` poll loop with a park/wake pattern using Henret's `receiveUntil`; the driver blocks indefinitely in `epoll_wait` and wakes only on real I/O or timer expiry. Estimated ≥10× idle CPU reduction.

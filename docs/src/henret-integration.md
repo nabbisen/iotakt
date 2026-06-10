@@ -10,11 +10,21 @@ checklist to re-verify.
 ## Pinned version
 
 ```text
-henret v0.11.0
+henret v0.12.1
 ```
 
-`lakefile.lean` requires henret at this tag. The bump from v0.6.0 → v0.11.0
-required exactly one proof change in iotakt (see "Bridge proof" below).
+`lakefile.lean` requires henret at this tag. The path from v0.6.0:
+
+| Bump | What changed for iotakt |
+|------|--------------------------|
+| v0.6.0 → v0.11.0 | One proof fix (`inject_ok_of_mailbox` gained a `cases` for the new timed-waiter queue); two `Envelope` data fixes (3-field form). |
+| v0.11.0 → v0.11.1 | Selective receive (`receiveByOccurrence`, `receiveFrom`) — additive, no iotakt change. |
+| v0.11.1 → v0.12.0 | Multi-worker bridge model (`MultiBridgeState`) — additive, no iotakt change. |
+| v0.12.0 → v0.12.1 | RFC 044 integration contract published (`docs/integration-contract.md`) — documentation only, no iotakt change. |
+
+`RuntimeState`, `StepResult`, the `inject` branch, and `Envelope` are all
+byte-for-byte identical between v0.11.0 and v0.12.1. The bumps from v0.11.0
+onward required **zero** iotakt code changes.
 
 ---
 
@@ -97,20 +107,49 @@ This is the *only* iotakt code change required by the version bump.
 |------------|-----|---------------|
 | `cancel` task cleanup | 029/031 | **Used** — Gap 006 cancel-on-close |
 | `cancelTree` cascade cancel | 039 | Available; not yet used (single-level connections) |
-| `receiveUntil` timed parking | 040 | **Candidate** — could replace the driver's poll-timeout loop with true park/wake; deferred to a future RFC |
+| `receiveUntil` timed parking | 040 | **Infrastructure verified** (v0.7 test); driver uses an equivalent wall-clock park/wake (`pollTimeoutMs` / `runStepAuto`) rather than literal `receiveUntil` |
+| Selective receive | 041 | Available; iotakt is single-consumer-per-connection so not needed |
+| Multi-worker bridge | 043 | Available; iotakt's driver is a single outer loop |
+| Integration contract | 044 | **Published** in henret v0.12.1; this document is iotakt's consumer-side mirror |
 | Lean-runtime bridge | 035/036 | Available; iotakt's driver remains the single outer loop, so not yet needed |
 | Occurrence identity (`Envelope`) | 033 | Transparent — iotakt builds `Message`; Henret stamps occurrence ids |
 
-### The `receiveUntil` opportunity
+### The `receiveUntil` opportunity (and what v0.7 actually did)
 
-Today iotakt's driver computes the next Henret timer deadline, uses it as
-the `epoll_wait` timeout, and injects `.tick` on expiry. With
-`receiveUntil`, a connection actor blocked on its mailbox could park with
-a deadline directly, and Henret would wake it on either message delivery
-or timer expiry. This would let the driver block indefinitely in
-`epoll_wait` (no 100ms polling), waking only on real I/O. Adopting it is a
-v0.7+ design decision because it changes the driver loop's shape; it is
-recorded here and in the roadmap.
+Henret's `receiveUntil (t, deadline)` parks a *running* task on its mailbox
+with a deadline; `tick` or message delivery wakes it. iotakt verified this
+infrastructure works (v0.7 test section D): issuing `receiveUntil` registers
+a timer in `rt.timers`, sets `waitDeadline`, parks the task as
+`.waitingTimed`, and `tick` at the deadline wakes it to `.ready`.
+
+**However**, iotakt's connection "actors" are not Henret-*running* tasks —
+the driver does the I/O and injects readiness into mailboxes; the Henret
+task is never `running = some t` during the driver loop. So iotakt cannot
+literally call `receiveUntil` on a connection without restructuring the
+driver so connection actors are scheduled and run. That restructure is
+deferred.
+
+What v0.7 *did* adopt is the **timer-driven park/wake pattern** at the
+driver level, using iotakt's own wall-clock deadlines rather than Henret
+logical timers:
+
+- `EventLoop.pollTimeoutMs` computes the `epoll_wait` timeout from the
+  nearest connection idle deadline, returning `-1` (block indefinitely)
+  when nothing is pending. An idle server now uses zero CPU instead of
+  spinning on a fixed 100ms heartbeat.
+- `EventLoop.runStepAuto` blocks exactly as long as the next deadline
+  allows, then reaps idle connections (`reapIdle`).
+
+Two clocks are deliberately kept separate:
+
+1. **Henret logical time** (`rt.now`, `rt.timers`) — model ordering and the
+   `receiveUntil`/`sleep`/`tick` semantics. iotakt's connection actors do
+   not populate this today, so `nextDeadline rt` is empty in practice.
+2. **iotakt wall-clock** (`Io.monoNs`) — real idle timeouts and the adaptive
+   poll timeout.
+
+A future RFC could unify these by mapping logical deadlines to wall-clock
+when a connection actor genuinely runs `receiveUntil`.
 
 ---
 

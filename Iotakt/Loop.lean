@@ -67,6 +67,13 @@ structure EventLoop where
   Populated at spawn time; used by `closeConnection` to `cancel` the task
   and free its runtime state (Gap 006 cleanup, henret ≥ v0.11.0). -/
   taskByKey : List (FdKey × Nat) := []
+  /-- Optional idle timeout in milliseconds. When set, connections with no
+  activity for longer than this are reaped by `reapIdle` / `runStepAuto`
+  (v0.7). -/
+  idleTimeoutMs : Option Nat := none
+  /-- Wall-clock (monotonic ns) of the last activity on each connection.
+  Updated on accept and on each `dataReady`. Used for idle reaping. -/
+  lastActivityNs : List (FdKey × Nat) := []
 
 namespace EventLoop
 
@@ -81,6 +88,54 @@ def taskOf (loop : EventLoop) (key : FdKey) : Option Nat :=
 /-- Forget a connection's task mapping. -/
 def forgetTask (loop : EventLoop) (key : FdKey) : EventLoop :=
   { loop with taskByKey := loop.taskByKey.filter (·.1 != key) }
+
+/-- Configure an idle timeout (milliseconds). Connections idle longer than
+this are closed by `reapIdle` / `runStepAuto`. -/
+def withIdleTimeout (loop : EventLoop) (ms : Nat) : EventLoop :=
+  { loop with idleTimeoutMs := some ms }
+
+/-- Record activity on a connection at wall-clock time `nowNs` (monotonic ns).
+Replaces any previous entry for the key. -/
+def touchConn (loop : EventLoop) (key : FdKey) (nowNs : Nat) : EventLoop :=
+  { loop with
+    lastActivityNs := (key, nowNs) :: loop.lastActivityNs.filter (·.1 != key) }
+
+/-- Drop a connection's activity record. -/
+def forgetActivity (loop : EventLoop) (key : FdKey) : EventLoop :=
+  { loop with lastActivityNs := loop.lastActivityNs.filter (·.1 != key) }
+
+/-- Compute the epoll poll timeout in milliseconds for the next `runStepAuto`.
+
+Returns `-1` (block indefinitely) when there is nothing time-sensitive
+pending — an idle server then uses zero CPU instead of spinning on a fixed
+heartbeat. When an idle timeout is configured and connections are active,
+returns the milliseconds until the soonest idle deadline (clamped to ≥ 0).
+
+This is iotakt's wall-clock park/wake: the driver blocks exactly as long as
+the nearest deadline allows. Henret *logical* timers (from `sleep` /
+`receiveUntil`) are a separate clock; see docs/src/henret-integration.md for
+why iotakt's connection actors do not yet populate them. -/
+def pollTimeoutMs (loop : EventLoop) (nowNs : Nat) : Int :=
+  match loop.idleTimeoutMs with
+  | none => -1
+  | some ms =>
+      if loop.lastActivityNs.isEmpty then -1
+      else
+        let idleNs := ms * 1000000
+        -- soonest deadline = min over connections of (lastActivity + idleNs)
+        let deadlines := loop.lastActivityNs.map (fun (_, t) => t + idleNs)
+        let soonest := deadlines.foldl Nat.min (deadlines.headD (nowNs + idleNs))
+        if soonest <= nowNs then 0
+        else Int.ofNat ((soonest - nowNs) / 1000000)
+
+/-- Connections whose idle deadline has passed at wall-clock `nowNs`. -/
+def idleExpired (loop : EventLoop) (nowNs : Nat) : List FdKey :=
+  match loop.idleTimeoutMs with
+  | none => []
+  | some ms =>
+      let idleNs := ms * 1000000
+      loop.lastActivityNs.filterMap fun (key, t) =>
+        if t + idleNs <= nowNs then some key else none
 
 /-- Create a new event loop with a fresh epoll instance.
 Returns `none` if epoll creation fails. -/
@@ -208,9 +263,45 @@ def closeConnection (loop : EventLoop) (key : FdKey) : IO EventLoop := do
     | some task => (Henret.step loop.rt (.cancel task)).1
     | none      => loop.rt
   return (loop.forgetTask key)
+    |> fun l => l.forgetActivity key
     |> fun l => { l with
         nds := { l.nds with ds := { l.nds.ds with registry := reg1 } }
         rt  := rt1 }
+
+/-- Close every connection idle past the configured timeout at wall-clock
+`nowNs`. Returns the updated loop and the closed keys (v0.7). -/
+def reapIdle (loop : EventLoop) (nowNs : Nat) : IO (EventLoop × List FdKey) := do
+  let expired := loop.idleExpired nowNs
+  let mut l := loop
+  for key in expired do
+    l ← l.closeConnection key
+  return (l, expired)
+
+/-- One adaptive step: block in `epoll_wait` only as long as the next
+deadline allows (or indefinitely if nothing is pending), process events,
+touch active connections, then reap any that have gone idle (v0.7).
+
+This is the park/wake driver: an idle server with no I/O and no idle
+timeout blocks forever (zero CPU); a server with idle timeouts wakes just
+in time to reap expired connections. -/
+def runStepAuto (loop : EventLoop) : IO (EventLoop × List LoopEvent) := do
+  let nowNs := (← Io.monoNs).toNat
+  let timeout := loop.pollTimeoutMs nowNs
+  let (loop1, events) ← loop.runStep timeout
+  -- Touch every connection that saw activity this step
+  let nowNs2 := (← Io.monoNs).toNat
+  let mut l := loop1
+  for ev in events do
+    match ev with
+    | .newConnection key _ => l := l.touchConn key nowNs2
+    | .dataReady key _     => l := l.touchConn key nowNs2
+    | .tick _              => pure ()
+  -- Reap idle connections
+  let (l2, reaped) ← l.reapIdle nowNs2
+  -- Surface reaped connections as a synthetic close-ish signal is not needed;
+  -- the caller learns about them via the returned loop's state.
+  let _ := reaped
+  return (l2, events)
 
 /-- Acknowledge that a connection's readiness has been handled.
 Must be called after processing each `dataReady` event to allow

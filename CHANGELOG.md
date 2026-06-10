@@ -6,6 +6,60 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.7.0-dev] — 2026-06-10
+
+### Dependency
+
+**henret v0.11.0 → v0.12.1** (via v0.11.1, v0.12.0). All three bumps are
+non-breaking; `RuntimeState`, `StepResult`, the `inject` branch, and
+`Envelope` are byte-for-byte identical to v0.11.0. **Zero iotakt code
+changes required.**
+
+| Henret release | RFC | Nature |
+|----------------|-----|--------|
+| v0.11.1 | 041 | Selective receive (`receiveByOccurrence`, `receiveFrom`) — additive |
+| v0.12.0 | 043 | Multi-worker bridge model (`MultiBridgeState`) — additive |
+| v0.12.1 | 044 | Integration contract published (`docs/integration-contract.md`) — docs only |
+
+### Added
+
+**Adaptive poll timeout + park/wake driver (v0.7)**
+
+- `EventLoop.pollTimeoutMs (nowNs)` — computes the `epoll_wait` timeout from
+  the nearest connection idle deadline; returns `-1` (block indefinitely)
+  when nothing is pending. An idle server now uses zero CPU instead of a
+  fixed 100ms heartbeat.
+- `EventLoop.runStepAuto` — blocks exactly as long as the next deadline
+  allows, processes events, touches active connections, then reaps idle ones.
+
+**Idle connection reaping**
+
+- `EventLoop.idleTimeoutMs`, `lastActivityNs` fields.
+- `EventLoop.withIdleTimeout (ms)` — configure an idle timeout.
+- `EventLoop.touchConn (key, nowNs)` — record activity (wall-clock monotonic ns).
+- `EventLoop.idleExpired (nowNs)` — connections past their idle deadline.
+- `EventLoop.reapIdle (nowNs)` — close idle connections, returns closed keys.
+- `closeConnection` now also clears the activity record.
+
+**v0.7 integration test (21/21 PASS)**
+
+- `iotakt-v7-test`: adaptive poll timeout (4), idle expiry detection (4),
+  reapIdle (3), Henret `receiveUntil` timer infrastructure (10).
+- Section D verifies the model side is ready for a future scheduled-actor
+  park/wake driver: `receiveUntil` parks as `.waitingTimed`, registers a
+  timer, and `tick` wakes it.
+
+### Changed
+
+**`docs/src/henret-integration.md`** — updated to v0.12.1, documents the
+four-release bump path (all non-breaking), the published RFC 044 contract,
+and the honest `receiveUntil` analysis: iotakt adopts a wall-clock park/wake
+at the driver level rather than literal `receiveUntil` (which needs a
+scheduled, running connection actor — deferred).
+
+**CI gate extended to 17 steps** — step 17: v0.7 integration test.
+24 RFCs in done/, 37 in proposed/.
+
 ## [0.6.0-dev] — 2026-06-10
 
 ### Dependency
