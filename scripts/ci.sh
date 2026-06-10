@@ -209,6 +209,38 @@ else
   pass "streaming server smoke test: SKIP (nc not found)"
 fi
 
+step "20. v0.9 integration test (body framing + live request reading + handoff surface)"
+lake build iotakt-v9-test 2>/dev/null && \
+  .lake/build/bin/iotakt-v9-test > /tmp/v9_out.txt 2>&1
+V9_FAIL=$(grep -c "\[FAIL\]" /tmp/v9_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V9_PASS=$(grep -c "\[PASS\]" /tmp/v9_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V9_FAIL" -eq 0 ] && [ "$V9_PASS" -gt 0 ]; then
+  pass "v0.9-test: $V9_PASS checks (framing + readFull + Iotakt.Server) all PASS"
+else
+  cat /tmp/v9_out.txt
+  fail "v0.9-test: $V9_FAIL failed, $V9_PASS passed"
+fi
+
+step "21. Upload server smoke test (Content-Length + chunked request bodies)"
+if require curl; then
+  lake build iotakt-upload-server 2>/dev/null
+  .lake/build/bin/iotakt-upload-server > /tmp/upload_ci.txt 2>&1 &
+  UP_PID=$!
+  sleep 1
+  CL_OUT=$(curl -s -X POST --data 'hello world' http://127.0.0.1:49996/upload 2>/dev/null)
+  CK_OUT=$(echo -n "chunked-data-here" | curl -s -X POST -H "Transfer-Encoding: chunked" --data-binary @- http://127.0.0.1:49996/chunkup 2>/dev/null)
+  sleep 3
+  kill "$UP_PID" 2>/dev/null || true; wait "$UP_PID" 2>/dev/null || true
+  if echo "$CL_OUT" | grep -q "received 11 bytes" && echo "$CK_OUT" | grep -q "received 17 bytes"; then
+    pass "upload server: Content-Length (11B) + chunked (17B) bodies reassembled ✓"
+  else
+    echo "CL='$CL_OUT' CK='$CK_OUT'"
+    fail "upload server: body reassembly failed"
+  fi
+else
+  pass "upload server smoke test: SKIP (curl not found)"
+fi
+
 step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1

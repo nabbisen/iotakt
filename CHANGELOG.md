@@ -6,6 +6,60 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.9.0-dev] — 2026-06-10
+
+### Added
+
+**Body-aware request reading (`Iotakt.RequestBody`)**
+
+The live read path that completes the HTTP/1.1 body story in both
+directions (v0.8 added chunked *output*; this adds chunked + Content-Length
+*input* reassembly off a live socket).
+
+- `BodyFraming` (none / contentLength / chunked) + `framingOf` — classifies
+  a request's body framing from its headers (chunked takes precedence over
+  Content-Length per RFC 7230 §3.3.3; header names case-insensitive).
+- `splitHeaders` — separates the header block from buffered body bytes.
+- `readFull fd maxBytes maxPolls` — reads a complete request (headers +
+  body) handling all three framings, with `wouldBlock` retry (body may
+  arrive after accept). Returns `.request` / `.incomplete` / `.error`.
+- `IotaktRequestBody` Lake library target.
+- Verified live: Content-Length POST ('hello world' → 11 bytes) and chunked
+  POST ('chunked-data-here' → 17 bytes) both reassemble correctly via curl.
+
+**henejt handoff surface (`Iotakt.Server`)**
+
+The consolidated public API a Lean HTTP server builds on — one import for
+the whole request/response stack.
+
+- Re-exports `EventLoop`, `Router`, `HttpRequest`, `HttpResponse`,
+  `BodyFraming`, `ReadResult`, `WriteBuffer`.
+- Consolidated abbrevs: `readRequest`, `bodyFramingOf`, `encodeChunk`,
+  `chunkedTerminator`, `chunkedResponseHeader`, `decodeChunked`, `isChunked`.
+- `IotaktServer` Lake library target.
+
+**Examples**
+
+- `iotakt-upload-server` — henejt-style server on the `Iotakt.Server`
+  surface; accepts Content-Length and chunked request bodies via
+  `readRequest`, uses `runStepAuto` + idle reaping.
+- `iotakt-v9-test` — body framing detection (6), header/body splitting (3),
+  live request reading over socketpair for all three framings (8), handoff
+  surface re-export resolution (5).
+
+**Documentation**
+
+- `docs/src/henejt-handoff.md` — the consumer contract: what iotakt
+  provides, what henejt owns, the `readRequest` framing table, a minimal
+  server, and the stability guarantee. The iotakt-side mirror of
+  `henret-integration.md`.
+
+### Changed
+
+**CI gate extended to 21 steps** — step 20: v0.9 integration test;
+step 21: upload server smoke test (live Content-Length + chunked bodies).
+24 RFCs in done/, 37 in proposed/.
+
 ## [0.8.0-dev] — 2026-06-10
 
 ### Added

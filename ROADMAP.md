@@ -26,7 +26,17 @@ Dependency to henret v0.12.1 (non-breaking through v0.11.1/v0.12.0/v0.12.1). `po
 ## Released: v0.8.0-dev — chunked encoding + scheduled connection actors
 HTTP/1.1 chunked transfer encoding (`Iotakt.Chunked`, RFC 7230 §4.1). Scheduled connection-actor lifecycle model (`Iotakt.SchedConn`) — genuine Henret-running task via receiveUntil, verified against real semantics. Chunked streaming server using runStepAuto + idle reaping. 19-step CI.
 
-## Next: v0.9.0 — chunked request decoding + henejt handoff
+## Released: v0.9.0-dev — body-aware request reading + henejt handoff surface
+`Iotakt.RequestBody.readFull` reassembles Content-Length and chunked request bodies off a live socket (RFC 7230 §3.3.3). `Iotakt.Server` consolidated handoff surface for henejt. Upload server verified with both framings. henejt-handoff.md consumer contract. 21-step CI.
+
+## Next: v0.10.0 — keep-alive request pipelining + henejt prototype
+
+Priority items:
+- **Keep-alive in the read path** — `readFull` currently reads one request then the server closes; extend the driver/example to keep the connection open and read successive requests on the same fd (HTTP/1.1 default), reusing the idle-timeout machinery for connection lifetime.
+- **henejt prototype** — a separate small crate/example that builds a real HTTP service on `Iotakt.Server` (multiple routes, JSON-ish responses, request bodies), proving the handoff surface is sufficient. This is the first genuine downstream consumer.
+- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if the henejt prototype needs them.
+- **RFC 021** — BSD/macOS kqueue native backend (still blocked on a macOS CI runner).
+- **Request size limits** — enforce `maxRequestBytes` in `readFull` to bound memory (slow-loris / oversized-body protection); surface a 413-style `.error`.
 
 Priority items:
 - **Chunked request decoding in the live read path** — wire `Chunked.decode` into the server read loop so request bodies with `Transfer-Encoding: chunked` are reassembled before dispatch (currently decode is tested standalone).

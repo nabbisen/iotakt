@@ -110,6 +110,16 @@ lean_lib IotaktSchedConn where
   globs := #[.one `Iotakt.SchedConn]
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- Body-aware HTTP request reader: Content-Length + chunked (v0.9). -/
+lean_lib IotaktRequestBody where
+  globs := #[.one `Iotakt.RequestBody]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- henejt handoff surface: consolidated HTTP server building blocks (v0.9). -/
+lean_lib IotaktServer where
+  globs := #[.one `Iotakt.Server]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
 /-- Connection actor abstraction: callback lifecycle, ActorRegistry (v0.5). -/
 lean_lib IotaktActor where
   globs := #[.one `Iotakt.Actor]
@@ -191,4 +201,14 @@ lean_exe «iotakt-streaming-server» where
 /-- v0.8 integration test: chunked encode/decode, scheduled connection actor. -/
 lean_exe «iotakt-v8-test» where
   root := `examples.V8Test
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.9 upload server: Iotakt.Server handoff surface, chunked + Content-Length bodies. -/
+lean_exe «iotakt-upload-server» where
+  root := `examples.UploadServer
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.9 integration test: body framing, live request reading, handoff surface. -/
+lean_exe «iotakt-v9-test» where
+  root := `examples.V9Test
   extraDepTargets := #[`iotaktNativeLib.static]
