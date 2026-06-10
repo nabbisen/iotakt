@@ -1,5 +1,7 @@
 # RFC 041: TLS Boundary, ALPN, and Secure Transport Handoff
 
+**Status.** Implemented (v0.6.0-dev — design artifact; TLS impl deferred to consumer layer)
+
 - **Status:** Future / boundary clarification
 - **Intended phase:** henejt/TLS integration
 - **Package:** iotakt RFC v3 continuation

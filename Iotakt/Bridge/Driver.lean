@@ -141,7 +141,12 @@ guarantees no readiness is lost to an invalid inject. -/
 theorem inject_ok_of_mailbox {rt : Henret.RuntimeState} {a : Henret.ActorId}
     {mb : Henret.Mailbox} (h : rt.mailboxes a = some mb) (m : Henret.Message) :
     (Henret.step rt (.inject a m)).2 = .ok := by
-  cases hw : rt.mailboxWaiters a <;> simp [Henret.step, h, hw]
+  -- v0.11.0 (RFC 040): inject checks mailboxWaiters first, then
+  -- timedMailboxWaiters; all three branches return .ok when the mailbox
+  -- exists. Case-split on both waiter queues.
+  cases hw : rt.mailboxWaiters a <;>
+    cases htw : rt.timedMailboxWaiters a <;>
+    simp [Henret.step, h, hw, htw]
 
 /-- **Unknown events never inject.** Applying an `unknownRawFd` drop
 leaves the Henret runtime untouched and traces only the drop. -/

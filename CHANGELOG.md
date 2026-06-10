@@ -6,6 +6,88 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.6.0-dev] — 2026-06-10
+
+### Dependency
+
+**henret v0.6.0 → v0.11.0** — five releases of Henret shipped during this
+phase.  Key capabilities added upstream:
+
+| RFC | What landed | iotakt impact |
+|-----|-------------|---------------|
+| RFC 033 | Envelope occurrence identity — every injected message carries a globally-unique id and source provenance | **Breaking**: `Mailbox.messages` stores `Envelope{occurrence, source, body}` (3 fields); fixed in `Main.lean` and `EchoTest.lean` |
+| RFC 029/031 | Blocked receive → `.waiting` task state + mailbox wait queue | Gap 006 wiring now works cleanly |
+| RFC 035/036 | Lean-runtime bridge (`Henret.Bridge`) — single-worker queue-projection theorems | Available; iotakt driver not yet changed |
+| RFC 039 | `cancelTree` cascade cancellation | Available; `cancel` now used by iotakt |
+| RFC 040 | `receiveUntil` timed parking (`TaskState.waitingTimed`, `timedMailboxWaiters`) | **Breaking in proof**: `inject` checks the new timed-waiter queue — `inject_ok_of_mailbox` updated with one extra `cases` |
+
+### Changed
+
+**`inject_ok_of_mailbox` proof updated (Bridge/Driver.lean)** — the proof
+now case-splits on both `mailboxWaiters` and `timedMailboxWaiters`.
+The theorem statement is unchanged; only the proof tactic gained one `cases`.
+
+**`Main.lean` and `examples/EchoTest.lean`** — `Envelope` construction
+updated to 3-field form: `⟨occurrence, source, body⟩`. The `occurrence`
+fields are 0 (first inject, `nextMsgId = 0`) and `source = none` (inject
+stamps `source = none` per RFC 033).
+
+### Added
+
+**Gap 006 — cancel-on-close (henret v0.11.0)**
+
+- `EventLoop.taskByKey : List (FdKey × Nat)` — maps each connection to its
+  spawned Henret task id.
+- `EventLoop.recordTask / taskOf / forgetTask` — helper operations.
+- `EventLoop.closeConnection` now issues `Henret.step rt (.cancel task)` to
+  free the task's `readyQ` / `timers` / `mailboxWaiters` runtime state.
+- `AcceptOneResult.accepted` carries the spawned task id.
+- `acceptBurst` returns `List (FdKey × Int × Nat)`.
+- `runStep` records accepted task ids into `taskByKey`.
+- `connectTo` captures the spawned task id in both `.connected` and
+  `.inProgress` branches.
+- Verified: routing server ends with **0 task mappings remaining** after close.
+
+**`Iotakt.Router` — path-based HTTP router (v0.6)**
+
+- `RouteParams` with `get / get?`.
+- `Router.empty / get / post / put / delete / route`.
+- `Router.dispatch / dispatchRequest / matchRoute / size`.
+- `matchPattern` — segment-by-segment matching with `:param` wildcard capture.
+- `pathSegments` — strips query strings, splits on `/`.
+- Supports: exact paths, single `:param`, multiple `:params`, method separation.
+- `IotaktRouter` Lake library target.
+
+**`iotakt-routing-server` — HTTP/1.1 routing server example**
+
+- 5 routes: `GET /`, `/health`, `/users/:id`, `/api/:resource/:id`, `POST /users`.
+- Live-tested: `/users/42`→`id=42`, `/api/widgets/7`→`resource=widgets id=7`, `/nope`→404.
+- Uses `EventLoop + Router + WriteBuffer`. Connection teardown verified clean.
+
+**`docs/src/tls-boundary.md` (RFC 041 — done)**
+
+- Boundary contract: iotakt owns the fd, TLS is a consumer.
+- Table: every TLS need maps to an existing iotakt mechanism.
+- Explicit non-goals: iotakt must not grow TLS-aware APIs.
+- RFC 041 moved to `rfcs/done/`.
+
+**`docs/src/henret-integration.md`**
+
+- Consumer-side integration contract (mirrors Henret RFC 044).
+- Three discrepancies re-verified against v0.11.0 source.
+- Version-bump re-verification checklist for future bumps.
+- `receiveUntil` opportunity noted for v0.7 roadmap.
+
+**v0.6 integration test (32/32 PASS)**
+
+- `iotakt-v6-test`: Router (13), matchPattern (8), Gap 006 (6), task tracking (5).
+
+**CI gate extended to 16 steps**
+
+- Step 15: v0.6 integration test.
+- Step 16: HTTP/1.1 routing server smoke test.
+- 24 RFCs in done/, 37 in proposed/.
+
 ## [0.5.0-dev] — 2026-06-08
 
 ### Added

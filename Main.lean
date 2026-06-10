@@ -78,11 +78,13 @@ def main : IO Unit := do
   check "inject delivered (.ok), head waiter woken to ready"
     (rt1.taskState 0 == some .ready)
   check "message waits in mailbox until re-receive (Mesa, no handoff)"
-    ((rt1.mailboxes 7).map Mailbox.messages == some [⟨10, 1⟩])
+    -- Henret v0.7.0 (RFC 033): mailboxes store Envelope{occurrence, source, body}
+    -- inject stamps occurrence=nextMsgId (=0 here) and source=none.
+    ((rt1.mailboxes 7).map Mailbox.messages == some [⟨0, none, ⟨10, 1⟩⟩])
   let s_sched := Henret.run rt1 [.schedule]
   let (_, r_recv) := Henret.step s_sched (.receive 0)
   check "re-issued receive consumes the readiness message"
-    (r_recv matches .received ⟨10, 1⟩)
+    (r_recv matches .received ⟨0, none, ⟨10, 1⟩⟩)
 
   IO.println "scenario 2: duplicate readiness is coalesced (flood bound)"
   let script2 := FakePoller.ofScript [.events [⟨10, .readable⟩], .events [⟨10, .readable⟩]]

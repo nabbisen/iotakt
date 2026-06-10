@@ -63,8 +63,24 @@ structure EventLoop where
   rt        : RuntimeState
   ph        : PollerHandle
   listeners : List (FdKey × Int)   -- (key, raw fd) for each active listener
+  /-- Maps each connection's FdKey to the Henret task id that owns it.
+  Populated at spawn time; used by `closeConnection` to `cancel` the task
+  and free its runtime state (Gap 006 cleanup, henret ≥ v0.11.0). -/
+  taskByKey : List (FdKey × Nat) := []
 
 namespace EventLoop
+
+/-- Record the Henret task id that owns a connection key. -/
+def recordTask (loop : EventLoop) (key : FdKey) (task : Nat) : EventLoop :=
+  { loop with taskByKey := (key, task) :: loop.taskByKey }
+
+/-- Look up the Henret task id owning a connection key. -/
+def taskOf (loop : EventLoop) (key : FdKey) : Option Nat :=
+  loop.taskByKey.find? (·.1 == key) |>.map (·.2)
+
+/-- Forget a connection's task mapping. -/
+def forgetTask (loop : EventLoop) (key : FdKey) : EventLoop :=
+  { loop with taskByKey := loop.taskByKey.filter (·.1 != key) }
 
 /-- Create a new event loop with a fresh epoll instance.
 Returns `none` if epoll creation fails. -/
@@ -147,13 +163,19 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
 
   -- ── 3. Accept new connections from all listeners ────────────────────
   let mut newConns : List LoopEvent := []
+  let mut newTasks : List (FdKey × Nat) := []
   for (_, lfd) in loop.listeners do
     let (nds1, rt1, accepted) ← acceptBurst nds rt loop.ph lfd
     nds := nds1; rt := rt1
-    for (key, rawFd) in accepted do
+    for (key, rawFd, task) in accepted do
       newConns := newConns ++ [.newConnection key rawFd]
+      newTasks := (key, task) :: newTasks
 
-  return ({ loop with nds := nds, rt := rt }, newConns ++ loopEvents)
+  let loopOut := { loop with
+    nds       := nds
+    rt        := rt
+    taskByKey := newTasks ++ loop.taskByKey }
+  return (loopOut, newConns ++ loopEvents)
 
 /-- Register write interest for a connection (call when you have pending
 output; disable when the output buffer is drained). -/
@@ -178,7 +200,17 @@ def closeConnection (loop : EventLoop) (key : FdKey) : IO EventLoop := do
   let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 key.raw)
   Socket.closeFdRaw (fd32 key.raw)
   let reg1 := loop.nds.ds.registry.close key
-  return { loop with nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
+  -- Gap 006 (henret ≥ v0.11.0): cancel the owning task to free its
+  -- runtime state (readyQ / timers / mailboxWaiters entries). The actor
+  -- mailbox itself persists in Henret — that is upstream behaviour and is
+  -- documented in docs/src/henret-integration.md.
+  let rt1 := match loop.taskOf key with
+    | some task => (Henret.step loop.rt (.cancel task)).1
+    | none      => loop.rt
+  return (loop.forgetTask key)
+    |> fun l => { l with
+        nds := { l.nds with ds := { l.nds.ds with registry := reg1 } }
+        rt  := rt1 }
 
 /-- Acknowledge that a connection's readiness has been handled.
 Must be called after processing each `dataReady` event to allow
@@ -219,26 +251,32 @@ def connectTo (loop : EventLoop) (addr : UInt32) (port : UInt16) :
       let (reg1, key) := nds1.ds.registry.allocate fd_r actorId .stream
       let reg2 := reg1.setInterests key (InterestSet.readOnly.enableWrite)
                     |>.markActive key
-      let rt1 := (Henret.step loop.rt (.spawn actorId)).1
+      let (rt1, spawnRes) := Henret.step loop.rt (.spawn actorId)
       let _ ← Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
                 (Epoll.interestFlags (InterestSet.readOnly.enableWrite))
       let loop1 := { loop with
         nds := { nds1 with ds := { nds1.ds with registry := reg2 } }
         rt  := rt1 }
-      return (loop1, .connected key)
+      let loop2 := match spawnRes with
+        | .spawned task => loop1.recordTask key task
+        | _             => loop1
+      return (loop2, .connected key)
   | .inProgress =>
       -- Register for write interest; writable event confirms connection
       let (nds1, actorId) := loop.nds.freshActorId
       let (reg1, key) := nds1.ds.registry.allocate fd_r actorId .stream
       let reg2 := reg1.setInterests key (InterestSet.readOnly.enableWrite)
                     |>.markActive key
-      let rt1 := (Henret.step loop.rt (.spawn actorId)).1
+      let (rt1, spawnRes) := Henret.step loop.rt (.spawn actorId)
       let _ ← Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
                 (Epoll.interestFlags (InterestSet.readOnly.enableWrite))
       let loop1 := { loop with
         nds := { nds1 with ds := { nds1.ds with registry := reg2 } }
         rt  := rt1 }
-      return (loop1, .inProgress key)
+      let loop2 := match spawnRes with
+        | .spawned task => loop1.recordTask key task
+        | _             => loop1
+      return (loop2, .inProgress key)
 
 end EventLoop
 

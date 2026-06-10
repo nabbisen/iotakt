@@ -17,7 +17,17 @@ RFC 036 UDP, RFC 039 outbound connect, RFC 016 kqueue analysis, persistent conne
 ## Released: v0.5.0-dev — ConnectionActor + Stats + Throughput baseline
 `ConnectionActor` + `ActorRegistry`, `ConnStats`/`GlobalStats`, HTTP/1.1 keep-alive, RFC 025 benchmark (~330k req/s baseline), Gap 004 resolved. 14-step CI, 23 RFCs done.
 
-## Next: v0.6.0 — henejt integration + actor lifecycle
+## Released: v0.6.0-dev — henret v0.11.0 + Router + Gap 006 cancel-on-close
+Dependency bumped to henret v0.11.0 (RFCs 033–040). `inject_ok_of_mailbox` updated for timed-waiter queue. `Iotakt.Router` with path params. `EventLoop.closeConnection` issues `cancel` to free Henret runtime state. TLS boundary doc (RFC 041). 16-step CI, 24 RFCs done.
+
+## Next: v0.7.0 — receiveUntil driver + selective receive + RFC 044
+
+Priority items:
+- **`receiveUntil` driver** — replace the 100ms `epoll_wait` poll loop with a park/wake pattern using Henret's `receiveUntil`; the driver blocks indefinitely in `epoll_wait` and wakes only on real I/O or timer expiry. Estimated ≥10× idle CPU reduction.
+- **RFC 044 tracking** — Henret's integration contract targets v0.12.0; once it ships, iotakt's `docs/src/henret-integration.md` can reference stable import tiers explicitly.
+- **RFC 021** — BSD/macOS kqueue native backend (requires macOS CI runner).
+- **HTTP/1.1 chunked encoding** — `Transfer-Encoding: chunked` support in `Iotakt.Http`; needed for streaming responses in henejt.
+- **RFC 044 external review prep** — iotakt is now a real downstream consumer of Henret; could serve as the motivating example for RFC 044.
 
 Priority items:
 - **RFC 035** — Henret wait-queue parking: when the Henret maintainer ships it, replace 100ms poll loops with park/wake for ≥10× idle CPU reduction.

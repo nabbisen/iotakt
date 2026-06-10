@@ -99,14 +99,16 @@ def main : IO Unit := do
   check "inject returned .ok (inject_ok_of_mailbox)" (rt1.taskState 0 == some .ready)
 
   -- ── 10. Message sits in mailbox (Mesa: no immediate handoff) ─────────
+  -- Henret v0.7.0 (RFC 033): Envelope{occurrence, source, body}
+  -- inject: occurrence = nextMsgId (= 0 at this point), source = none.
   check "message waits in actor 1's mailbox until re-receive"
-    ((rt1.mailboxes 1).map Mailbox.messages == some [⟨fd0.toNat, 1⟩])
+    ((rt1.mailboxes 1).map Mailbox.messages == some [⟨0, none, ⟨fd0.toNat, 1⟩⟩])
 
   -- ── 11. Schedule + re-receive (Mesa round-trip) ──────────────────────
   let rt2 := Henret.run rt1 [.schedule]
   let (_, r_recv) := Henret.step rt2 (.receive 0)
   check "actor re-receive consumes the readiness message"
-    (r_recv matches .received ⟨_, _⟩)
+    (r_recv matches .received ⟨_, _, _⟩)
 
   -- ── 12. Now actor would call recv; we simulate it ─────────────────────
   let readResult ← Io.recv fd0 ds.config.maxReadBytes

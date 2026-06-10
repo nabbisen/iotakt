@@ -9,9 +9,9 @@ package iotakt where
 
 /-- Pinned Henret dependency (RFC 007 bridge layer only).
     For release, pin an exact tag per the Henret handoff:
-      require henret from git "https://github.com/nabbisen/henret" @ "v0.6.0"
-    During local development we use a path require to the vendored v0.6.0 tree. -/
-require henret from "../henret/henret-v0.6.0"
+      require henret from git "https://github.com/nabbisen/henret" @ "v0.11.0"
+    During local development we use a path require to the vendored v0.11.0 tree. -/
+require henret from "../henret/henret-v0.11.0"
 
 /-- Core library: pure model, fake poller, and proofs.
     Does NOT import Henret — builds standalone (RFC 001 Lean-only core). -/
@@ -95,6 +95,11 @@ lean_lib IotaktHttp where
   globs := #[.one `Iotakt.Http]
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- Path-based HTTP router with method matching and :param capture (v0.6). -/
+lean_lib IotaktRouter where
+  globs := #[.one `Iotakt.Router]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
 /-- Connection actor abstraction: callback lifecycle, ActorRegistry (v0.5). -/
 lean_lib IotaktActor where
   globs := #[.one `Iotakt.Actor]
@@ -151,4 +156,14 @@ lean_exe «iotakt-v4-test» where
 /-- v0.5 integration test: ConnectionActor, Stats, keep-alive HTTP, throughput. -/
 lean_exe «iotakt-v5-test» where
   root := `examples.V5Test
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.6 HTTP/1.1 routing server: EventLoop + Router + keep-alive + Gap 006 cleanup. -/
+lean_exe «iotakt-routing-server» where
+  root := `examples.RoutingServer
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.6 integration test: Router, Gap 006 cancel-on-close, henret v0.11.0. -/
+lean_exe «iotakt-v6-test» where
+  root := `examples.V6Test
   extraDepTargets := #[`iotaktNativeLib.static]

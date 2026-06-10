@@ -132,6 +132,39 @@ else
   fail "benchmark: $BENCH_FAIL failed"
 fi
 
+step "15. v0.6 integration test (Router, Gap 006 cancel-on-close)"
+lake build iotakt-v6-test 2>/dev/null && \
+  .lake/build/bin/iotakt-v6-test > /tmp/v6_out.txt 2>&1
+V6_FAIL=$(grep -c "\[FAIL\]" /tmp/v6_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V6_PASS=$(grep -c "\[PASS\]" /tmp/v6_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V6_FAIL" -eq 0 ] && [ "$V6_PASS" -gt 0 ]; then
+  pass "v0.6-test: $V6_PASS checks (Router + Gap 006 + henret v0.11.0) all PASS"
+else
+  cat /tmp/v6_out.txt
+  fail "v0.6-test: $V6_FAIL failed, $V6_PASS passed"
+fi
+
+step "16. HTTP/1.1 routing server smoke test"
+if require nc; then
+  lake build iotakt-routing-server 2>/dev/null
+  .lake/build/bin/iotakt-routing-server > /tmp/routing_ci.txt 2>&1 &
+  ROUTE_PID=$!
+  sleep 1
+  R_HOME=$(printf "GET / HTTP/1.0\r\n\r\n" | nc -q1 127.0.0.1 49993 2>/dev/null | tail -1)
+  R_USER=$(printf "GET /users/42 HTTP/1.0\r\n\r\n" | nc -q1 127.0.0.1 49993 2>/dev/null | tail -1)
+  R_404=$(printf "GET /nope HTTP/1.0\r\n\r\n" | nc -q1 127.0.0.1 49993 2>/dev/null | head -1)
+  sleep 3
+  kill "$ROUTE_PID" 2>/dev/null || true; wait "$ROUTE_PID" 2>/dev/null || true
+  if echo "$R_USER" | grep -q "id=42" && echo "$R_404" | grep -q "404"; then
+    pass "routing server: /users/42 → id=42, /nope → 404 ✓"
+  else
+    echo "home='$R_HOME' user='$R_USER' 404='$R_404'"
+    fail "routing server: unexpected routing output"
+  fi
+else
+  pass "routing server smoke test: SKIP (nc not found)"
+fi
+
 step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1

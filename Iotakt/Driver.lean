@@ -164,7 +164,7 @@ where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 
 /-- Result of one accept4 call plus the FdKey if accepted. -/
 inductive AcceptOneResult where
-  | accepted (streamKey : FdKey) (streamFd : Int)
+  | accepted (streamKey : FdKey) (streamFd : Int) (task : Nat)
   | wouldBlock
   | error (e : IoErrno)
   deriving Repr
@@ -190,11 +190,13 @@ def acceptOne
       let _ ← Epoll.register (fd32 ph.epfd) (fd32 streamFd)
         (Epoll.interestFlags InterestSet.readOnly)
 
-      -- Spawn connection actor in Henret (creates its mailbox)
-      let rt1 := (Henret.step rt (.spawn actorId)).1
+      -- Spawn connection actor in Henret (creates its mailbox).
+      -- Capture the spawned task id for later cancel-on-close (Gap 006).
+      let (rt1, spawnRes) := Henret.step rt (.spawn actorId)
+      let task := match spawnRes with | .spawned t => t | _ => actorId
 
       let ds2 := { nds1.ds with registry := reg2 }
-      return ({ nds1 with ds := ds2 }, rt1, .accepted key streamFd)
+      return ({ nds1 with ds := ds2 }, rt1, .accepted key streamFd task)
 
 where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 
@@ -203,11 +205,11 @@ Returns the list of accepted (streamKey, streamFd) pairs. -/
 def acceptBurst
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (listenerFd : Int)
-    : IO (NativeDriverState × RuntimeState × List (FdKey × Int)) := do
+    : IO (NativeDriverState × RuntimeState × List (FdKey × Int × Nat)) := do
   let maxBurst := nds.ds.config.maxAcceptBurst
   let mut nds := nds
   let mut rt  := rt
-  let mut acc : List (FdKey × Int) := []
+  let mut acc : List (FdKey × Int × Nat) := []
   let mut stop := false
   for _ in List.range maxBurst do
     if stop then pure ()
@@ -217,7 +219,7 @@ def acceptBurst
       match r with
       | .wouldBlock  => stop := true
       | .error _     => stop := true
-      | .accepted k fd => acc := (k, fd) :: acc
+      | .accepted k fd task => acc := (k, fd, task) :: acc
   return (nds, rt, acc.reverse)
 
 end Iotakt.Driver
