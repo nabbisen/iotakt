@@ -1,6 +1,6 @@
 # RFC 030: Resource Limits and Load-Shedding Policy
 
-**Status:** Proposed / Hardening  
+**Status:** Done / Hardening  
 **Milestone:** M5/M7  
 **Priority:** High  
 **Primary layer:** Security / Runtime Policy  

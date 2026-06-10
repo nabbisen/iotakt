@@ -30,6 +30,8 @@ The folder is the source of truth for each RFC's state.
 | 025 | [Formal Throughput Benchmark](./done/025-performance-benchmarking-and-regression-gates.md) | Implemented (v0.5.0-dev) |
 | 026 | [Native Conformance Test Suite](./done/026-native-conformance-test-suite.md) | Implemented (v0.4.0-dev) |
 | 028 | [Lean FFI Compatibility and Native Boundary Hardening](./done/028-lean-ffi-compatibility-and-native-boundary-hardening.md) | Implemented (v0.4.0-dev) |
+| 030 | [Resource Limits and Load-Shedding Policy](./done/030-resource-limits-and-load-shedding-policy.md) | Implemented (v0.11.0-dev) |
+| 037 | [Graceful Shutdown, Drain, and Listener-Stop Workflow](./done/037-graceful-shutdown-drain-and-listener-stop-workflow.md) | Implemented (v0.11.0-dev) |
 | 041 | [TLS Boundary, ALPN, and Secure Transport Handoff](./done/041-tls-boundary-alpn-and-secure-transport-handoff.md) | Implemented (v0.6.0-dev) |
 
 ## Proposed (v0.1 scope — RFCs 001–015, 017–018)

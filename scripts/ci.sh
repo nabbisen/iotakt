@@ -241,36 +241,48 @@ else
   pass "upload server smoke test: SKIP (curl not found)"
 fi
 
-step "22. v0.10 integration test (size limits + keep-alive + jemmet)"
+step "22. v0.10 integration test (size limits + readFromBuffer pipelining)"
 lake build iotakt-v10-test 2>/dev/null && \
   .lake/build/bin/iotakt-v10-test > /tmp/v10_out.txt 2>&1
 V10_FAIL=$(grep -c "\[FAIL\]" /tmp/v10_out.txt 2>/dev/null | tr -d "\n" || echo 0)
 V10_PASS=$(grep -c "\[PASS\]" /tmp/v10_out.txt 2>/dev/null | tr -d "\n" || echo 0)
 if [ "$V10_FAIL" -eq 0 ] && [ "$V10_PASS" -gt 0 ]; then
-  pass "v0.10-test: $V10_PASS checks (size limits + keep-alive + jemmet) all PASS"
+  pass "v0.10-test: $V10_PASS checks (size limits + readFromBuffer pipelining) all PASS"
 else
   cat /tmp/v10_out.txt
   fail "v0.10-test: $V10_FAIL failed, $V10_PASS passed"
 fi
 
-step "23. jemmet prototype smoke test (routes + keep-alive)"
+step "23. Reference consumer smoke test (handoff surface sufficiency + keep-alive)"
 if require curl; then
-  lake build iotakt-jemmet-demo 2>/dev/null
-  .lake/build/bin/iotakt-jemmet-demo > /tmp/jemmet_ci.txt 2>&1 &
-  JM_PID=$!
+  lake build iotakt-reference-server 2>/dev/null
+  .lake/build/bin/iotakt-reference-server > /tmp/refsrv_ci.txt 2>&1 &
+  RS_PID=$!
   sleep 1
-  J_USER=$(curl -s http://127.0.0.1:49997/users/42 2>/dev/null)
-  J_KA=$(curl -s http://127.0.0.1:49997/a http://127.0.0.1:49997/b 2>/dev/null)
+  R_USER=$(curl -s http://127.0.0.1:49997/users/42 2>/dev/null)
+  R_KA=$(curl -s http://127.0.0.1:49997/a http://127.0.0.1:49997/b 2>/dev/null)
   sleep 3
-  kill "$JM_PID" 2>/dev/null || true; wait "$JM_PID" 2>/dev/null || true
-  if echo "$J_USER" | grep -q '"id":"42"' && [ "$J_KA" = "AB" ]; then
-    pass "jemmet: /users/42 → JSON, keep-alive /a/b on one conn → AB ✓"
+  kill "$RS_PID" 2>/dev/null || true; wait "$RS_PID" 2>/dev/null || true
+  if echo "$R_USER" | grep -q '"id":"42"' && [ "$R_KA" = "AB" ]; then
+    pass "reference server: /users/42 → JSON, keep-alive /a/b on one conn → AB ✓"
   else
-    echo "user='$J_USER' ka='$J_KA'"
-    fail "jemmet: routing or keep-alive failed"
+    echo "user='$R_USER' ka='$R_KA'"
+    fail "reference server: routing or keep-alive failed"
   fi
 else
-  pass "jemmet smoke test: SKIP (curl not found)"
+  pass "reference server smoke test: SKIP (curl not found)"
+fi
+
+step "24. v0.11 integration test (connection limits + graceful shutdown)"
+lake build iotakt-v11-test 2>/dev/null && \
+  timeout 20 .lake/build/bin/iotakt-v11-test > /tmp/v11_ci.txt 2>&1
+V11_FAIL=$(grep -c "\[FAIL\]" /tmp/v11_ci.txt 2>/dev/null | tr -d "\n" || echo 0)
+V11_PASS=$(grep -c "\[PASS\]" /tmp/v11_ci.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V11_FAIL" -eq 0 ] && [ "$V11_PASS" -gt 0 ]; then
+  pass "v0.11-test: $V11_PASS checks (connection limits + graceful shutdown) all PASS"
+else
+  cat /tmp/v11_ci.txt
+  fail "v0.11-test: $V11_FAIL failed, $V11_PASS passed"
 fi
 
 step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"

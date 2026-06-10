@@ -74,6 +74,10 @@ structure EventLoop where
   /-- Wall-clock (monotonic ns) of the last activity on each connection.
   Updated on accept and on each `dataReady`. Used for idle reaping. -/
   lastActivityNs : List (FdKey × Nat) := []
+  /-- Optional cap on concurrent connections. When set, accepts past the cap
+  are shed (closed immediately) rather than registered — a resource-exhaustion
+  control (RFC 030, v0.11). -/
+  maxConnections : Option Nat := none
 
 namespace EventLoop
 
@@ -88,6 +92,20 @@ def taskOf (loop : EventLoop) (key : FdKey) : Option Nat :=
 /-- Forget a connection's task mapping. -/
 def forgetTask (loop : EventLoop) (key : FdKey) : EventLoop :=
   { loop with taskByKey := loop.taskByKey.filter (·.1 != key) }
+
+/-- Number of currently-tracked connections (each accepted/connected stream
+records a task; `closeConnection` removes it). -/
+def connectionCount (loop : EventLoop) : Nat := loop.taskByKey.length
+
+/-- Configure a maximum number of concurrent connections (RFC 030). -/
+def withMaxConnections (loop : EventLoop) (n : Nat) : EventLoop :=
+  { loop with maxConnections := some n }
+
+/-- True when the connection cap is configured and reached. -/
+def atCapacity (loop : EventLoop) : Bool :=
+  match loop.maxConnections with
+  | none   => false
+  | some n => loop.connectionCount >= n
 
 /-- Configure an idle timeout (milliseconds). Connections idle longer than
 this are closed by `reapIdle` / `runStepAuto`. -/
@@ -219,12 +237,27 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
   -- ── 3. Accept new connections from all listeners ────────────────────
   let mut newConns : List LoopEvent := []
   let mut newTasks : List (FdKey × Nat) := []
+  -- Track the running connection count so the cap is enforced across this
+  -- step's accept burst, not just against the count at step entry.
+  let mut liveCount := loop.connectionCount
   for (_, lfd) in loop.listeners do
     let (nds1, rt1, accepted) ← acceptBurst nds rt loop.ph lfd
     nds := nds1; rt := rt1
     for (key, rawFd, task) in accepted do
-      newConns := newConns ++ [.newConnection key rawFd]
-      newTasks := (key, task) :: newTasks
+      let overCap := match loop.maxConnections with
+        | none   => false
+        | some m => liveCount >= m
+      if overCap then
+        -- Load-shed: deregister, close the fd, cancel its task, drop the
+        -- registry entry. The connection is never surfaced to the caller.
+        let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 key.raw)
+        Socket.closeFdRaw (fd32 key.raw)
+        nds := { nds with ds := { nds.ds with registry := nds.ds.registry.close key } }
+        rt  := (Henret.step rt (.cancel task)).1
+      else
+        newConns := newConns ++ [.newConnection key rawFd]
+        newTasks := (key, task) :: newTasks
+        liveCount := liveCount + 1
 
   let loopOut := { loop with
     nds       := nds
@@ -302,6 +335,28 @@ def runStepAuto (loop : EventLoop) : IO (EventLoop × List LoopEvent) := do
   -- the caller learns about them via the returned loop's state.
   let _ := reaped
   return (l2, events)
+
+/-- Graceful shutdown (RFC 037): stop accepting and drain cleanly.
+
+1. Deregister and close every listener fd (stop accepting new connections).
+2. Close every active stream connection (deregister from epoll, close the fd,
+   cancel its Henret task — the same path as `closeConnection`).
+3. Leave the poller open for `destroy` to finalize.
+
+Returns the drained loop. The caller should call `destroy` afterwards to
+close the poller handle. This is the clean lifecycle end that replaces the
+bounded-iteration loop the examples use for testability. -/
+def shutdown (loop : EventLoop) : IO EventLoop := do
+  -- 1. Stop accepting: deregister + close listeners.
+  for (_, lfd) in loop.listeners do
+    let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 lfd)
+    Socket.closeFdRaw (fd32 lfd)
+  -- 2. Drain active stream connections.
+  let mut l := { loop with listeners := [] }
+  let activeKeys := loop.taskByKey.map (·.1)
+  for key in activeKeys do
+    l ← l.closeConnection key
+  return l
 
 /-- Acknowledge that a connection's readiness has been handled.
 Must be called after processing each `dataReady` event to allow

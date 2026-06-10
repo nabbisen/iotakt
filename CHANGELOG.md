@@ -6,66 +6,101 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
-## [0.10.0-dev] — 2026-06-10
+## [0.11.0-dev] — 2026-06-10
+
+iotakt stabilization toward v1.0 — resource-lifecycle controls that are
+squarely iotakt's responsibility (not server-layer features). No new
+dependency; still henret v0.15.2.
 
 ### Added
 
+**Graceful shutdown (`Iotakt.Loop`, RFC 037)**
+
+- `EventLoop.shutdown : EventLoop → IO EventLoop` — stop accepting and drain
+  cleanly: deregister + close every listener fd, then close every active
+  stream connection via `closeConnection` (epoll deregister + fd close +
+  Henret task cancel). Leaves the poller for `destroy` to finalize. This is
+  the clean lifecycle end that replaces the bounded-iteration loop the
+  examples use for testability.
+
+**Connection limits / load shedding (`Iotakt.Loop`, RFC 030)**
+
+- `EventLoop.maxConnections : Option Nat` — optional concurrency cap.
+- `withMaxConnections`, `connectionCount` (= tracked connections),
+  `atCapacity`.
+- `runStep` enforces the cap across the accept burst: connections accepted
+  past the cap are **shed** — deregistered, closed, their task cancelled, and
+  the registry entry dropped — and never surfaced to the caller. A
+  resource-exhaustion control complementing the per-request size limit
+  (v0.10); both are required by iotakt's security model (RFC 013 §19.1).
+
+**Example**
+
+- `iotakt-v11-test` — connection-cap bookkeeping (7), live load-shedding
+  (cap=1 admits ≤1 of 3 real client connects, 3), graceful shutdown
+  (listeners closed + connections drained + activity cleared + clean
+  destroy, 7).
+
+### Changed
+
+- **CI gate extended to 24 steps** — step 24: v0.11 integration test.
+- **RFCs 030 and 037 moved to `rfcs/done/`** (26 done, 35 proposed); README
+  Done table updated.
+
+## [0.10.0-dev] — 2026-06-10
+
+**Scope note:** an earlier draft of this release added an `Iotakt.Jemmet`
+service-framework module. That was removed before release — jemmet (the HTTP
+server) is a *separate project* built on iotakt once iotakt is stable, not
+part of the iotakt library. iotakt ships the I/O-boundary building blocks; a
+consumer composes them. The keep-alive serve loop now lives only in an
+example (`examples/ReferenceServer.lean`), not in a library module.
+
+### Added (iotakt building blocks)
+
 **Request-size limits (`Iotakt.RequestBody`)**
 
-- `ReadResult.tooLarge` — new variant returned when a request exceeds the
-  `maxBytes` bound (slow-loris / oversized-body protection).
-- `readFull` and `readFromBuffer` now enforce `maxBytes` in every read phase:
+- `ReadResult.tooLarge` — returned when a request exceeds the `maxBytes`
+  bound (slow-loris / oversized-body protection).
+- `readFull` and `readFromBuffer` enforce `maxBytes` in every read phase:
   header flood, oversized declared Content-Length, and oversized chunked body.
-- Internal `ReadPhase` type threads done/incomplete/tooLarge through the
-  read helpers.
+- Internal `ReadPhase` type threads done/incomplete/tooLarge through helpers.
 
-**Keep-alive + pipelining (`Iotakt.RequestBody.readFromBuffer`)**
+**Pipelining-correct buffered reads (`Iotakt.RequestBody.readFromBuffer`)**
 
 - `readFromBuffer fd initial maxBytes maxPolls : IO (ReadResult × ByteArray)`
-  — parses one request starting from leftover bytes and returns the bytes of
-  the *next* request, so HTTP/1.1 request pipelining loses no data.
+  — parses one request from leftover bytes and returns the bytes of the
+  *next* request, so a consumer's HTTP/1.1 keep-alive loop loses no pipelined
+  data. Computes exact request end for all three framings.
 - `findHeaderEnd` — byte offset past the `\r\n\r\n` header terminator.
-- Computes exact request end for all three framings (bodyless / Content-Length
-  / chunked) and returns the remainder as leftover.
 - Exposed on the handoff surface as `Iotakt.Server.readRequestBuffered`.
 
-**jemmet prototype (`Iotakt.Jemmet`)**
+**Reference consumer example (not a library module)**
 
-The first genuine downstream consumer of iotakt — a prototype HTTP/1.1
-service built entirely on the `Iotakt.Server` handoff surface.
-
-- `Config` (port, maxBytes, idleTimeoutMs, maxKeepAlive).
-- `serveConnection` — keep-alive serve loop carrying a leftover buffer across
-  pipelined requests; stops on `Connection: close`, peer close, incomplete/
-  too-large request, or `maxKeepAlive`; rewrites the response `Connection`
-  header to the negotiated intent.
-- `run` — `runStepAuto` + idle reaping driver: accept → serve → close.
-- `payloadTooLarge` — 413 response for oversized requests.
-- `IotaktJemmet` Lake library target.
-
-**Examples**
-
-- `iotakt-jemmet-demo` — a runnable jemmet service: `/`, `/health`,
-  `/users/:id` (JSON-ish), `/echo` (POST body), `/a`, `/b` (keep-alive).
-  Verified live with curl: `/users/42` → JSON, `curl /a /b` on one
-  connection → `AB`.
-- `iotakt-v10-test` — request-size limits (3), keep-alive serve loop (5),
-  jemmet router + 413 + config (6).
+- `examples/ReferenceServer.lean` — a *demonstration* that the
+  `Iotakt.Server` handoff surface is sufficient to build a keep-alive
+  HTTP/1.1 service. The router, serve loop, and keep-alive policy live in the
+  example, since those are a server's responsibility (the future jemmet), not
+  iotakt's. Verified live: `/users/42` → JSON, `curl /a /b` on one connection
+  → `AB`. Built as `iotakt-reference-server`.
+- `iotakt-v10-test` — request-size limits (3), `readFromBuffer` pipelining
+  (7 incl. Content-Length-then-pipelined-next), `findHeaderEnd` (3).
 
 **Documentation**
 
-- `docs/src/jemmet-prototype.md` — request-size limits, keep-alive +
-  pipelining design (with the leftover-buffer diagram), and the jemmet
-  prototype. Indexed in `docs/src/SUMMARY.md`.
+- `docs/src/keep-alive-and-consumers.md` — the v0.10 building blocks
+  (size limits, `readFromBuffer`) and the consumer pattern, with the boundary
+  restated: iotakt provides reading primitives; a separate server provides
+  routing, keep-alive policy, and the serve loop. Indexed in `SUMMARY.md`.
 
 ### Changed
 
 **`examples/UploadServer.lean`** — handles the new `.tooLarge` variant (the
-compiler caught the missing case, which is the intended safety).
+compiler caught the missing case).
 
 **CI gate extended to 23 steps** — step 22: v0.10 integration test;
-step 23: jemmet prototype smoke test (routes + live keep-alive).
-24 RFCs in done/, 37 in proposed/.
+step 23: reference consumer smoke test (handoff surface sufficiency + live
+keep-alive). 24 RFCs in done/, 37 in proposed/.
 
 ## [0.9.1-dev] — 2026-06-10
 

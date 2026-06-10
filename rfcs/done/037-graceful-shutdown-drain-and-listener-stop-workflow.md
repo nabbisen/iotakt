@@ -1,6 +1,6 @@
 # RFC 037: Graceful Shutdown, Drain, and Listener Stop Workflow
 
-- **Status:** Proposed
+**Status:** Done (implemented v0.11.0-dev)
 - **Intended phase:** v0.2+
 - **Package:** iotakt RFC v3 continuation
 - **Audience:** Lean 4 library maintainers, Henret integrators, native-boundary reviewers, low-level networking implementers

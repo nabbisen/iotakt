@@ -120,10 +120,6 @@ lean_lib IotaktServer where
   globs := #[.one `Iotakt.Server]
   extraDepTargets := #[`iotaktNativeLib.static]
 
-/-- jemmet prototype: HTTP/1.1 service framework on the handoff surface (v0.10). -/
-lean_lib IotaktJemmet where
-  globs := #[.one `Iotakt.Jemmet]
-  extraDepTargets := #[`iotaktNativeLib.static]
 
 /-- Connection actor abstraction: callback lifecycle, ActorRegistry (v0.5). -/
 lean_lib IotaktActor where
@@ -218,12 +214,17 @@ lean_exe «iotakt-v9-test» where
   root := `examples.V9Test
   extraDepTargets := #[`iotaktNativeLib.static]
 
-/-- v0.10 jemmet prototype demo: keep-alive HTTP/1.1 service on the handoff surface. -/
-lean_exe «iotakt-jemmet-demo» where
-  root := `examples.JemmetDemo
+/-- v0.10 reference consumer example: keep-alive HTTP/1.1 service on the handoff surface. -/
+lean_exe «iotakt-reference-server» where
+  root := `examples.ReferenceServer
   extraDepTargets := #[`iotaktNativeLib.static]
 
 /-- v0.10 integration test: request-size limits, keep-alive serve loop, jemmet router. -/
 lean_exe «iotakt-v10-test» where
   root := `examples.V10Test
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.11 integration test: connection limits + graceful shutdown. -/
+lean_exe «iotakt-v11-test» where
+  root := `examples.V11Test
   extraDepTargets := #[`iotaktNativeLib.static]

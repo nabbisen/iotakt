@@ -32,17 +32,22 @@ Dependency to henret v0.15.2 (non-breaking through v0.13.x–v0.15.2). Adopted R
 ## Released: v0.9.0-dev — body-aware request reading + jemmet handoff surface
 `Iotakt.RequestBody.readFull` reassembles Content-Length and chunked request bodies off a live socket (RFC 7230 §3.3.3). `Iotakt.Server` consolidated handoff surface for jemmet. Upload server verified with both framings. jemmet-handoff.md consumer contract. 21-step CI.
 
-## Released: v0.10.0-dev — keep-alive + request-size limits + jemmet prototype
-`readFromBuffer` for pipelining-correct keep-alive; `maxBytes` request-size limits (`ReadResult.tooLarge` → 413). `Iotakt.Jemmet` prototype — the first downstream consumer, a keep-alive HTTP/1.1 service on the handoff surface. Verified live with curl. 23-step CI.
+## Released: v0.10.0-dev — keep-alive building blocks + request-size limits
+`readFromBuffer` for pipelining-correct request reading (consumer keep-alive loses no data); `maxBytes` request-size limits (`ReadResult.tooLarge` → consumer 413). Reference consumer *example* (not a library module) proving the handoff surface is sufficient. jemmet itself remains a separate future project. 23-step CI.
 
-## Next: v0.11.0 — graceful shutdown + jemmet response streaming
+## Released: v0.11.0-dev — graceful shutdown + connection limits (iotakt stabilization)
+`EventLoop.shutdown` (RFC 037): stop accepting, drain/close active connections + listeners cleanly. Connection cap (RFC 030): `withMaxConnections`/`connectionCount`/`atCapacity`; `runStep` sheds accepts past the cap. Verified live (cap=1 admits ≤1 of 3 clients; shutdown drains all). 24-step CI. 26 RFCs done.
 
-Priority items:
-- **Graceful shutdown (RFC 037)** — drain in-flight connections and stop the listener cleanly on a shutdown signal, rather than the bounded-iteration loop the examples use. Wire into `EventLoop` and the jemmet `run` loop.
-- **jemmet response streaming** — let jemmet handlers return a streaming body (chunked) for large/generated responses, not just a fixed `HttpResponse`; integrate `Iotakt.Chunked` into the handler return type.
-- **Chunked trailers (RFC 7230 §4.1.2)** — trailer headers after the final chunk, if jemmet needs them.
+## Next: v0.12.0 — proof/trust/test-matrix refresh + API stability review (toward v1.0)
+
+iotakt-owned stabilization (no server-layer features):
+- **Proof/trust/test matrix refresh** — fold v0.6–v0.11 additions (Gap 006 cancel-on-close, SchedConn failure/restart lifecycle, request-size limits, `readFromBuffer`, graceful shutdown, connection limits) into `docs/src/proof-trust-test-matrix.md`; reconcile the theorem/test counts with the current CI gate.
+- **API stability review (RFC 031)** — audit `Iotakt.Api` and `Iotakt.Server` surfaces toward a v1.0 stability commitment; document which names are stable vs. provisional.
 - **RFC 021** — BSD/macOS kqueue native backend (still blocked on a macOS CI runner).
-- **Connection limits (RFC 030)** — cap concurrent connections / load-shedding policy, complementing the per-request size limit.
+
+## Future: v0.6.0-dev → v1.0
+- Complete remaining proposed RFCs as iotakt stabilizes.
+- jemmet (the HTTP server) is built **separately**, on the stable iotakt surface, after v1.0.
 
 Priority items:
 - **Keep-alive in the read path** — `readFull` currently reads one request then the server closes; extend the driver/example to keep the connection open and read successive requests on the same fd (HTTP/1.1 default), reusing the idle-timeout machinery for connection lifetime.
