@@ -87,8 +87,19 @@ abbrev RegistryWellFormed := Iotakt.Model.Registry.WellFormed
 
 /-- Coalescing state: the set of outstanding readiness notifications.
 Limits actor mailbox growth to at most one pending readiness per
-`FdKey + kind` at any time. -/
+`FdKey + kind` at any time.
+
+**Committed contract (v0.13): explicit acknowledgement.** Pending readiness
+clears only when the actor acknowledges — via `EventLoop.ackReady`, or the
+combined `EventLoop.recvAck`/`sendAck` helpers that do the I/O and the ack
+together. iotakt does **not** clear pending readiness implicitly on recv/send
+at the model level; the ack is an explicit, proven step (`CoalesceState.ack`,
+`ack_clears`, `deliver_after_ack`). This is a Stable part of the surface. -/
 abbrev CoalesceState := Iotakt.Model.CoalesceState
+
+/-- Acknowledge/clear one pending readiness slot (the committed explicit-ack
+mechanism). Re-exported from the model. -/
+abbrev coalesceAck := @Iotakt.Model.CoalesceState.ack
 
 -- ── Interest set constructors ────────────────────────────────────────────
 

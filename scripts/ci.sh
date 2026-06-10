@@ -297,7 +297,19 @@ else
   fail "v0.11-test: $V11_FAIL failed, $V11_PASS passed"
 fi
 
-step "23. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
+step "23. v0.13 integration test (explicit ack + recvAck/sendAck)"
+lake build iotakt-v13-test 2>/dev/null && \
+  timeout 20 .lake/build/bin/iotakt-v13-test > /tmp/v13_ci.txt 2>&1
+V13_FAIL=$(grep -c "\[FAIL\]" /tmp/v13_ci.txt 2>/dev/null | tr -d "\n" || echo 0)
+V13_PASS=$(grep -c "\[PASS\]" /tmp/v13_ci.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V13_FAIL" -eq 0 ] && [ "$V13_PASS" -gt 0 ]; then
+  pass "v0.13-test: $V13_PASS checks (explicit ack + recvAck/sendAck) all PASS"
+else
+  cat /tmp/v13_ci.txt
+  fail "v0.13-test: $V13_FAIL failed, $V13_PASS passed"
+fi
+
+step "24. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1
 V4_FAIL=$(grep -c "\[FAIL\]" /tmp/v4_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -309,7 +321,7 @@ else
   fail "v0.4-test: $V4_FAIL failed, $V4_PASS passed"
 fi
 
-step "24. HTTP/1.0 server+client smoke test"
+step "25. HTTP/1.0 server+client smoke test"
 if require nc; then
   lake build iotakt-http-server iotakt-http-client 2>/dev/null
   .lake/build/bin/iotakt-http-server > /tmp/http_srv.txt 2>&1 &
@@ -329,7 +341,7 @@ else
   pass "HTTP smoke test: SKIP (nc not found)"
 fi
 
-step "25. Multi-connection echo server"
+step "26. Multi-connection echo server"
 if require nc; then
   lake build iotakt-multi-echo 2>/dev/null
   .lake/build/bin/iotakt-multi-echo > /dev/null 2>&1 &

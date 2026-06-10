@@ -43,9 +43,15 @@ before v1.0; it is called out in the CHANGELOG each time.
 
 | Name | Why provisional |
 |------|------------------|
-| `CoalesceState` | the coalescing model is proven, but the ack/clear *API shape* (explicit `ackReady` vs. clear-on-recv) is still an open RFC question (External Design §23.7) |
 | `FakePoller`, `FakePollResult` | the deterministic test harness; its scripting DSL may be refined |
 | `processEvent` | a convenience string-rendering helper; likely folded into the trace/render layer |
+
+> **Settled in v0.13:** `CoalesceState` is now **Stable**. The coalescing
+> contract is pinned to **explicit acknowledgement** — pending readiness
+> clears only via `ackReady` / `recvAck` / `sendAck` (proven by
+> `ack_clears`, `deliver_after_ack`); clear-on-recv was rejected because it
+> would couple the model to the I/O path and is harder to prove. The
+> `CoalesceState` abbrev and `coalesceAck` are exposed on `Iotakt.Api`.
 
 ---
 
@@ -67,16 +73,16 @@ serve loop and routing policy live in the consumer.
 | `bodyFramingOf` | framing classifier |
 | `encodeChunk`, `chunkedTerminator`, `chunkedResponseHeader`, `decodeChunked`, `isChunked` | chunked transfer-encoding (RFC 7230 §4.1) |
 
-### Provisional
+### Settled in v0.13: routing is **not** part of the stable surface
 
-| Name | Why provisional |
-|------|------------------|
-| `Router`, `Route`, `RouteParams`, `Handler` | a *convenience* router is provided for examples, but routing is properly the consumer's concern (RFC 001 non-goal). It may be moved out of iotakt entirely before v1.0 — a consumer can supply its own. |
-
-The `Router` re-export is the clearest candidate for removal before v1.0:
-iotakt should ship the *reading and framing* primitives and let a server
-own dispatch. It stays for now because the examples lean on it, but the
-v1.0 audit should decide whether it belongs in the boundary library at all.
+`Router`, `Route`, `RouteParams`, `Handler` were **removed from
+`Iotakt.Server`'s exports**. Routing is an RFC 001 non-goal; a consumer
+(jemmet) owns dispatch. The `Iotakt.Router` module remains in the repo as an
+**optional convenience** — the same status as `Iotakt.Http`: a reusable
+primitive, imported directly by code that wants it, carrying **no stability
+promise**. The reference server and routing-server examples import it
+directly. The stable handoff surface now offers I/O + framing primitives
+only.
 
 ---
 
@@ -92,23 +98,41 @@ v1.0 audit should decide whether it belongs in the boundary library at all.
 These are the connection-lifecycle and resource-control entry points; their
 signatures are settled and exercised by the integration tests.
 
-### Provisional
+### Internal (settled v0.13 — no stability promise)
 
-| Name | Why |
-|------|-----|
-| `recordTask`/`forgetTask`/`taskOf`/`taskByKey` | the Gap-006 task-tracking bookkeeping is currently public for testing; it may become internal once the cancel-on-close path is considered final |
-| `reapIdle`, `pollTimeoutMs`, `touchConn` | the adaptive-timeout / idle-reaping internals; useful to inspect in tests but not a committed API |
+| Name | Status |
+|------|--------|
+| `recordTask`/`forgetTask`/`taskOf`/`taskByKey` | **Internal.** The Gap-006 cancel-on-close path is final; this bookkeeping backs it and is non-`private` only so the integration tests can inspect it. Consumers use `closeConnection`/`connectionCount`/`shutdown`. |
+| `reapIdle`, `pollTimeoutMs`, `touchConn` | **Internal.** Adaptive-timeout / idle-reaping internals; inspectable in tests, not a committed API. |
+
+### `recvAck` / `sendAck` (added v0.13) — Stable
+
+The combined read/write + acknowledge helpers that implement the explicit-ack
+contract (RFC 006). Part of the Stable operational surface alongside
+`ackReady`.
 
 ---
 
-## Open items to settle before v1.0
+## Status toward v1.0
 
-1. **Coalesce ack API** — pin `ackReady` vs. clear-on-recv (External Design §23.7).
-2. **Router placement** — decide whether `Router` ships in iotakt or moves to the consumer.
-3. **Task-tracking visibility** — demote Gap-006 bookkeeping to internal if final.
-4. **`recvInto`** — the reusable-buffer optimization (RFC 022) is deferred; if it lands, it adds a Stable name, not a breaking change.
-5. **kqueue (RFC 021)** — the model is already kqueue-aware; a native kqueue backend adds a `NativeBackendKind` value, not a surface change.
+As of v0.13 the **Provisional column is essentially empty**: the coalesce ack
+API is pinned (explicit), routing is decided (not in the stable surface), and
+the task-tracking bookkeeping is reclassified Internal. The remaining items do
+**not** block the surface:
 
-When these are resolved and the Provisional column is emptied (promoted or
-removed), the surface is ready for a v1.0 stability commitment — pending
-explicit sign-off.
+1. **kqueue (RFC 021)** — the model is already kqueue-aware; a native kqueue
+   backend adds a `NativeBackendKind` value, not a surface change. Blocked
+   only on a macOS CI runner.
+2. **`recvInto` (RFC 022)** — the reusable-buffer optimization is deferred; if
+   it lands it *adds* a Stable name, not a breaking change.
+3. `FakePoller` DSL and `processEvent` remain Provisional but are test/utility
+   surface, not part of the core consumer contract.
+
+The core consumer surface (`Iotakt.Api` model types, `Iotakt.Server` I/O +
+framing primitives, the `EventLoop` operational API including
+`ackReady`/`recvAck`/`sendAck`/`shutdown`/`withMaxConnections`) is therefore a
+**v1.0 candidate**.
+
+> **v1.0 is not cut and will not be cut without explicit maintainer sign-off.**
+> This audit establishes that the surface is *ready* for that decision; it does
+> not make it.

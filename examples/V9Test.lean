@@ -123,9 +123,9 @@ def testLiveRead : IO Unit := do
 def testHandoff : IO Unit := do
   IO.println ""
   IO.println "=== D. Iotakt.Server handoff surface ==="
-  -- The handoff value: a single `import Iotakt.Server` brings the whole
-  -- stack transitively, plus consolidated abbrevs for the chunked + read ops.
-  let _router := Iotakt.Router.Router.empty       -- Router type re-exported by Server
+  -- The handoff value: a single `import Iotakt.Server` brings the I/O +
+  -- framing primitives, plus consolidated abbrevs for the chunked + read ops.
+  -- (Routing is intentionally NOT part of this surface — RFC 001 non-goal.)
   let frame := Iotakt.Server.encodeChunk "hi".toUTF8
   check "Server.encodeChunk resolves" ((String.fromUTF8? frame |>.getD "") == "2\r\nhi\r\n")
   check "Server.chunkedTerminator resolves"

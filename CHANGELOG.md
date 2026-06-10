@@ -6,6 +6,52 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.13.0-dev] — 2026-06-10
+
+Settles the three v1.0 open items the API-stability audit named, emptying the
+Provisional column and producing a **v1.0-candidate surface** (not cut — see
+below). No model changes; still henret v0.15.2; 77 theorems, 0 sorry/axiom.
+
+### Changed — v1.0 surface decisions
+
+**1. Coalesce ack API pinned to explicit acknowledgement (RFC 006).**
+- Pending readiness clears only via acknowledgement, never implicitly on
+  recv/send at the model level. The proven `CoalesceState.ack` is the
+  mechanism (`ack_clears`, `deliver_after_ack`); clear-on-recv was rejected
+  (it would couple the model to the I/O path and is harder to prove).
+- `CoalesceState` promoted Provisional → **Stable** on `Iotakt.Api`;
+  `coalesceAck` re-exported.
+
+**2. Routing removed from the stable handoff surface.**
+- `Router`, `Route`, `RouteParams`, `Handler` are no longer exported from
+  `Iotakt.Server`. Routing is an RFC 001 non-goal; a consumer (jemmet) owns
+  dispatch. The `Iotakt.Router` module remains as an **optional convenience**
+  (same status as `Iotakt.Http`), imported directly by code that wants it,
+  with no stability promise. `examples/ReferenceServer.lean` now imports
+  `Iotakt.Router` explicitly.
+
+**3. Gap-006 task-tracking reclassified Internal.**
+- The cancel-on-close path is declared **final**; `recordTask`/`forgetTask`/
+  `taskOf`/`taskByKey` (and `reapIdle`/`pollTimeoutMs`/`touchConn`) are marked
+  Internal — no stability promise, non-`private` only for tests. Consumers use
+  `closeConnection`/`connectionCount`/`shutdown`.
+
+### Added
+
+- **`EventLoop.recvAck` / `sendAck`** — combined read/write + acknowledge
+  helpers (RFC 006 "together" helpers) so a consumer cannot forget to ack and
+  suppress the next readiness. Stable.
+- **`iotakt-v13-test`** — explicit-ack coalescing (suppress → deliver-after-ack,
+  6) and the `recvAck`/`sendAck` helpers clearing pending readiness (6).
+- CI step 23 (v0.13 test); gate renumbered to 26 sequential steps.
+
+### Documentation
+
+- `docs/src/api-stability.md` updated: Provisional column emptied; the core
+  consumer surface declared a **v1.0 candidate**. Only kqueue (RFC 021) and
+  `recvInto` (RFC 022) remain, neither a surface blocker. Explicitly notes
+  v1.0 is not cut and requires maintainer sign-off.
+
 ## [0.12.0-dev] — 2026-06-10
 
 iotakt stabilization toward v1.0 — documentation, governance, and CI

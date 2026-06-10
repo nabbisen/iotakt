@@ -228,3 +228,8 @@ lean_exe «iotakt-v10-test» where
 lean_exe «iotakt-v11-test» where
   root := `examples.V11Test
   extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.13 integration test: explicit coalesce ack + recvAck/sendAck helpers. -/
+lean_exe «iotakt-v13-test» where
+  root := `examples.V13Test
+  extraDepTargets := #[`iotaktNativeLib.static]

@@ -1,5 +1,4 @@
 import Iotakt.Loop
-import Iotakt.Router
 import Iotakt.Http
 import Iotakt.Chunked
 import Iotakt.RequestBody
@@ -65,8 +64,11 @@ namespace Iotakt.Server
 -- ── Event loop / driver ────────────────────────────────────────────────
 export Iotakt.Loop (EventLoop LoopEvent)
 
--- ── Routing ──────────────────────────────────────────────────────────────
-export Iotakt.Router (Router Route RouteParams Handler)
+-- ── Routing: deliberately NOT exported ───────────────────────────────────
+-- Routing is an iotakt non-goal (RFC 001); a consumer (jemmet) owns dispatch.
+-- The optional `Iotakt.Router` convenience module remains for examples and
+-- quick starts, imported directly by code that wants it — it carries no
+-- stability promise. See docs/src/api-stability.md.
 
 -- ── HTTP messages ──────────────────────────────────────────────────────
 export Iotakt.Http (HttpRequest HttpResponse)

@@ -1,4 +1,5 @@
 import Iotakt.Server
+import Iotakt.Router  -- routing is not part of the stable Server surface; import directly
 
 /-!
 # Reference consumer example (not part of the iotakt library)

@@ -81,15 +81,23 @@ structure EventLoop where
 
 namespace EventLoop
 
-/-- Record the Henret task id that owns a connection key. -/
+/-! ### Internal: Gap-006 task tracking
+
+The connection→task bookkeeping below backs `closeConnection`'s cancel-on-close
+(Gap 006). The cancel-on-close path is **final** as of v0.13. These helpers are
+**internal** — they carry no v1.0 stability promise and may change shape. They
+remain non-`private` only so the integration tests can inspect them. Consumers
+should use `closeConnection` / `connectionCount` / `shutdown`, not these. -/
+
+/-- (Internal) Record the Henret task id that owns a connection key. -/
 def recordTask (loop : EventLoop) (key : FdKey) (task : Nat) : EventLoop :=
   { loop with taskByKey := (key, task) :: loop.taskByKey }
 
-/-- Look up the Henret task id owning a connection key. -/
+/-- (Internal) Look up the Henret task id owning a connection key. -/
 def taskOf (loop : EventLoop) (key : FdKey) : Option Nat :=
   loop.taskByKey.find? (·.1 == key) |>.map (·.2)
 
-/-- Forget a connection's task mapping. -/
+/-- (Internal) Forget a connection's task mapping. -/
 def forgetTask (loop : EventLoop) (key : FdKey) : EventLoop :=
   { loop with taskByKey := loop.taskByKey.filter (·.1 != key) }
 
@@ -366,6 +374,27 @@ def ackReady (loop : EventLoop) (key : FdKey) (ev : IoEvent) : EventLoop :=
     { fd := key, kind := ev.pendingKind }
   let cs1 := loop.nds.ds.coalesce.ack pk
   { loop with nds := { loop.nds with ds := { loop.nds.ds with coalesce := cs1 } } }
+
+/-- Receive on a connection **and acknowledge** its readable readiness in one
+step — the combined helper recommended by RFC 006 so consumers cannot forget
+to ack (which would suppress the next readiness for this fd). This pins
+iotakt's coalescing contract to **explicit acknowledgement**: pending
+readiness clears when the actor calls `recvAck`/`sendAck`/`ackReady`, never
+implicitly. Returns the updated loop and the read result. -/
+def recvAck (loop : EventLoop) (key : FdKey) (maxBytes : Nat) :
+    IO (EventLoop × Iotakt.Model.ReadResult) := do
+  let r ← Io.recv key.raw maxBytes
+  return (loop.ackReady key .readable, r)
+
+/-- Send on a connection **and acknowledge** its writable readiness in one
+step (the write-side companion to `recvAck`). After a full write the caller
+typically also `disableWrite`s; after a partial write it keeps write interest
+and the next writable readiness will be delivered (the ack cleared the
+previous one). -/
+def sendAck (loop : EventLoop) (key : FdKey) (ba : ByteArray) (offset len : Nat) :
+    IO (EventLoop × Iotakt.Model.WriteResult) := do
+  let w ← Io.send key.raw ba offset len
+  return (loop.ackReady key .writable, w)
 
 /-- Result of initiating an outbound connect. -/
 inductive ConnectOutcome where
