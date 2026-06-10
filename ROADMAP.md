@@ -38,16 +38,21 @@ Dependency to henret v0.15.2 (non-breaking through v0.13.x–v0.15.2). Adopted R
 ## Released: v0.11.0-dev — graceful shutdown + connection limits (iotakt stabilization)
 `EventLoop.shutdown` (RFC 037): stop accepting, drain/close active connections + listeners cleanly. Connection cap (RFC 030): `withMaxConnections`/`connectionCount`/`atCapacity`; `runStep` sheds accepts past the cap. Verified live (cap=1 admits ≤1 of 3 clients; shutdown drains all). 24-step CI. 26 RFCs done.
 
-## Next: v0.12.0 — proof/trust/test-matrix refresh + API stability review (toward v1.0)
+## Released: v0.12.0-dev — proof/trust/test-matrix refresh + API stability review
+Matrix doc refreshed to current state (77 theorems, 0 sorry/axiom, 321 checks, native implemented); matrix-honesty CI guard added (count can't drift). API stability audit (`docs/src/api-stability.md`, applies RFC 031) classifies the public surface Stable/Provisional/Internal toward v1.0. jemmet prototype preserved as handoff seed in `jemmet-handoff/`. CI renumbered to 25 sequential steps.
 
-iotakt-owned stabilization (no server-layer features):
-- **Proof/trust/test matrix refresh** — fold v0.6–v0.11 additions (Gap 006 cancel-on-close, SchedConn failure/restart lifecycle, request-size limits, `readFromBuffer`, graceful shutdown, connection limits) into `docs/src/proof-trust-test-matrix.md`; reconcile the theorem/test counts with the current CI gate.
-- **API stability review (RFC 031)** — audit `Iotakt.Api` and `Iotakt.Server` surfaces toward a v1.0 stability commitment; document which names are stable vs. provisional.
-- **RFC 021** — BSD/macOS kqueue native backend (still blocked on a macOS CI runner).
+## Next: v0.13.0 — settle the v1.0 open items (toward a v1.0 candidate)
 
-## Future: v0.6.0-dev → v1.0
-- Complete remaining proposed RFCs as iotakt stabilizes.
-- jemmet (the HTTP server) is built **separately**, on the stable iotakt surface, after v1.0.
+Work through the API-stability open items so the Provisional column can be emptied:
+- **Coalesce ack API** — decide `ackReady` vs. clear-on-recv (External Design §23.7) and pin it.
+- **`Router` placement** — decide whether the convenience router ships in iotakt or moves to the consumer (it is an RFC 001 non-goal); if it stays, justify it; if not, remove it and update examples.
+- **Task-tracking visibility** — demote the Gap-006 bookkeeping (`recordTask`/`forgetTask`/`taskByKey`) to internal if the cancel-on-close path is considered final.
+- **RFC 021** — BSD/macOS kqueue native backend (still blocked on a macOS CI runner; model is already kqueue-aware).
+
+## Toward v1.0 (requires explicit sign-off — not to be cut autonomously)
+- Empty the Provisional column; freeze the Stable surface.
+- Final proof/trust/test matrix and API stability sign-off.
+- jemmet (the HTTP server) is built **separately** on the stable surface, after v1.0, seeded from `jemmet-handoff/`.
 
 Priority items:
 - **Keep-alive in the read path** — `readFull` currently reads one request then the server closes; extend the driver/example to keep the connection open and read successive requests on the same fd (HTTP/1.1 default), reusing the idle-timeout machinery for connection lifetime.

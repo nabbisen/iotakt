@@ -6,6 +6,57 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.12.0-dev] — 2026-06-10
+
+iotakt stabilization toward v1.0 — documentation, governance, and CI
+hygiene. No model or API changes; still henret v0.15.2.
+
+### Added
+
+**Proof/trust/test matrix refresh (`docs/src/proof-trust-test-matrix.md`)**
+
+- Rewritten from the stale v0.1 / Henret v0.6.0 stamp to current state:
+  **77 machine-checked theorems** (0 `sorry`/`admit`/`axiom`), **321
+  executable checks** across 13 suites. Native backend reclassified from
+  "not yet implemented" to implemented (epoll, FFI hardening, throughput).
+- Folds in every TESTED addition from v0.5–v0.11: Gap 006 cancel-on-close,
+  SchedConn failure/restart (RFC 049), request-size limits, `readFromBuffer`
+  pipelining, graceful shutdown, connection limits.
+- Discrepancy log updated: the three Henret discrepancies are noted as
+  re-verified through v0.15.2.
+
+**API stability review (`docs/src/api-stability.md`, applies RFC 031)**
+
+- A concrete audit classifying every public name in `Iotakt.Api`,
+  `Iotakt.Server`, and the `EventLoop` operational surface as **Stable**,
+  **Provisional**, or **Internal** per the RFC 031 policy.
+- Names a short list of open items to settle before any v1.0 commitment
+  (coalesce ack API, `Router` placement, task-tracking visibility,
+  `recvInto`, kqueue). Explicitly notes v1.0 is not cut.
+- RFC 031 status annotated: its review portion is applied; feature-flag and
+  cross-version policy remain forward-looking.
+
+**Matrix-honesty CI guard (step 4)**
+
+- New CI step builds `Iotakt.Proofs` and asserts: 0 `sorry`/`admit`, 0
+  `axiom`, and that the theorem count matches the number the matrix doc
+  claims. The matrix can no longer silently drift from the corpus — adding a
+  theorem without updating the doc fails CI.
+
+**jemmet handoff seed (`jemmet-handoff/`)**
+
+- Preserved the jemmet prototype (removed from the iotakt *library* in
+  v0.10) as **handoff material for the separate jemmet project** — a
+  `prototype/` (server + demo built on `Iotakt.Server`), `design-notes.md`,
+  and a `README.md`. Not compiled by iotakt; reference material so the
+  jemmet project can start from a working sketch.
+
+### Changed
+
+- **CI step numbering** made sequential (1–25); labels had drifted out of
+  order across releases. Cosmetic, no behavior change.
+- `docs/src/SUMMARY.md` indexes the new API stability page.
+
 ## [0.11.0-dev] — 2026-06-10
 
 iotakt stabilization toward v1.0 — resource-lifecycle controls that are

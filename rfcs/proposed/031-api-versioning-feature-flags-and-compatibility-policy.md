@@ -1,6 +1,6 @@
 # RFC 031: API Versioning, Feature Flags, and Compatibility Policy
 
-**Status:** Proposed / Governance  
+**Status:** Proposed / Governance — *review portion applied in v0.11 (see `docs/src/api-stability.md`); feature-flag and cross-version compatibility policy remain forward-looking*  
 **Milestone:** M7  
 **Priority:** Medium  
 **Primary layer:** Public API / Release Governance  

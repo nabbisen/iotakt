@@ -27,7 +27,19 @@ lake build Iotakt && pass "lake build Iotakt" || fail "lake build Iotakt"
 step "3. Henret bridge"
 lake build IotaktBridge && pass "lake build IotaktBridge" || fail "lake build IotaktBridge"
 
-step "4. Fake-poller demo (19 Lean-only checks)"
+step "4. Proof corpus + matrix honesty (RFC 014)"
+lake build Iotakt.Proofs >/dev/null 2>&1 && BUILT=1 || BUILT=0
+THM=$(grep -rhE "^(theorem|lemma|@\[simp\] theorem|@\[simp\] lemma)" Iotakt/ --include="*.lean" | wc -l | tr -d " ")
+SRY=$(grep -rn "sorry\|admit" Iotakt/ --include="*.lean" | grep -v "•" | wc -l | tr -d " ")
+AX=$(grep -rn "^axiom " Iotakt/ --include="*.lean" | wc -l | tr -d " ")
+CLAIMED=$(grep -oE "[0-9]+ machine-checked theorems" docs/src/proof-trust-test-matrix.md | grep -oE "^[0-9]+")
+if [ "$BUILT" -eq 1 ] && [ "$SRY" -eq 0 ] && [ "$AX" -eq 0 ] && [ "$THM" = "$CLAIMED" ]; then
+  pass "proof corpus: $THM theorems, 0 sorry/admit, 0 axiom; matrix count matches"
+else
+  fail "proof corpus: built=$BUILT thm=$THM claimed=$CLAIMED sorry=$SRY axiom=$AX"
+fi
+
+step "5. Fake-poller demo (19 Lean-only checks)"
 lake build iotakt-fake-demo && .lake/build/bin/iotakt-fake-demo > /tmp/fake_out.txt 2>&1
 FAKE_FAIL=$(grep -c "\[FAIL\]" /tmp/fake_out.txt || true)
 FAKE_PASS=$(grep -c "\[PASS\]" /tmp/fake_out.txt || true)
@@ -42,7 +54,7 @@ if [ -n "${IOTAKT_SKIP_NATIVE:-}" ]; then
   echo ""
   echo "IOTAKT_SKIP_NATIVE set — skipping native C build and tests"
 else
-  step "5. Native C shim compilation"
+  step "6. Native C shim compilation"
   if require gcc; then
     lake build IotaktNative && pass "lake build IotaktNative (C shim + Lean FFI)" \
       || fail "lake build IotaktNative"
@@ -50,7 +62,7 @@ else
     echo "SKIP: gcc not found"
   fi
 
-  step "6. Native integration test (13 checks)"
+  step "7. Native integration test (13 checks)"
   lake build iotakt-native-test 2>/dev/null && \
     .lake/build/bin/iotakt-native-test > /tmp/native_out.txt 2>&1
   NAT_FAIL=$(grep -c "\[FAIL\]" /tmp/native_out.txt || true)
@@ -62,7 +74,7 @@ else
     fail "native-test: $NAT_FAIL failed, $NAT_PASS passed"
   fi
 
-  step "7. Echo integration test — v0.1 checkpoint (19 checks)"
+  step "8. Echo integration test — v0.1 checkpoint (19 checks)"
   lake build iotakt-echo-test 2>/dev/null && \
     .lake/build/bin/iotakt-echo-test > /tmp/echo_out.txt 2>&1
   ECHO_FAIL=$(grep -c "\[FAIL\]" /tmp/echo_out.txt || true)
@@ -75,7 +87,7 @@ else
   fi
 fi
 
-step "8. Echo server smoke test (RFC §21.4 criterion)"
+step "9. Echo server smoke test (RFC §21.4 criterion)"
 if require nc; then
   # Start server in background; capture its output in a temp file
   SRV_OUT=$(mktemp)
@@ -96,7 +108,7 @@ else
   echo "SKIP: nc not found"
 fi
 
-step "9. v0.3 integration test (RFC 036 UDP, RFC 039 connect, persistent)"
+step "10. v0.3 integration test (RFC 036 UDP, RFC 039 connect, persistent)"
 lake build iotakt-v3-test 2>/dev/null &&   .lake/build/bin/iotakt-v3-test > /tmp/v3_out.txt 2>&1
 V3_FAIL=$(grep -c "\[FAIL\]" /tmp/v3_out.txt 2>/dev/null | tr -d "\n" || echo 0)
 V3_PASS=$(grep -c "\[PASS\]" /tmp/v3_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -107,7 +119,7 @@ else
   fail "v0.3-test: $V3_FAIL failed, $V3_PASS passed"
 fi
 
-step "13. v0.5 integration test (Actor, Stats, HTTP keep-alive, throughput)"
+step "11. v0.5 integration test (Actor, Stats, HTTP keep-alive, throughput)"
 lake build iotakt-v5-test 2>/dev/null && \
   .lake/build/bin/iotakt-v5-test > /tmp/v5_out.txt 2>&1
 V5_FAIL=$(grep -c "\[FAIL\]" /tmp/v5_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -119,7 +131,7 @@ else
   fail "v0.5-test: $V5_FAIL failed, $V5_PASS passed"
 fi
 
-step "14. Throughput benchmark (RFC 025)"
+step "12. Throughput benchmark (RFC 025)"
 lake build iotakt-bench 2>/dev/null && \
   .lake/build/bin/iotakt-bench > /tmp/bench_out.txt 2>&1
 BENCH_PASS=$(grep -c "\[PASS\]" /tmp/bench_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -132,7 +144,7 @@ else
   fail "benchmark: $BENCH_FAIL failed"
 fi
 
-step "15. v0.6 integration test (Router, Gap 006 cancel-on-close)"
+step "13. v0.6 integration test (Router, Gap 006 cancel-on-close)"
 lake build iotakt-v6-test 2>/dev/null && \
   .lake/build/bin/iotakt-v6-test > /tmp/v6_out.txt 2>&1
 V6_FAIL=$(grep -c "\[FAIL\]" /tmp/v6_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -144,7 +156,7 @@ else
   fail "v0.6-test: $V6_FAIL failed, $V6_PASS passed"
 fi
 
-step "16. HTTP/1.1 routing server smoke test"
+step "14. HTTP/1.1 routing server smoke test"
 if require nc; then
   lake build iotakt-routing-server 2>/dev/null
   .lake/build/bin/iotakt-routing-server > /tmp/routing_ci.txt 2>&1 &
@@ -165,7 +177,7 @@ else
   pass "routing server smoke test: SKIP (nc not found)"
 fi
 
-step "17. v0.7 integration test (adaptive timeout, idle reaping, receiveUntil infra)"
+step "15. v0.7 integration test (adaptive timeout, idle reaping, receiveUntil infra)"
 lake build iotakt-v7-test 2>/dev/null && \
   .lake/build/bin/iotakt-v7-test > /tmp/v7_out.txt 2>&1
 V7_FAIL=$(grep -c "\[FAIL\]" /tmp/v7_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -177,7 +189,7 @@ else
   fail "v0.7-test: $V7_FAIL failed, $V7_PASS passed"
 fi
 
-step "18. v0.8 integration test (chunked encoding + scheduled connection actors)"
+step "16. v0.8 integration test (chunked encoding + scheduled connection actors)"
 lake build iotakt-v8-test 2>/dev/null && \
   .lake/build/bin/iotakt-v8-test > /tmp/v8_out.txt 2>&1
 V8_FAIL=$(grep -c "\[FAIL\]" /tmp/v8_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -189,7 +201,7 @@ else
   fail "v0.8-test: $V8_FAIL failed, $V8_PASS passed"
 fi
 
-step "19. HTTP/1.1 chunked streaming server smoke test"
+step "17. HTTP/1.1 chunked streaming server smoke test"
 if require nc; then
   lake build iotakt-streaming-server 2>/dev/null
   .lake/build/bin/iotakt-streaming-server > /tmp/stream_ci.txt 2>&1 &
@@ -209,7 +221,7 @@ else
   pass "streaming server smoke test: SKIP (nc not found)"
 fi
 
-step "20. v0.9 integration test (body framing + live request reading + handoff surface)"
+step "18. v0.9 integration test (body framing + live request reading + handoff surface)"
 lake build iotakt-v9-test 2>/dev/null && \
   .lake/build/bin/iotakt-v9-test > /tmp/v9_out.txt 2>&1
 V9_FAIL=$(grep -c "\[FAIL\]" /tmp/v9_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -221,7 +233,7 @@ else
   fail "v0.9-test: $V9_FAIL failed, $V9_PASS passed"
 fi
 
-step "21. Upload server smoke test (Content-Length + chunked request bodies)"
+step "19. Upload server smoke test (Content-Length + chunked request bodies)"
 if require curl; then
   lake build iotakt-upload-server 2>/dev/null
   .lake/build/bin/iotakt-upload-server > /tmp/upload_ci.txt 2>&1 &
@@ -241,7 +253,7 @@ else
   pass "upload server smoke test: SKIP (curl not found)"
 fi
 
-step "22. v0.10 integration test (size limits + readFromBuffer pipelining)"
+step "20. v0.10 integration test (size limits + readFromBuffer pipelining)"
 lake build iotakt-v10-test 2>/dev/null && \
   .lake/build/bin/iotakt-v10-test > /tmp/v10_out.txt 2>&1
 V10_FAIL=$(grep -c "\[FAIL\]" /tmp/v10_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -253,7 +265,7 @@ else
   fail "v0.10-test: $V10_FAIL failed, $V10_PASS passed"
 fi
 
-step "23. Reference consumer smoke test (handoff surface sufficiency + keep-alive)"
+step "21. Reference consumer smoke test (handoff surface sufficiency + keep-alive)"
 if require curl; then
   lake build iotakt-reference-server 2>/dev/null
   .lake/build/bin/iotakt-reference-server > /tmp/refsrv_ci.txt 2>&1 &
@@ -273,7 +285,7 @@ else
   pass "reference server smoke test: SKIP (curl not found)"
 fi
 
-step "24. v0.11 integration test (connection limits + graceful shutdown)"
+step "22. v0.11 integration test (connection limits + graceful shutdown)"
 lake build iotakt-v11-test 2>/dev/null && \
   timeout 20 .lake/build/bin/iotakt-v11-test > /tmp/v11_ci.txt 2>&1
 V11_FAIL=$(grep -c "\[FAIL\]" /tmp/v11_ci.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -285,7 +297,7 @@ else
   fail "v0.11-test: $V11_FAIL failed, $V11_PASS passed"
 fi
 
-step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
+step "23. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1
 V4_FAIL=$(grep -c "\[FAIL\]" /tmp/v4_out.txt 2>/dev/null | tr -d "\n" || echo 0)
@@ -297,7 +309,7 @@ else
   fail "v0.4-test: $V4_FAIL failed, $V4_PASS passed"
 fi
 
-step "11. HTTP/1.0 server+client smoke test"
+step "24. HTTP/1.0 server+client smoke test"
 if require nc; then
   lake build iotakt-http-server iotakt-http-client 2>/dev/null
   .lake/build/bin/iotakt-http-server > /tmp/http_srv.txt 2>&1 &
@@ -317,7 +329,7 @@ else
   pass "HTTP smoke test: SKIP (nc not found)"
 fi
 
-step "12. Multi-connection echo server"
+step "25. Multi-connection echo server"
 if require nc; then
   lake build iotakt-multi-echo 2>/dev/null
   .lake/build/bin/iotakt-multi-echo > /dev/null 2>&1 &

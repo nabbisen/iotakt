@@ -23,6 +23,7 @@
 
 - [Design Philosophy](./design-philosophy.md)
 - [Proof, Trust, and Test Matrix](./proof-trust-test-matrix.md)
+- [API Stability Review](./api-stability.md)
 - [Native FFI Contract](./native-ffi-contract.md)
 - [Henret Integration Contract](./henret-integration.md)
 - [Henret Integration Notes](../henret-integration-notes.md)
