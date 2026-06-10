@@ -11,7 +11,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -27,17 +27,17 @@
 
 ## Summary
 
-This RFC defines the developer-facing Lean API, module visibility, naming conventions, examples, and henejt integration expectations.
+This RFC defines the developer-facing Lean API, module visibility, naming conventions, examples, and jemmet integration expectations.
 
 ## Motivation
 
-A formally disciplined library still needs a usable public API. henejt and other Lean users should be able to work with listeners, streams, events, and result types without importing backend flags or unsafe extern declarations. This RFC turns the internal architecture into an API shape that is explicit, teachable, and hard to misuse.
+A formally disciplined library still needs a usable public API. jemmet and other Lean users should be able to work with listeners, streams, events, and result types without importing backend flags or unsafe extern declarations. This RFC turns the internal architecture into an API shape that is explicit, teachable, and hard to misuse.
 
 ## Goals
 
 - Define stable public modules and internal modules.
 - Provide model-friendly result types.
-- Keep backend details out of henejt.
+- Keep backend details out of jemmet.
 - Provide minimal listener/echo examples.
 - Define API stability policy for v0.1.
 
@@ -107,7 +107,7 @@ Safe wrappers are public. Raw extern declarations remain internal/advanced. Nati
 
 ## Henret Integration Impact
 
-henejt should depend on public socket/driver/model APIs and should not branch on epoll/kqueue.
+jemmet should depend on public socket/driver/model APIs and should not branch on epoll/kqueue.
 
 ## Security Considerations
 
@@ -123,7 +123,7 @@ API ergonomics must not hide security-relevant states. `wouldBlock`, partial wri
 - Compile public examples.
 - Fake echo scenario.
 - Native loopback echo demo where supported.
-- Import hygiene test: henejt-style code imports no epoll module.
+- Import hygiene test: jemmet-style code imports no epoll module.
 
 ## Trust / Assumption Changes
 
@@ -133,7 +133,7 @@ API ergonomics must not hide security-relevant states. `wouldBlock`, partial wri
 ## Architecture Gaps
 
 - Exact names may change during implementation.
-- henejt integration may reveal API gaps.
+- jemmet integration may reveal API gaps.
 - Documentation quality is critical for Lean ecosystem adoption.
 
 ## Acceptance Criteria
@@ -142,11 +142,11 @@ API ergonomics must not hide security-relevant states. `wouldBlock`, partial wri
 - Internal/native modules are separated.
 - At least one Lean-only example exists.
 - At least one native Linux example is planned/implemented.
-- henejt can consume backend-neutral APIs.
+- jemmet can consume backend-neutral APIs.
 
 ## Alternatives Considered
 
-- Expose minimal model only and no helpers: rejected because henejt needs usable APIs.
+- Expose minimal model only and no helpers: rejected because jemmet needs usable APIs.
 - Hide all low-level states for ergonomics: rejected because correctness depends on explicit handling.
 - Expose raw externs directly: rejected for safety and stability.
 

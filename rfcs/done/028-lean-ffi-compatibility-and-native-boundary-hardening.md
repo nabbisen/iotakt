@@ -7,7 +7,7 @@
 **Priority:** High  
 **Primary layer:** Native Boundary / Release Engineering  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---

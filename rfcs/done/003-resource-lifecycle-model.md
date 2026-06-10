@@ -11,7 +11,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -50,7 +50,7 @@ Low-level I/O bugs often come from lifecycle ambiguity: registering before non-b
 
 ## External Design
 
-Applications and henejt see resources as listener or stream references. They do not directly manage raw lifecycle ordering. iotakt provides operations that move resources through the model and, when native is enabled, through corresponding native calls.
+Applications and jemmet see resources as listener or stream references. They do not directly manage raw lifecycle ordering. iotakt provides operations that move resources through the model and, when native is enabled, through corresponding native calls.
 
 The external lifecycle policy is:
 
@@ -142,7 +142,7 @@ The native implementation should follow model ordering, but the model must also 
 
 ## Henret Integration Impact
 
-Resource ownership is actor-scoped. When an owner actor is cancelled or completed, iotakt must have a cleanup path. Whether cleanup is triggered by Henret supervision, explicit henejt code, or the driver loop must be clearly documented. v0.1 may require explicit cleanup calls if Henret does not yet provide automatic actor-finalizer hooks.
+Resource ownership is actor-scoped. When an owner actor is cancelled or completed, iotakt must have a cleanup path. Whether cleanup is triggered by Henret supervision, explicit jemmet code, or the driver loop must be clearly documented. v0.1 may require explicit cleanup calls if Henret does not yet provide automatic actor-finalizer hooks.
 
 ## Security Considerations
 

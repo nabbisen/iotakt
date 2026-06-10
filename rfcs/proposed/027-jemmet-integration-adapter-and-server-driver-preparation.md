@@ -1,11 +1,11 @@
-# RFC 027: henejt Integration Adapter and Server Driver Preparation
+# RFC 027: jemmet Integration Adapter and Server Driver Preparation
 
 **Status:** Proposed / Integration Planning  
 **Milestone:** M7  
-**Priority:** High before henejt implementation  
+**Priority:** High before jemmet implementation  
 **Primary layer:** Iotakt.HenretBridge / Examples  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -26,23 +26,23 @@ The governing principles remain:
 
 ## Summary
 
-This RFC defines how iotakt should prepare for the future henejt HTTP server without importing HTTP concepts into iotakt. It describes driver shapes, actor ownership patterns, and examples that henejt can later use.
+This RFC defines how iotakt should prepare for the future jemmet HTTP server without importing HTTP concepts into iotakt. It describes driver shapes, actor ownership patterns, and examples that jemmet can later use.
 
 ## Motivation
 
-iotakt exists to support a Henret-based HTTP server named henejt. However, iotakt must remain protocol-agnostic. A thin integration planning RFC prevents accidental HTTP leakage into the socket layer while still giving henejt a practical adoption path.
+iotakt exists to support a Henret-based HTTP server named jemmet. However, iotakt must remain protocol-agnostic. A thin integration planning RFC prevents accidental HTTP leakage into the socket layer while still giving jemmet a practical adoption path.
 
 ## Goals
 
-- Define listener actor and connection actor workflows useful to henejt.
+- Define listener actor and connection actor workflows useful to jemmet.
 - Keep request parsing, routing, TLS, and response construction outside iotakt.
-- Define example echo/byte server patterns that henejt can copy.
+- Define example echo/byte server patterns that jemmet can copy.
 - Clarify where output buffering belongs.
 
 ## Non-Goals
 
 - Do not implement HTTP.
-- Do not define henejt APIs.
+- Do not define jemmet APIs.
 - Do not require iotakt to know request/response semantics.
 - Do not add TLS or ALPN to iotakt.
 
@@ -51,7 +51,7 @@ iotakt exists to support a Henret-based HTTP server named henejt. However, iotak
 Integration shape:
 
 ```text
-henejt application
+jemmet application
   owns protocol actors and parser state
   calls iotakt listener/stream APIs
   reacts to IoReady messages
@@ -96,7 +96,7 @@ register read interest on listener
 poll event arrives
 inject ListenerReadable
 listener accepts up to acceptBudget streams
-for each stream, henejt spawns ConnectionActor
+for each stream, jemmet spawns ConnectionActor
 connection actor registers read interest
 ```
 
@@ -110,7 +110,7 @@ Iotakt.Patterns.ListenerActor
 Iotakt.Patterns.StreamActor
 ```
 
-Any henejt-specific adapter should live in henejt or a separate integration package.
+Any jemmet-specific adapter should live in jemmet or a separate integration package.
 
 ## Native Boundary Impact
 
@@ -130,7 +130,7 @@ connection actor close path deregisters before closing
 helper pattern never registers write interest without pending output
 ```
 
-henejt-specific protocol correctness is outside iotakt.
+jemmet-specific protocol correctness is outside iotakt.
 
 ## Test Obligations
 
@@ -152,17 +152,17 @@ Henret may still lack full parked receive/wait queues. The pattern must work wit
 
 ## Acceptance Criteria
 
-- henejt name is used consistently.
+- jemmet name is used consistently.
 - No HTTP-specific types are added to iotakt core.
 - Listener/connection patterns are documented.
 - At least one protocol-agnostic example demonstrates the intended workflow.
 
 ## Alternatives Considered
 
-Design henejt first and retrofit iotakt: rejected because iotakt needs clear protocol neutrality. Add HTTP helper APIs to iotakt: rejected. Leave integration entirely undocumented: rejected because henejt is the primary motivating user.
+Design jemmet first and retrofit iotakt: rejected because iotakt needs clear protocol neutrality. Add HTTP helper APIs to iotakt: rejected. Leave integration entirely undocumented: rejected because jemmet is the primary motivating user.
 
 ## Open Questions
 
 - Should generic actor patterns live in iotakt or Henret examples?
 - How much convenience can be added before iotakt feels like a framework?
-- What minimal henejt prototype should validate iotakt v0.1?
+- What minimal jemmet prototype should validate iotakt v0.1?

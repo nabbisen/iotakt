@@ -5,7 +5,7 @@
 This document specifies where TLS sits relative to iotakt. It is a design
 artifact: iotakt does **not** implement TLS, and v0.6 ships no TLS code.
 The purpose is to fix the boundary now so that a future TLS layer (in
-henejt or a separate library) can be added without changing iotakt's
+jemmet or a separate library) can be added without changing iotakt's
 model or native shim.
 
 ---
@@ -22,7 +22,7 @@ and the application protocol:
 
 ```text
 ┌─────────────────────────────────────────┐
-│ henejt (HTTP/1.1 routing, handlers)       │
+│ jemmet (HTTP/1.1 routing, handlers)       │
 ├─────────────────────────────────────────┤
 │ TLS layer (handshake, record framing)     │  ← future; not iotakt
 │  - wraps a connected fd                    │
@@ -57,7 +57,7 @@ When a TLS layer is added, the boundary works as follows:
    waiting for the corresponding interest.
 
 4. **After the handshake**, the TLS layer presents a plaintext
-   `recv`/`send` API to henejt. Under the hood each plaintext `recv`
+   `recv`/`send` API to jemmet. Under the hood each plaintext `recv`
    may perform one or more iotakt `recv` calls to gather a full TLS
    record, decrypt it, and return plaintext.
 
@@ -100,7 +100,7 @@ TLS logic belongs one layer up.
 
 ## Future work (not v0.6)
 
-- A `henejt-tls` or standalone `lean-tls` library that wraps an `FdKey`.
+- A `jemmet-tls` or standalone `lean-tls` library that wraps an `FdKey`.
 - A documented `TlsConn` type with plaintext `recv`/`send` over iotakt.
 - Possibly an iotakt example showing the fd handoff (no real crypto —
   just demonstrating that the handshake-as-I/O pattern works).

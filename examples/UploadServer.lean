@@ -3,7 +3,7 @@ import Iotakt.Server
 /-!
 # iotakt upload server (v0.9)
 
-A henejt-style server built entirely on the `Iotakt.Server` handoff
+A jemmet-style server built entirely on the `Iotakt.Server` handoff
 surface. It accepts request bodies in both framings (Content-Length and
 chunked) via `readRequest`, echoes the body size back, and routes with the
 `Router`.

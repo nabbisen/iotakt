@@ -11,7 +11,7 @@ This RFC extends iotakt from server-side accept/read/write support to outbound n
 
 ## 2. Motivation
 
-Although the initial henejt use case is an HTTP server, Lean applications may need outbound connections for proxying, upstream requests, health checks, or test harnesses. Outbound connect has distinct non-blocking semantics and must be modeled explicitly.
+Although the initial jemmet use case is an HTTP server, Lean applications may need outbound connections for proxying, upstream requests, health checks, or test harnesses. Outbound connect has distinct non-blocking semantics and must be modeled explicitly.
 
 ## 3. Non-blocking connect semantics
 

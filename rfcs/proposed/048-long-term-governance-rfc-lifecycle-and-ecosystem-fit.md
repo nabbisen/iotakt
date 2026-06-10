@@ -76,7 +76,7 @@ Iotakt should be presented as a companion pattern to Henret:
 ```text
 Henret demonstrates executable actor/runtime modeling.
 Iotakt demonstrates low-level OS readiness boundary modeling.
-Henejt can demonstrate protocol/server construction above these layers.
+Jemmet can demonstrate protocol/server construction above these layers.
 ```
 
 The educational value is as important as the practical library value.
@@ -99,5 +99,5 @@ Every release should include:
 
 - RFC lifecycle policy is committed to the repository.
 - New RFC template includes proof, security, and non-goal sections.
-- Feature proposals explicitly state whether they belong in iotakt, henejt, or another layer.
+- Feature proposals explicitly state whether they belong in iotakt, jemmet, or another layer.
 - A scope guard review is required before accepting advanced backend or protocol-adjacent features.

@@ -5,7 +5,7 @@
 **Priority:** Medium  
 **Primary layer:** Iotakt.Model / Native Backends  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -42,7 +42,7 @@ Linux epoll and some high-performance servers use `EPOLLET` and `EPOLLONESHOT` t
 ## Non-Goals
 
 - Do not make edge-triggered mode the default.
-- Do not require henejt actors to adopt drain loops before baseline correctness.
+- Do not require jemmet actors to adopt drain loops before baseline correctness.
 - Do not add undocumented backend-specific flags to the general API.
 - Do not claim performance benefits without measurement.
 
@@ -144,7 +144,7 @@ Assume backend flags implement documented behavior. Since these modes are subtle
 
 ## Architecture Gaps
 
-The henejt parser/actor design may need explicit drain loops before edge-triggered mode is useful. kqueue support needs careful separate mapping.
+The jemmet parser/actor design may need explicit drain loops before edge-triggered mode is useful. kqueue support needs careful separate mapping.
 
 ## Acceptance Criteria
 
@@ -160,5 +160,5 @@ Never support edge/one-shot: acceptable for simplicity, but may limit high-throu
 ## Open Questions
 
 - Should edge mode be compile-time feature-gated?
-- Should henejt provide actor templates for drain loops?
+- Should jemmet provide actor templates for drain loops?
 - Should one-shot be available before kqueue parity is understood?

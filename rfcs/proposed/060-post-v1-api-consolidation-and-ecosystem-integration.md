@@ -25,7 +25,7 @@ promotion.
 - Review all stable and experimental modules after v1.
 - Identify APIs to stabilize, rename, merge, or remove.
 - Preserve a small core surface.
-- Keep henejt integration simple.
+- Keep jemmet integration simple.
 - Ensure documentation matches actual behavior.
 
 ## Non-goals
@@ -82,7 +82,7 @@ Advanced features should not obscure the core path.
 
 Potential integrations to document:
 
-- henejt HTTP server adapter,
+- jemmet HTTP server adapter,
 - Henret examples,
 - educational systems modeling examples,
 - native conformance test templates,
@@ -108,6 +108,6 @@ Deprecation should include:
 
 - Stable API index is regenerated.
 - Experimental APIs are clearly labeled.
-- henejt integration example uses only stable APIs unless explicitly noted.
+- jemmet integration example uses only stable APIs unless explicitly noted.
 - Release notes list all breaking changes, deprecations, and promotions.
 - The proof/trust/test matrix is consistent with the final API surface.

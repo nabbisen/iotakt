@@ -9,9 +9,9 @@ package iotakt where
 
 /-- Pinned Henret dependency (RFC 007 bridge layer only).
     For release, pin an exact tag per the Henret handoff:
-      require henret from git "https://github.com/nabbisen/henret" @ "v0.12.1"
-    During local development we use a path require to the vendored v0.12.1 tree. -/
-require henret from "../henret/henret-v0.12.1"
+      require henret from git "https://github.com/nabbisen/henret" @ "v0.15.2"
+    During local development we use a path require to the vendored v0.15.2 tree. -/
+require henret from "../henret/henret-v0.15.2"
 
 /-- Core library: pure model, fake poller, and proofs.
     Does NOT import Henret — builds standalone (RFC 001 Lean-only core). -/

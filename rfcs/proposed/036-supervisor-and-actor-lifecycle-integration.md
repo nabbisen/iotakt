@@ -13,7 +13,7 @@ This RFC defines how iotakt cooperates with Henret actor lifecycle and supervisi
 
 Network actors can terminate normally, be cancelled by a supervisor, panic at the application layer, or be forcefully stopped during shutdown. In all cases, iotakt must ensure that owned resources are deregistered and closed exactly once.
 
-Without an explicit lifecycle contract, it becomes unclear whether the actor, the supervisor, iotakt, or henejt owns cleanup.
+Without an explicit lifecycle contract, it becomes unclear whether the actor, the supervisor, iotakt, or jemmet owns cleanup.
 
 ## 3. Ownership rule
 

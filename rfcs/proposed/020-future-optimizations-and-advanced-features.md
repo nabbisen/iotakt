@@ -9,7 +9,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -57,9 +57,9 @@ send slicing and batching APIs
 multi-driver or multi-threaded polling
 io_uring research
 Windows IOCP research
-TLS boundary with henejt or separate library
+TLS boundary with jemmet or separate library
 DNS resolver boundary
-advanced backpressure coordination with henejt
+advanced backpressure coordination with jemmet
 ```
 
 ## Data Model / Internal Design

@@ -12,7 +12,7 @@ specification deferred from v0.7).
 
 Chunked encoding (RFC 7230 §4.1) lets a server send a response whose total
 length is unknown up front. The body is a series of size-prefixed chunks,
-terminated by a zero-length chunk. This is what henejt needs for streaming
+terminated by a zero-length chunk. This is what jemmet needs for streaming
 handlers: large files, generated content, server-sent events.
 
 ### Wire format
@@ -100,12 +100,12 @@ iotakt keeps two views of every mechanism, consistent with its philosophy:
 
 - **The model** (`SchedConn`) shows the full scheduled lifecycle, verified
   against Henret's actual semantics. It is the specification a future
-  scheduled driver — or henejt — would implement, and it unifies the
+  scheduled driver — or jemmet — would implement, and it unifies the
   logical and wall-clock clocks (Henret `now`/timers as the single source).
 - **The native driver** (`Iotakt.Loop`) keeps the optimized single-outer-loop
   path: the driver does the syscalls and injects readiness, without
   scheduling each connection actor per event. For a single-threaded epoll
   loop, per-connection scheduling would cost more than it saves.
 
-When henejt or a multi-worker driver needs genuine per-connection
+When jemmet or a multi-worker driver needs genuine per-connection
 scheduling, `SchedConn` is the proven contract it builds on.

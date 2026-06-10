@@ -14,7 +14,7 @@ to embed a full DNS resolver in iotakt. Instead, iotakt may provide a narrow bou
 name resolution workflows while keeping protocol interpretation, caching, policy, and DNSSEC outside
 core iotakt.
 
-The preferred post-v1 design is a separate package, tentatively `iotakt-dns` or a henejt-side adapter,
+The preferred post-v1 design is a separate package, tentatively `iotakt-dns` or a jemmet-side adapter,
 that uses iotakt sockets and Henret actors. Core iotakt should only define enough contracts to avoid
 blocking DNS calls from entering the driver loop.
 
@@ -98,7 +98,7 @@ boundary should be:
 iotakt core:
   non-blocking sockets, readiness, fd lifecycle
 
-iotakt-dns or henejt-dns:
+iotakt-dns or jemmet-dns:
   DNS packet parsing, resolver actor, retries, cache, policy
 ```
 
@@ -123,7 +123,7 @@ These structures should not enter core iotakt unless a later RFC deliberately ac
 
 ## Workflow
 
-1. henejt or another application requests resolution from a DNS actor.
+1. jemmet or another application requests resolution from a DNS actor.
 2. DNS actor uses iotakt UDP socket support from RFC 049.
 3. DNS actor sends query packet to configured resolver.
 4. iotakt only reports readiness and transfers bytes.

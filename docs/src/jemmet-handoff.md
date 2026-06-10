@@ -1,9 +1,9 @@
-# henejt Handoff Surface
+# jemmet Handoff Surface
 
-This document is the consumer contract for **henejt** (or any Lean HTTP
+This document is the consumer contract for **jemmet** (or any Lean HTTP
 server) building on iotakt. It is the iotakt-side mirror of what
 `henret-integration.md` does for the Henret dependency: it states exactly
-what iotakt provides, what henejt owns, and where the boundary sits.
+what iotakt provides, what jemmet owns, and where the boundary sits.
 
 The single import is `Iotakt.Server` (v0.9).
 
@@ -57,11 +57,11 @@ let _ ← Io.send fd Iotakt.Server.chunkedTerminator 0 _
 
 ---
 
-## What henejt owns
+## What jemmet owns
 
-iotakt deliberately stops at the I/O boundary. henejt owns:
+iotakt deliberately stops at the I/O boundary. jemmet owns:
 
-- routing *policy* (iotakt provides the `Router` mechanism; henejt decides the routes);
+- routing *policy* (iotakt provides the `Router` mechanism; jemmet decides the routes);
 - request handlers and application state;
 - content negotiation, compression, caching policy;
 - sessions, authentication, authorization;
@@ -69,11 +69,11 @@ iotakt deliberately stops at the I/O boundary. henejt owns:
 - HTTP semantics beyond framing (status code policy, conditional requests, etc.).
 
 This is the split stated in the requirements: iotakt is the socket-readiness
-boundary, henejt is the HTTP server. `Iotakt.Server` is where they meet.
+boundary, jemmet is the HTTP server. `Iotakt.Server` is where they meet.
 
 ---
 
-## A minimal henejt-style server
+## A minimal jemmet-style server
 
 ```lean
 import Iotakt.Server

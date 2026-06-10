@@ -6,11 +6,11 @@ import Iotakt.Fake
 # iotakt
 
 A Lean-first, non-blocking I/O readiness and socket-lifecycle library
-for the Lean 4 ecosystem. iotakt sits between an HTTP layer (`henejt`)
+for the Lean 4 ecosystem. iotakt sits between an HTTP layer (`jemmet`)
 and an actor/scheduler runtime (`henret`):
 
 ```text
-henejt  →  iotakt  →  henret
+jemmet  →  iotakt  →  henret
 (HTTP)     (I/O)       (actors)
 ```
 

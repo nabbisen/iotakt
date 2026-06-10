@@ -53,7 +53,7 @@ end IoErrno
 
 /-- A normalized, backend-neutral readiness event. Backend flags are
 mapped into this vocabulary at the native boundary; no `EPOLL*` /
-`EVFILT_*` constant ever reaches the bridge or henejt. -/
+`EVFILT_*` constant ever reaches the bridge or jemmet. -/
 inductive IoEvent where
   /-- Reading may make progress (a hint). -/
   | readable

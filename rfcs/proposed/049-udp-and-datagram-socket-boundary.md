@@ -26,7 +26,7 @@ Several future applications above iotakt may need UDP:
 - DNS client or server experiments.
 - Metrics and telemetry protocols.
 - Local service discovery.
-- QUIC research or future henejt-adjacent HTTP/3 experiments.
+- QUIC research or future jemmet-adjacent HTTP/3 experiments.
 - Lightweight actor-to-actor network messages where packet boundaries matter.
 
 Adding UDP after v1 allows the TCP-focused core to stabilize first.

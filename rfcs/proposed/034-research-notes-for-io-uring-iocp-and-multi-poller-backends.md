@@ -5,7 +5,7 @@
 **Priority:** Low for v0.1  
 **Primary layer:** Future Architecture Research  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---

@@ -8,7 +8,7 @@ ecosystem (v0.8).
 
 Chunked encoding lets a server stream a response whose total length is
 not known up front: the body is sent as a series of size-prefixed chunks,
-terminated by a zero-length chunk. This is what henejt needs for streaming
+terminated by a zero-length chunk. This is what jemmet needs for streaming
 handlers (large files, server-sent events, generated content).
 
 ## Wire format

@@ -5,7 +5,7 @@
 **Priority:** High for BSD/macOS support  
 **Primary layer:** Iotakt.Native.Kqueue  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -44,7 +44,7 @@ The first native backend is Linux `epoll`, but iotakt should not become epoll-sh
 
 - Do not implement TLS, DNS, or HTTP protocol logic.
 - Do not emulate epoll behavior exactly where kqueue semantics differ.
-- Do not alter the pure model to expose backend-specific flags directly to henejt or Henret.
+- Do not alter the pure model to expose backend-specific flags directly to jemmet or Henret.
 - Do not make kqueue a blocker for the first Linux-focused native release.
 
 ## External Design

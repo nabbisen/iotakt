@@ -6,6 +6,59 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.9.1-dev] — 2026-06-10
+
+### Dependency
+
+**henret v0.12.1 → v0.15.2** (via v0.13.x, v0.14.x, v0.15.0, v0.15.1).
+`RuntimeState`, `StepResult`, the `inject` branch, and `Envelope` remain
+byte-for-byte identical to v0.11.0, so the bump required **zero** changes to
+keep building. The full 21-step CI gate passes unchanged.
+
+| Henret release | RFC | Nature |
+|----------------|-----|--------|
+| v0.13.0 / v0.13.1 | 045 / 047 | Trace ledger + golden-trace conformance — additive modules |
+| v0.14.0 / v0.14.1 | 046 / 048 | Fairness/liveness policy + bounded model explorer — additive |
+| v0.15.0 | 049 | **Supervision restart**: `TaskState.failed`, `fail`/`restartOne`, `restartOf` — semantic, but non-breaking for iotakt (catch-all match) |
+| v0.15.1 / v0.15.2 | 050 / 051 | Renderers + package/doc maturity — additive |
+
+### Added — adopted RFC 049 (supervision restart)
+
+`Iotakt.SchedConn` extended to model connection-actor failure and supervised
+restart, aligning the connection lifecycle with Henret's supervision model:
+
+- `ConnPhase.failed` — terminal failure phase distinct from `.closed`,
+  read from `TaskState.failed`.
+- `SchedConn.fail` (`fail t`) — fail a connection actor (cleans up like
+  cancel but lands in `.failed`, so a supervisor can distinguish error from
+  clean close).
+- `SchedConn.restart` (`restartOne parent failed actor`) — a running
+  supervisor restarts a failed connection into a fresh task, with provenance
+  recorded in Henret's `restartOf` field.
+- v0.8 test extended (38 → 44 checks): spawn child → fail → supervised
+  restart, with fresh-id (`new > old`) and provenance
+  (`restartOf new = some old`) invariants verified against real Henret v0.15.0.
+
+### Changed — project rename: henejt → jemmet
+
+The planned upper-layer HTTP server is renamed **henejt → jemmet** (after
+Norwegian *jemne*, "smooth"). All references updated across code comments,
+docs, and RFCs (206 occurrences). Files renamed:
+
+- `docs/src/henejt-handoff.md` → `docs/src/jemmet-handoff.md`
+- `rfcs/proposed/027-henejt-integration-...` → `027-jemmet-integration-...`
+
+`Iotakt.Server` is now documented as the **jemmet handoff surface**. The
+iotakt project name, module names, and API are unchanged — only the
+downstream consumer's name changed.
+
+### Changed — documentation
+
+- `docs/src/SUMMARY.md` (mdbook) now indexes the v0.6–v0.9 pages
+  (chunked-and-scheduled, jemmet-handoff, tls-boundary, henret-integration).
+- `docs/src/henret-integration.md` updated to v0.15.2 with the full bump path
+  and the RFC 049 adoption notes.
+
 ## [0.9.0-dev] — 2026-06-10
 
 ### Added
@@ -27,7 +80,7 @@ directions (v0.8 added chunked *output*; this adds chunked + Content-Length
 - Verified live: Content-Length POST ('hello world' → 11 bytes) and chunked
   POST ('chunked-data-here' → 17 bytes) both reassemble correctly via curl.
 
-**henejt handoff surface (`Iotakt.Server`)**
+**jemmet handoff surface (`Iotakt.Server`)**
 
 The consolidated public API a Lean HTTP server builds on — one import for
 the whole request/response stack.
@@ -40,7 +93,7 @@ the whole request/response stack.
 
 **Examples**
 
-- `iotakt-upload-server` — henejt-style server on the `Iotakt.Server`
+- `iotakt-upload-server` — jemmet-style server on the `Iotakt.Server`
   surface; accepts Content-Length and chunked request bodies via
   `readRequest`, uses `runStepAuto` + idle reaping.
 - `iotakt-v9-test` — body framing detection (6), header/body splitting (3),
@@ -49,8 +102,8 @@ the whole request/response stack.
 
 **Documentation**
 
-- `docs/src/henejt-handoff.md` — the consumer contract: what iotakt
-  provides, what henejt owns, the `readRequest` framing table, a minimal
+- `docs/src/jemmet-handoff.md` — the consumer contract: what iotakt
+  provides, what jemmet owns, the `readRequest` framing table, a minimal
   server, and the stability guarantee. The iotakt-side mirror of
   `henret-integration.md`.
 
@@ -318,7 +371,7 @@ stamps `source = none` per RFC 033).
 - `flushAll` retries up to `maxRetries` times — for tests and tight loops.
 - `IotaktWriteBuffer` Lake library target.
 
-**HTTP/1.0 (`Iotakt.Http`, v0.4 henejt integration prep)**
+**HTTP/1.0 (`Iotakt.Http`, v0.4 jemmet integration prep)**
 
 - `HttpRequest`: `get (host path)` builder; `readHeaders`; `parse`.
 - `HttpResponse`: `ok`, `notFound`, `toBytes`, `readAll`, `parseStatus`, `extractBody`.
@@ -393,7 +446,7 @@ stamps `source = none` per RFC 033).
 
 **Public API surface (RFC 017)**
 
-- `Iotakt.Api` — stable module that henejt and applications should import;
+- `Iotakt.Api` — stable module that jemmet and applications should import;
   exports `RawFd`, `FdKey`, `ActorId`, `Interest`, `InterestSet`, `IoEvent`,
   `IoErrno`, `ReadResult`, `WriteResult`, `IoMessage`, `Registry`,
   `RegistryWellFormed`, `CoalesceState`, `FakePollResult`, `FakePoller`,

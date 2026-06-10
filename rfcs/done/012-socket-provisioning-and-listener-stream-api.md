@@ -11,7 +11,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -99,7 +99,7 @@ def acceptMany : ListenerRef → ActorId → Nat → IotaktM (List StreamRef)
 def closeListener : ListenerRef → IotaktM CloseResult
 ```
 
-Ownership assignment for accepted streams may be listener-owner by default or supplied by henejt's accept supervisor policy.
+Ownership assignment for accepted streams may be listener-owner by default or supplied by jemmet's accept supervisor policy.
 
 ## Native Boundary Impact
 
@@ -107,7 +107,7 @@ Native socket wrappers include socket, bind, listen, accept4/accept, fcntl nonbl
 
 ## Henret Integration Impact
 
-Accepted stream ownership determines the actor that receives readiness messages. henejt may spawn a connection actor before registering the stream.
+Accepted stream ownership determines the actor that receives readiness messages. jemmet may spawn a connection actor before registering the stream.
 
 ## Security Considerations
 
@@ -136,7 +136,7 @@ Non-blocking and close-on-exec enforcement are mandatory. Backlog and accept lim
 
 - IPv6 byte validation details.
 - Portability differences for SO_REUSEADDR/SO_REUSEPORT.
-- Accepted actor assignment policy may evolve with henejt.
+- Accepted actor assignment policy may evolve with jemmet.
 
 ## Acceptance Criteria
 
@@ -155,5 +155,5 @@ Non-blocking and close-on-exec enforcement are mandatory. Backlog and accept lim
 ## Open Questions
 
 - Whether `reuseAddr` default should be true or false for production examples.
-- How henejt will choose connection actor ownership.
+- How jemmet will choose connection actor ownership.
 

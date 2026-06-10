@@ -11,7 +11,7 @@ This RFC defines the operational documentation and diagnostic capabilities neede
 
 ## 2. Motivation
 
-Even if iotakt is primarily a Lean ecosystem and modeling library, it will be used by henejt and related server experiments. Operators need to understand limits, failures, and diagnostics without reading the source code.
+Even if iotakt is primarily a Lean ecosystem and modeling library, it will be used by jemmet and related server experiments. Operators need to understand limits, failures, and diagnostics without reading the source code.
 
 ## 3. Operations guide contents
 

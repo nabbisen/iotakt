@@ -5,7 +5,7 @@ import Iotakt.Http
 
 A small path-based HTTP router for the iotakt ecosystem (v0.6).
 
-This is the routing layer that henejt would build on. It maps a
+This is the routing layer that jemmet would build on. It maps a
 `(method, path)` pair to a handler that produces an `HttpResponse`.
 Routes support:
 

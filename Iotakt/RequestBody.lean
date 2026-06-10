@@ -16,7 +16,7 @@ decodes a complete chunked body — but nothing yet reads a full request
   terminator, then reassemble.
 - **neither** — no body (typical GET).
 
-This module is the live read path henejt needs: hand it an fd, get back a
+This module is the live read path jemmet needs: hand it an fd, get back a
 fully-assembled `HttpRequest` with `body` populated.
 
 ## Usage

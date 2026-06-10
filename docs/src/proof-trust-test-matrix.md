@@ -152,7 +152,7 @@ Outside iotakt's defined responsibility.
 |-------|--------|
 | TCP delivery and ordering correctness | Kernel responsibility |
 | TLS security | Higher-layer responsibility |
-| HTTP protocol correctness | `henejt` responsibility |
+| HTTP protocol correctness | `jemmet` responsibility |
 | Kernel correctness of epoll or kqueue | OS responsibility |
 | C compiler correctness | Toolchain responsibility |
 | Lean runtime memory manager correctness | Lean core responsibility |

@@ -5,7 +5,7 @@
 **Priority:** Medium after baseline benchmarks  
 **Primary layer:** Iotakt API / Native Boundary  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -37,7 +37,7 @@ v0.1 intentionally chooses the simpler allocation policy: native `recv` returns 
 - Define a safe contract for caller-owned receive buffers.
 - Retain the no-C-side-buffering rule.
 - Preserve readiness-as-hint and `EAGAIN` behavior.
-- Allow henejt connection actors to reuse per-connection scratch buffers.
+- Allow jemmet connection actors to reuse per-connection scratch buffers.
 - Define benchmark gates before adoption.
 
 ## Non-Goals
@@ -72,7 +72,7 @@ Model impact is intentionally small: `recvInto` changes allocation strategy, not
 
 ## Lifecycle / Workflow
 
-Typical henejt actor workflow:
+Typical jemmet actor workflow:
 
 ```text
 actor owns reusable input buffer

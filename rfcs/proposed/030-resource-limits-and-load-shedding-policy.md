@@ -5,7 +5,7 @@
 **Priority:** High  
 **Primary layer:** Security / Runtime Policy  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -30,7 +30,7 @@ This RFC designs explicit resource limits and load-shedding behavior for listene
 
 ## Motivation
 
-Even a minimal socket layer needs limits. Without them, a simple server can exhaust file descriptors, memory, actor mailboxes, or scheduler time. iotakt should expose simple limit hooks and recommended defaults while leaving application policy to henejt or the embedding driver.
+Even a minimal socket layer needs limits. Without them, a simple server can exhaust file descriptors, memory, actor mailboxes, or scheduler time. iotakt should expose simple limit hooks and recommended defaults while leaving application policy to jemmet or the embedding driver.
 
 ## Goals
 
@@ -133,7 +133,7 @@ Native event count cap is trusted/tested. Model-level limits can be proven if en
 
 ## Architecture Gaps
 
-Choosing default limits is application-sensitive. iotakt can provide safe defaults but henejt must tune them for real workloads.
+Choosing default limits is application-sensitive. iotakt can provide safe defaults but jemmet must tune them for real workloads.
 
 ## Acceptance Criteria
 
@@ -145,7 +145,7 @@ Choosing default limits is application-sensitive. iotakt can provide safe defaul
 
 ## Alternatives Considered
 
-Leave all limits to henejt: rejected because some limits are driver-level. Hardcode limits: rejected. Implement complex adaptive load shedding: deferred.
+Leave all limits to jemmet: rejected because some limits are driver-level. Hardcode limits: rejected. Implement complex adaptive load shedding: deferred.
 
 ## Open Questions
 

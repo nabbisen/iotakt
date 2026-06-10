@@ -11,11 +11,11 @@
 ## Overview
 
 `iotakt` bridges operating-system socket readiness with Henret actor
-messages. It sits between an HTTP layer (`henejt`) and the Henret
+messages. It sits between an HTTP layer (`jemmet`) and the Henret
 actor/scheduler runtime:
 
 ```
-henejt  ──▶  iotakt  ──▶  henret
+jemmet  ──▶  iotakt  ──▶  henret
 (HTTP)        (I/O)        (actors)
 ```
 

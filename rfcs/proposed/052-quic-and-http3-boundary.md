@@ -16,7 +16,7 @@ package, but QUIC's cryptography, congestion control, stream multiplexing, packe
 
 ## Motivation
 
-henejt may eventually want HTTP/3 support. Since HTTP/3 runs over QUIC rather than TCP, it cannot use
+jemmet may eventually want HTTP/3 support. Since HTTP/3 runs over QUIC rather than TCP, it cannot use
 the TCP stream model directly. At the same time, QUIC is a full secure transport protocol, not a small
 socket option. Placing it inside iotakt would destroy iotakt's clean role as a socket/readiness bridge.
 
@@ -25,7 +25,7 @@ socket option. Placing it inside iotakt would destroy iotakt's clean role as a s
 - Define a clear boundary between iotakt and future QUIC work.
 - Prevent QUIC from becoming a hidden expansion of iotakt core.
 - Identify the minimal iotakt capabilities useful to a QUIC implementation.
-- Preserve henejt's ability to adopt HTTP/3 later.
+- Preserve jemmet's ability to adopt HTTP/3 later.
 
 ## Non-goals
 
@@ -56,7 +56,7 @@ Core iotakt must not provide:
 ## Proposed package topology
 
 ```text
-henejt-http3
+jemmet-http3
   HTTP/3 semantics, request/response mapping
 
 quic-layer or external QUIC library adapter
@@ -87,7 +87,7 @@ own buffers, timers, retransmission state, and crypto state. That must be handle
 3. QUIC actor parses packets and updates transport state.
 4. QUIC actor schedules timers through Henret-compatible timer operations.
 5. QUIC actor emits outgoing packets with `sendTo`.
-6. henejt receives logical HTTP/3 stream events from the QUIC layer, not from iotakt.
+6. jemmet receives logical HTTP/3 stream events from the QUIC layer, not from iotakt.
 
 ## Workflow: native QUIC adapter direction
 
@@ -126,4 +126,4 @@ iotakt can provide verified-ish event translation and fd lifecycle handling belo
 - QUIC remains a post-v1 theme.
 - The v1 iotakt API does not contain QUIC-specific concepts.
 - Any future QUIC RFC must explicitly define whether QUIC state is Lean-owned or native-owned.
-- henejt HTTP/3 integration must consume QUIC-layer stream events, not raw iotakt datagrams directly.
+- jemmet HTTP/3 integration must consume QUIC-layer stream events, not raw iotakt datagrams directly.

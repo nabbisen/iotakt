@@ -5,7 +5,7 @@
 **Priority:** Medium  
 **Primary layer:** Public API / Release Governance  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -30,7 +30,7 @@ This RFC defines how iotakt will version its public API, optional native backend
 
 ## Motivation
 
-iotakt sits at a boundary between proofs, Lean APIs, C FFI, and host-specific behavior. API changes can affect theorem statements, native assumptions, and downstream henejt code. A compatibility policy prevents accidental breakage.
+iotakt sits at a boundary between proofs, Lean APIs, C FFI, and host-specific behavior. API changes can affect theorem statements, native assumptions, and downstream jemmet code. A compatibility policy prevents accidental breakage.
 
 ## Goals
 
@@ -88,7 +88,7 @@ run compatibility tests
 
 ## Public API Impact
 
-Public API docs should include stability labels. Experimental APIs must be imported explicitly and may change. Internal modules should not be used by henejt unless both projects coordinate.
+Public API docs should include stability labels. Experimental APIs must be imported explicitly and may change. Internal modules should not be used by jemmet unless both projects coordinate.
 
 ## Native Boundary Impact
 
@@ -129,10 +129,10 @@ Lean package ecosystem versioning conventions may evolve. iotakt should remain s
 
 ## Alternatives Considered
 
-No compatibility policy: risky for downstream henejt. Strict v1 stability immediately: premature. Put all APIs in one namespace: rejected because it blurs stable/advanced/internal boundaries.
+No compatibility policy: risky for downstream jemmet. Strict v1 stability immediately: premature. Put all APIs in one namespace: rejected because it blurs stable/advanced/internal boundaries.
 
 ## Open Questions
 
 - Should iotakt use semantic versioning before v1.0?
 - Should proof theorem names be part of compatibility guarantees?
-- Should henejt pin exact iotakt versions?
+- Should jemmet pin exact iotakt versions?

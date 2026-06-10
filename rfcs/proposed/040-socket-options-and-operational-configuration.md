@@ -35,7 +35,7 @@ Recommended defaults:
 reuseAddr:      true for listeners
 reusePort:      false unless explicitly requested
 ipv6Only:       explicit per listener, not platform default
-TCP_NODELAY:    false by default; henejt may enable for latency-sensitive use
+TCP_NODELAY:    false by default; jemmet may enable for latency-sensitive use
 keepAlive:      disabled by default in v0.1/v0.2
 SO_LINGER:      no positive blocking linger by default
 SIGPIPE guard:  enabled where platform requires it

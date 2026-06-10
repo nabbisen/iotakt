@@ -159,6 +159,31 @@ def testSchedConn : IO Unit := do
   check "both wake paths reach .ready"
     (phaseOf rtIo conn.task == ConnPhase.ready && phaseOf rtTo conn.task == ConnPhase.ready)
 
+  -- 6. failure + supervised restart (henret ≥ v0.15.0, RFC 049)
+  -- A running supervisor spawns a child connection, the child fails, and the
+  -- supervisor restarts it into a fresh task.
+  let rtSup0 := Henret.RuntimeState.init
+  let rtSup1 := Henret.run rtSup0 [.spawn 100, .schedule]   -- supervisor task 0 running
+  let supTask := 0
+  let (rtSup2, childRes) := Henret.step rtSup1 (.spawnChild supTask 101)
+  let childTask := match childRes with | .spawned t => t | _ => 0
+  let child : SchedConn := { actor := 101, task := childTask }
+  check "supervised child spawned (running phase after schedule? new here)"
+    (phaseOf rtSup2 childTask == .spawned || phaseOf rtSup2 childTask == .ready)
+
+  let rtFailed := fail rtSup2 child
+  check "fail: child phase = .failed (distinct from closed)"
+    (phaseOf rtFailed childTask == .failed)
+  check "failed is not closed" (phaseOf rtFailed childTask != .closed)
+
+  let (rtRestarted, newChild) := restart rtFailed supTask child 101
+  check "restart: fresh task id allocated (new > old)" (newChild.task > child.task)
+  check "restart: replacement is live (not failed/closed)"
+    (phaseOf rtRestarted newChild.task != .failed
+      && phaseOf rtRestarted newChild.task != .closed)
+  check "restart: provenance recorded (restartOf new = some old)"
+    (rtRestarted.restartOf newChild.task == some child.task)
+
 -- ─────────────────────────────────────────────────────────────────────────
 -- Main
 -- ─────────────────────────────────────────────────────────────────────────

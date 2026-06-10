@@ -11,7 +11,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -45,7 +45,7 @@ iotakt's credibility depends on honest claims. Some properties can be proven in 
 
 - Do not require proving native C code in v0.1.
 - Do not prove TCP protocol correctness.
-- Do not prove henejt HTTP behavior.
+- Do not prove jemmet HTTP behavior.
 - Do not prove real-time latency or global liveness.
 
 ## External Design

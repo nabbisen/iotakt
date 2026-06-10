@@ -11,7 +11,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -117,7 +117,7 @@ Readiness handling workflow:
 Readable message received
   → actor calls recv
   → bytes | wouldBlock | eof | interrupted | error
-  → actor/henejt decides protocol progress or close
+  → actor/jemmet decides protocol progress or close
 ```
 
 Writable handling workflow:
@@ -216,7 +216,7 @@ Treating readiness as a hint prevents unsafe assumptions such as reading without
 
 ## Alternatives Considered
 
-- Expose raw backend flags: rejected because it contaminates henejt and model proofs.
+- Expose raw backend flags: rejected because it contaminates jemmet and model proofs.
 - Collapse EOF/hangup/error into one event: rejected because cleanup and protocol behavior need distinctions.
 - Treat readiness as guaranteed progress: rejected as false for non-blocking sockets.
 

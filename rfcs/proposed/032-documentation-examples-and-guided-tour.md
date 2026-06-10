@@ -5,7 +5,7 @@
 **Priority:** High before first public release  
 **Primary layer:** Docs / Examples  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -30,7 +30,7 @@ This RFC designs the documentation set needed for iotakt to be understandable as
 
 ## Motivation
 
-The target audience includes Lean users interested in systems modeling, low-level developers interested in formal boundaries, and future henejt developers. Documentation must explain both usage and proof/trust boundaries.
+The target audience includes Lean users interested in systems modeling, low-level developers interested in formal boundaries, and future jemmet developers. Documentation must explain both usage and proof/trust boundaries.
 
 ## Goals
 
@@ -58,7 +58,7 @@ docs/guided-tour.md
   Model -> FakePoller -> Bridge -> Native overview
 
 docs/architecture.md
-  henejt/iotakt/henret stack and boundaries
+  jemmet/iotakt/henret stack and boundaries
 
 docs/proof-trust-test-matrix.md
   proven/assumed/tested/outscope claims
@@ -139,4 +139,4 @@ Only provide API docs: rejected because boundary concepts are central. Build a f
 
 - Should iotakt use mdBook later?
 - Should docs mirror Henret's README/guided-tour structure?
-- Which example best demonstrates henejt readiness without implementing HTTP?
+- Which example best demonstrates jemmet readiness without implementing HTTP?

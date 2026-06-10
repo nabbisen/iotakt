@@ -5,7 +5,7 @@
 **Priority:** Medium  
 **Primary layer:** Iotakt API  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -30,7 +30,7 @@ This RFC designs an optional Lean-side helper for managing partial writes withou
 
 ## Motivation
 
-All non-blocking socket libraries must handle partial writes. If every henejt or application actor reimplements suffix tracking, mistakes are likely. However, core iotakt must not become an application buffer manager. A small opt-in helper can provide reusable logic while preserving the core boundary.
+All non-blocking socket libraries must handle partial writes. If every jemmet or application actor reimplements suffix tracking, mistakes are likely. However, core iotakt must not become an application buffer manager. A small opt-in helper can provide reusable logic while preserving the core boundary.
 
 ## Goals
 
@@ -42,7 +42,7 @@ All non-blocking socket libraries must handle partial writes. If every henejt or
 ## Non-Goals
 
 - Do not create native write queues.
-- Do not hide backpressure from henejt.
+- Do not hide backpressure from jemmet.
 - Do not guarantee full send completion in one step.
 - Do not make the helper mandatory.
 
@@ -76,7 +76,7 @@ No model invariant should depend on this helper. It is a convenience layer.
 Actor workflow:
 
 ```text
-henejt produces response bytes
+jemmet produces response bytes
 actor stores PendingWrite(bytes, 0)
 actor registers write interest
 IoReady(writable) arrives
@@ -104,7 +104,7 @@ No new native calls. The helper uses existing `send`. This is intentionally Lean
 
 ## Security Considerations
 
-The helper can prevent unbounded output growth only if henejt also enforces response-size and per-connection queue limits. iotakt should expose patterns but not silently buffer arbitrary data.
+The helper can prevent unbounded output growth only if jemmet also enforces response-size and per-connection queue limits. iotakt should expose patterns but not silently buffer arbitrary data.
 
 ## Proof Obligations
 
@@ -146,10 +146,10 @@ This helper may tempt users to treat iotakt as a buffered I/O library. Documenta
 
 ## Alternatives Considered
 
-Leave partial write handling entirely to henejt: simple but repetitive. Add native send queues: rejected. Add a full stream abstraction: deferred because it risks scope creep.
+Leave partial write handling entirely to jemmet: simple but repetitive. Add native send queues: rejected. Add a full stream abstraction: deferred because it risks scope creep.
 
 ## Open Questions
 
-- Should the helper be inside iotakt or henejt?
+- Should the helper be inside iotakt or jemmet?
 - Should helper functions be fully pure over an abstract send algebra for easier proofs?
 - Should budget be byte-based, syscall-count-based, or both?

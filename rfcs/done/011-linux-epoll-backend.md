@@ -11,7 +11,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -31,7 +31,7 @@ This RFC defines the Linux epoll backend, including epoll instance lifecycle, le
 
 ## Motivation
 
-Linux epoll is the first practical native poller backend for iotakt. It provides the v0.1 path from model and fake tests to real sockets. The backend must be designed so that epoll-specific flags and quirks are normalized before reaching the bridge; otherwise the pure model and henejt integration will become Linux-shaped and harder to extend to kqueue later.
+Linux epoll is the first practical native poller backend for iotakt. It provides the v0.1 path from model and fake tests to real sockets. The backend must be designed so that epoll-specific flags and quirks are normalized before reaching the bridge; otherwise the pure model and jemmet integration will become Linux-shaped and harder to extend to kqueue later.
 
 ## Goals
 
@@ -46,7 +46,7 @@ Linux epoll is the first practical native poller backend for iotakt. It provides
 - Do not implement edge-triggered epoll in v0.1.
 - Do not implement EPOLLONESHOT in v0.1.
 - Do not implement io_uring.
-- Do not expose epoll flags to henejt.
+- Do not expose epoll flags to jemmet.
 
 ## External Design
 

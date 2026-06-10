@@ -11,7 +11,7 @@ This RFC defines how iotakt represents multiple listeners, multiple services, an
 
 ## 2. Motivation
 
-A practical henejt server may listen on multiple addresses and ports, such as public HTTP, local admin, test-only loopback, or separate IPv4/IPv6 sockets. iotakt must support this topology while preserving a minimal byte/readiness role.
+A practical jemmet server may listen on multiple addresses and ports, such as public HTTP, local admin, test-only loopback, or separate IPv4/IPv6 sockets. iotakt must support this topology while preserving a minimal byte/readiness role.
 
 ## 3. Service identity
 
@@ -43,7 +43,7 @@ structure ListenerEntry where
   state      : ListenerState
 ```
 
-Accepted connection actors are created by henejt or a henejt-owned accept supervisor, not by native code.
+Accepted connection actors are created by jemmet or a jemmet-owned accept supervisor, not by native code.
 
 ## 5. Accept routing workflow
 
@@ -52,7 +52,7 @@ Accepted connection actors are created by henejt or a henejt-owned accept superv
 2. iotakt translates readiness to ListenerReady(serviceId, listenerKey).
 3. Accept actor calls accept on listener handle.
 4. iotakt returns AcceptedConnection with a new FdKey.
-5. henejt chooses or spawns the connection actor.
+5. jemmet chooses or spawns the connection actor.
 6. iotakt registers the connection fd to that actor.
 ```
 
@@ -101,4 +101,4 @@ No protocol dependency:
 - Tests cover two listeners mapped to different service IDs.
 - Tests cover listener shutdown by service ID.
 - Tests cover accepted connection registration to different actors.
-- Documentation explains how henejt maps services to protocol handlers above iotakt.
+- Documentation explains how jemmet maps services to protocol handlers above iotakt.

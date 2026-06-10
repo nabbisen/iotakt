@@ -5,7 +5,7 @@
 **Priority:** High before release  
 **Primary layer:** Release Engineering / Governance  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -132,4 +132,4 @@ Release whenever CI passes: rejected because CI may not cover trust claims. Requ
 
 - Who signs off on release claims?
 - Should v0.1 be Lean-only first or include epoll native backend?
-- Should henejt prototype validation be a v0.1 gate or v0.2 gate?
+- Should jemmet prototype validation be a v0.1 gate or v0.2 gate?

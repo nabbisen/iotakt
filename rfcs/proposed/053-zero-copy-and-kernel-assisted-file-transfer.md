@@ -18,7 +18,7 @@ capability-gated APIs after the core TCP lifecycle and write semantics are stabl
 
 ## Motivation
 
-A future henejt server may serve static files. Copying file data into Lean `ByteArray`s and then into
+A future jemmet server may serve static files. Copying file data into Lean `ByteArray`s and then into
 kernel socket buffers may be acceptable for correctness-first v1, but high-throughput serving could
 benefit from kernel-assisted transfer. However, these syscalls have platform-specific behavior,
 blocking caveats, filesystem constraints, partial-progress semantics, and security implications.
@@ -84,7 +84,7 @@ this API.
 
 ## Workflow
 
-1. henejt determines that a response body can be served from a file.
+1. jemmet determines that a response body can be served from a file.
 2. Application obtains a file handle with appropriate authority.
 3. Actor calls `sendFileStep socket file offset maxBytes`.
 4. Result may report partial progress.
@@ -123,7 +123,7 @@ ASSUMED/TESTED:
 
 - File authority must not be smuggled through raw fd integers.
 - Path traversal prevention is not iotakt's job.
-- Static file serving policy belongs to henejt or application layer.
+- Static file serving policy belongs to jemmet or application layer.
 - File handles should be close-on-exec.
 
 ## Acceptance criteria

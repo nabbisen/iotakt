@@ -11,7 +11,7 @@
 
 - **Project:** iotakt
 - **Language:** Lean 4 with an optional native C boundary
-- **Primary stack position:** `henejt` → `iotakt` → `henret`
+- **Primary stack position:** `jemmet` → `iotakt` → `henret`
 - **Design principle:** Lean-first model, explicit trusted boundary, no hidden async runtime
 - **Date:** 2026-06-08
 
@@ -27,7 +27,7 @@
 
 ## Summary
 
-This RFC defines the identity and architectural boundary of `iotakt`. `iotakt` is a Lean 4 I/O readiness and socket lifecycle library intended to sit between `henejt`, the future HTTP server layer, and `henret`, the executable actor/task runtime model. It must remain a small, auditable boundary rather than becoming a general async runtime.
+This RFC defines the identity and architectural boundary of `iotakt`. `iotakt` is a Lean 4 I/O readiness and socket lifecycle library intended to sit between `jemmet`, the future HTTP server layer, and `henret`, the executable actor/task runtime model. It must remain a small, auditable boundary rather than becoming a general async runtime.
 
 The main architectural split is:
 
@@ -46,7 +46,7 @@ This RFC prevents scope creep before implementation begins. It also preserves He
 
 ## Goals
 
-- Define iotakt's role in the `henejt / iotakt / henret` stack.
+- Define iotakt's role in the `jemmet / iotakt / henret` stack.
 - Define the top-level package/module split.
 - Require a Lean-only default build path for the model and fake backend.
 - Require native functionality to be optional, explicit, and tested.
@@ -67,7 +67,7 @@ The external architecture is intentionally layered.
 
 ```text
 +---------------------------------------------------------+
-| henejt                                                  |
+| jemmet                                                  |
 | HTTP routing, protocol state, handlers, request bodies   |
 +---------------------------▲-----------------------------+
                             |
@@ -123,7 +123,7 @@ Internal implementation may add private helper modules, but public API exposure 
 The required high-level workflow is:
 
 ```text
-1. Application/henejt creates or receives an actor responsible for a socket.
+1. Application/jemmet creates or receives an actor responsible for a socket.
 2. iotakt registers the resource and interest in the Lean model.
 3. A poller, fake or native, yields readiness-like events.
 4. iotakt normalizes and translates the events.
@@ -200,7 +200,7 @@ Security-sensitive claims must be assigned to the layer that can actually suppor
 
 ## Acceptance Criteria
 
-- README-level architecture uses `henejt / iotakt / henret` terminology consistently.
+- README-level architecture uses `jemmet / iotakt / henret` terminology consistently.
 - Modules are split into model, bridge, native, and fake/test responsibilities.
 - Lean-only default build policy is documented.
 - Native functionality is opt-in and classified as trusted/tested.

@@ -26,23 +26,26 @@ Dependency to henret v0.12.1 (non-breaking through v0.11.1/v0.12.0/v0.12.1). `po
 ## Released: v0.8.0-dev — chunked encoding + scheduled connection actors
 HTTP/1.1 chunked transfer encoding (`Iotakt.Chunked`, RFC 7230 §4.1). Scheduled connection-actor lifecycle model (`Iotakt.SchedConn`) — genuine Henret-running task via receiveUntil, verified against real semantics. Chunked streaming server using runStepAuto + idle reaping. 19-step CI.
 
-## Released: v0.9.0-dev — body-aware request reading + henejt handoff surface
-`Iotakt.RequestBody.readFull` reassembles Content-Length and chunked request bodies off a live socket (RFC 7230 §3.3.3). `Iotakt.Server` consolidated handoff surface for henejt. Upload server verified with both framings. henejt-handoff.md consumer contract. 21-step CI.
+## Released: v0.9.1-dev — henret v0.15.2 + jemmet rename + supervised restart
+Dependency to henret v0.15.2 (non-breaking through v0.13.x–v0.15.2). Adopted RFC 049 supervision restart in `Iotakt.SchedConn` (`fail`/`restart`/`ConnPhase.failed`). Project rename henejt → jemmet across code/docs/RFCs. 21-step CI.
 
-## Next: v0.10.0 — keep-alive request pipelining + henejt prototype
+## Released: v0.9.0-dev — body-aware request reading + jemmet handoff surface
+`Iotakt.RequestBody.readFull` reassembles Content-Length and chunked request bodies off a live socket (RFC 7230 §3.3.3). `Iotakt.Server` consolidated handoff surface for jemmet. Upload server verified with both framings. jemmet-handoff.md consumer contract. 21-step CI.
+
+## Next: v0.10.0 — keep-alive request pipelining + jemmet prototype
 
 Priority items:
 - **Keep-alive in the read path** — `readFull` currently reads one request then the server closes; extend the driver/example to keep the connection open and read successive requests on the same fd (HTTP/1.1 default), reusing the idle-timeout machinery for connection lifetime.
-- **henejt prototype** — a separate small crate/example that builds a real HTTP service on `Iotakt.Server` (multiple routes, JSON-ish responses, request bodies), proving the handoff surface is sufficient. This is the first genuine downstream consumer.
-- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if the henejt prototype needs them.
+- **jemmet prototype** — a separate small crate/example that builds a real HTTP service on `Iotakt.Server` (multiple routes, JSON-ish responses, request bodies), proving the handoff surface is sufficient. This is the first genuine downstream consumer.
+- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if the jemmet prototype needs them.
 - **RFC 021** — BSD/macOS kqueue native backend (still blocked on a macOS CI runner).
 - **Request size limits** — enforce `maxRequestBytes` in `readFull` to bound memory (slow-loris / oversized-body protection); surface a 413-style `.error`.
 
 Priority items:
 - **Chunked request decoding in the live read path** — wire `Chunked.decode` into the server read loop so request bodies with `Transfer-Encoding: chunked` are reassembled before dispatch (currently decode is tested standalone).
-- **henejt handoff surface** — package the Router + Http + Chunked + SchedConn as the stable API that henejt builds its HTTP layer on; document the consumer contract (mirrors what `henret-integration.md` does for the Henret side).
+- **jemmet handoff surface** — package the Router + Http + Chunked + SchedConn as the stable API that jemmet builds its HTTP layer on; document the consumer contract (mirrors what `henret-integration.md` does for the Henret side).
 - **RFC 021** — BSD/macOS kqueue native backend (needs a macOS CI runner; model compatibility already documented in RFC 016).
-- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if henejt needs them.
+- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if jemmet needs them.
 - **Scheduled driver prototype** — an optional `runStepScheduled` that actually drives connection actors through the `SchedConn` lifecycle, as an alternative to the inject path, for multi-worker futures.
 
 Priority items:
@@ -55,13 +58,13 @@ Priority items:
 - **`receiveUntil` driver** — replace the 100ms `epoll_wait` poll loop with a park/wake pattern using Henret's `receiveUntil`; the driver blocks indefinitely in `epoll_wait` and wakes only on real I/O or timer expiry. Estimated ≥10× idle CPU reduction.
 - **RFC 044 tracking** — Henret's integration contract targets v0.12.0; once it ships, iotakt's `docs/src/henret-integration.md` can reference stable import tiers explicitly.
 - **RFC 021** — BSD/macOS kqueue native backend (requires macOS CI runner).
-- **HTTP/1.1 chunked encoding** — `Transfer-Encoding: chunked` support in `Iotakt.Http`; needed for streaming responses in henejt.
+- **HTTP/1.1 chunked encoding** — `Transfer-Encoding: chunked` support in `Iotakt.Http`; needed for streaming responses in jemmet.
 - **RFC 044 external review prep** — iotakt is now a real downstream consumer of Henret; could serve as the motivating example for RFC 044.
 
 Priority items:
 - **RFC 035** — Henret wait-queue parking: when the Henret maintainer ships it, replace 100ms poll loops with park/wake for ≥10× idle CPU reduction.
 - **Gap 006** — Actor lifecycle: call `Henret.terminate actorId` when closing a connection to free the mailbox.
-- **henejt prototype** — First real HTTP/1.1 GET/POST request handling using `Iotakt.Actor` in the henejt layer.
+- **jemmet prototype** — First real HTTP/1.1 GET/POST request handling using `Iotakt.Actor` in the jemmet layer.
 - **RFC 021** — BSD/macOS kqueue native backend (macOS CI runner).
 - **RFC 041** — TLS boundary document: where TLS sits relative to iotakt (iotakt hands off raw fd after accept; TLS layer wraps it).
 
@@ -70,7 +73,7 @@ Priority items:
 - **RFC 035** — Henret wait-queue parking: when the Henret maintainer ships it, replace the poll loop with park/wake.
 - **RFC 025** — Formal throughput benchmark: connection reuse, concurrent clients, bytes/sec, latency histogram.
 - **Gap 004 resolution** — Document `nextActorId` counter as the official ActorId allocation pattern.
-- **henejt prototype** — First HTTP/1.1 GET using iotakt outbound connect in the henejt layer.
+- **jemmet prototype** — First HTTP/1.1 GET using iotakt outbound connect in the jemmet layer.
 
 ## v0.6.0+ — Future
 
@@ -104,11 +107,11 @@ Remaining for v0.2 milestone:
 - Henret open questions resolved (ActorId allocation, RFC 033, drain policy).
 - Gap 004 resolution: document the `nextActorId` counter pattern as the official approach.
 
-## v0.3.0 — API stabilization and henejt integration
+## v0.3.0 — API stabilization and jemmet integration
 
 - RFC 028: Lean FFI hardening (ByteArray ownership formal contract).
 - RFC 035: Henret wait-queue parking integration (when available from Henret maintainer).
-- Stable API review based on henejt feedback.
+- Stable API review based on jemmet feedback.
 - RFC 026: native conformance test suite.
 
 ## Future (v0.3+ → long-term)
@@ -146,10 +149,10 @@ Remaining for v0.1.0:
 - RFC 023: echo-server example.
 - Additional conformance tests.
 
-## v0.3.0 — API stabilization and henejt integration
+## v0.3.0 — API stabilization and jemmet integration
 
 - RFC 025: performance benchmarks.
-- RFC 017 rev: stable public API based on henejt feedback.
+- RFC 017 rev: stable public API based on jemmet feedback.
 - RFC 020 / RFC 026: native conformance suite.
 
 ## Future (v0.2+ → long-term)

@@ -216,13 +216,13 @@ buffer. Not introduced until measurements justify it.
 iotakt prevents readiness-message floods via coalescing. It cannot
 prevent an actor from accumulating unbounded outgoing data in its own
 buffers if the remote peer is slow. Application-level backpressure
-(write interest enable/disable, henejt flow control) is the actor's
+(write interest enable/disable, jemmet flow control) is the actor's
 responsibility.
 
 ### Mitigation
 
 Documented: actors should disable write interest when output is drained.
-henejt RFC (future) should define protocol-level backpressure policy.
+jemmet RFC (future) should define protocol-level backpressure policy.
 
 ---
 

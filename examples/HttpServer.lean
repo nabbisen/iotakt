@@ -15,7 +15,7 @@ curl -v http://127.0.0.1:49990/hello
 ```
 
 This demonstrates the boundary between iotakt (byte streams) and the
-henejt HTTP layer: iotakt delivers `ReadResult.bytes` to the actor;
+jemmet HTTP layer: iotakt delivers `ReadResult.bytes` to the actor;
 the HTTP parser (`Iotakt.Http`) turns bytes into structured requests.
 -/
 

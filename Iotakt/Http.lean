@@ -4,16 +4,16 @@ import Iotakt.WriteBuffer
 # Iotakt.Http
 
 A minimal HTTP/1.0 parser and response builder for the iotakt ecosystem
-(v0.4 henejt integration preparation).
+(v0.4 jemmet integration preparation).
 
 This is not a production HTTP implementation. It demonstrates:
 1. Using iotakt's non-blocking `recv` to accumulate request bytes.
 2. Using `WriteBuffer` to stream a response with correct `Content-Length`.
 3. The read→parse→respond→close connection lifecycle.
 
-`henejt` will replace this with a full HTTP/1.1 parser, routing, and
+`jemmet` will replace this with a full HTTP/1.1 parser, routing, and
 connection keep-alive. This module documents the boundary between iotakt
-(byte streams) and henejt (HTTP protocol state).
+(byte streams) and jemmet (HTTP protocol state).
 
 ## Usage
 

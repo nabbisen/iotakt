@@ -11,7 +11,7 @@ This RFC defines graceful shutdown semantics for iotakt-managed listeners and co
 
 ## 2. Motivation
 
-A server built on henejt + iotakt + henret must be able to stop accepting new connections while allowing existing actors to finish in-flight work. Without a clear workflow, shutdown can cause data loss, leaked resources, or inconsistent actor states.
+A server built on jemmet + iotakt + henret must be able to stop accepting new connections while allowing existing actors to finish in-flight work. Without a clear workflow, shutdown can cause data loss, leaked resources, or inconsistent actor states.
 
 ## 3. Shutdown modes
 
@@ -47,8 +47,8 @@ These modes are intentionally separate.
 Connection drain is not a protocol-level concept in iotakt. iotakt only supports the resource mechanics.
 
 ```text
-1. henejt decides that a connection should drain.
-2. henejt stops creating new application work for that connection.
+1. jemmet decides that a connection should drain.
+2. jemmet stops creating new application work for that connection.
 3. Actor flushes pending output using iotakt send.
 4. Actor requests write shutdown or close.
 5. iotakt deregisters and closes the fd.

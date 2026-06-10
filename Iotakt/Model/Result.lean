@@ -44,7 +44,7 @@ inductive CloseReason where
 
 /-- The protocol-neutral message iotakt delivers to an owning actor.
 Carries an `FdKey` (never a raw fd) and a normalized event. It must not
-contain HTTP-specific or other protocol state — that belongs to henejt. -/
+contain HTTP-specific or other protocol state — that belongs to jemmet. -/
 inductive IoMessage where
   | ready  (key : FdKey) (event : IoEvent)
   | closed (key : FdKey) (reason : CloseReason)

@@ -7,7 +7,7 @@
 **Priority:** Medium  
 **Primary layer:** Testing / Release Engineering  
 **Project:** iotakt  
-**Stack position:** `henejt → iotakt → henret`  
+**Stack position:** `jemmet → iotakt → henret`  
 **Date:** 2026-06-08
 
 ---
@@ -65,7 +65,7 @@ native micro:
 
 integration:
   simple echo server
-  henejt hello-world HTTP when available
+  jemmet hello-world HTTP when available
 ```
 
 Benchmark reports should include platform, Lean version, compiler, backend, CPU, kernel, and build flags.

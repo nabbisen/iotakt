@@ -10,7 +10,7 @@ checklist to re-verify.
 ## Pinned version
 
 ```text
-henret v0.12.1
+henret v0.15.2
 ```
 
 `lakefile.lean` requires henret at this tag. The path from v0.6.0:
@@ -20,11 +20,33 @@ henret v0.12.1
 | v0.6.0 → v0.11.0 | One proof fix (`inject_ok_of_mailbox` gained a `cases` for the new timed-waiter queue); two `Envelope` data fixes (3-field form). |
 | v0.11.0 → v0.11.1 | Selective receive (`receiveByOccurrence`, `receiveFrom`) — additive, no iotakt change. |
 | v0.11.1 → v0.12.0 | Multi-worker bridge model (`MultiBridgeState`) — additive, no iotakt change. |
-| v0.12.0 → v0.12.1 | RFC 044 integration contract published (`docs/integration-contract.md`) — documentation only, no iotakt change. |
+| v0.12.0 → v0.12.1 | RFC 044 integration contract published — documentation only, no iotakt change. |
+| v0.12.1 → v0.13.x | Trace ledger (RFC 045) + golden-trace conformance (RFC 047) — additive modules, no iotakt change. |
+| v0.13.x → v0.14.x | Fairness/liveness policy layer (RFC 046) + bounded model explorer (RFC 048) — additive, no iotakt change. |
+| v0.14.x → v0.15.0 | **Supervision restart (RFC 049)**: new `TaskState.failed`, `fail`/`restartOne` ops, `restartOf` field. iotakt's only `TaskState` match (`SchedConn.phaseOf`) has a catch-all, so non-breaking; iotakt *adopted* the new ops (see below). |
+| v0.15.0 → v0.15.2 | Renderers (RFC 050) + package/doc maturity (RFC 051) — additive, no iotakt change. |
 
-`RuntimeState`, `StepResult`, the `inject` branch, and `Envelope` are all
-byte-for-byte identical between v0.11.0 and v0.12.1. The bumps from v0.11.0
-onward required **zero** iotakt code changes.
+`RuntimeState`, `StepResult`, the `inject` branch, and `Envelope` are
+byte-for-byte identical from v0.11.0 through v0.15.2. Every bump from
+v0.11.0 onward required **zero** iotakt code changes to keep building; the
+RFC 049 capabilities were adopted by choice, not necessity.
+
+### Adopted in v0.15.0: failure and supervised restart (RFC 049)
+
+`Iotakt.SchedConn` now models a connection actor that can fail and be
+restarted by a supervisor — aligning the connection lifecycle with Henret's
+supervision model:
+
+- `ConnPhase.failed` (distinct from `.closed`) read from `TaskState.failed`.
+- `SchedConn.fail` (`fail t`) — terminal failure, cleans up like cancel but
+  lands in `.failed` so a supervisor can distinguish error from clean close.
+- `SchedConn.restart` (`restartOne parent failed actor`) — a running
+  supervisor restarts a failed connection into a fresh task, with provenance
+  recorded in Henret's `restartOf` field (`restartOf new = some old`).
+
+Verified end-to-end in the v0.8 test: spawn child → fail → supervised
+restart, with fresh-id and provenance invariants checked against real
+Henret semantics.
 
 ---
 
@@ -110,6 +132,7 @@ This is the *only* iotakt code change required by the version bump.
 | `receiveUntil` timed parking | 040 | **Infrastructure verified** (v0.7 test); driver uses an equivalent wall-clock park/wake (`pollTimeoutMs` / `runStepAuto`) rather than literal `receiveUntil` |
 | Selective receive | 041 | Available; iotakt is single-consumer-per-connection so not needed |
 | Multi-worker bridge | 043 | Available; iotakt's driver is a single outer loop |
+| Supervision restart | 049 | **Adopted** — `SchedConn.fail`/`restart`, `ConnPhase.failed` |
 | Integration contract | 044 | **Published** in henret v0.12.1; this document is iotakt's consumer-side mirror |
 | Lean-runtime bridge | 035/036 | Available; iotakt's driver remains the single outer loop, so not yet needed |
 | Occurrence identity (`Envelope`) | 033 | Transparent — iotakt builds `Message`; Henret stamps occurrence ids |

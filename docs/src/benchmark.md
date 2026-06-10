@@ -78,7 +78,7 @@ Bandwidth ≈ 330,000 × (64 + 92) bytes = 51 MB/s per connection
 This is close to the theoretical limit for a Unix socketpair in this
 container environment. Real TCP connections will be 2–10× slower due to
 kernel networking overhead; real application logic (HTTP parsing, routing,
-handler execution) adds further overhead that is henejt's responsibility.
+handler execution) adds further overhead that is jemmet's responsibility.
 
 ---
 
