@@ -1,4 +1,5 @@
 import Iotakt.Server
+import Iotakt.Router  -- optional convenience module; not part of the stable Server surface
 
 /-!
 # Jemmet (prototype seed — NOT part of iotakt)

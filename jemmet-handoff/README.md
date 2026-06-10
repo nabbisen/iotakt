@@ -18,9 +18,10 @@ repository.
 
 | File | What it is |
 |------|------------|
+| `HANDOFF.md` | **Start here.** The authoritative handoff: iotakt's design, the exact surface jemmet consumes, its limits/gotchas, and the direction + milestones for jemmet. |
 | `prototype/Jemmet.lean` | A prototype jemmet server (`Config`, `serveConnection` keep-alive loop, `run` driver) built entirely on `Iotakt.Server`. |
 | `prototype/JemmetDemo.lean` | A runnable demo: routes, request bodies, keep-alive. |
-| `design-notes.md` | The design behind the prototype, the iotakt/jemmet boundary, and suggested first steps for the jemmet project. |
+| `design-notes.md` | The design behind the prototype, the iotakt/jemmet boundary, and suggested first steps. |
 
 ## Related iotakt docs (these *do* belong to iotakt)
 

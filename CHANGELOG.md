@@ -6,6 +6,43 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.13.1-dev] — 2026-06-10
+
+Documentation-fitness release: a full audit of the docs against the codebase,
+fixing six mismatches found by cross-checking every concrete claim. No code
+changes except comments; 77 theorems, 0 sorry/axiom; CI unchanged at 26 steps.
+
+### Fixed — docs now match the code
+
+- **Stale `Router`-in-surface claims** (the v0.13 removal of routing from the
+  stable `Iotakt.Server` surface had not propagated to all docs): the
+  `Iotakt.Server` module docstring, `docs/src/jemmet-handoff.md` (surface
+  tree, minimal-server example, open-list note) now show routing as a separate
+  optional `import Iotakt.Router`, not part of the handoff surface.
+- **Prototype seed would not compile**: `jemmet-handoff/prototype/Jemmet.lean`
+  and `JemmetDemo.lean` did `open Iotakt.Router` without importing it (broken
+  by the v0.13 Router removal). Added the explicit imports and **compile-verified
+  the prototype against the current iotakt** — the seed jemmet copies is now
+  known-buildable.
+- **Wrong build command** in the proof/trust/test matrix: `lake build
+  IotaktProofs` → `lake build Iotakt.Proofs` (the former target does not exist).
+- **Stale executable-check count** in the matrix: "321 checks across 13 suites"
+  → **333 across 14 suites** (v0.13 added a suite); added the v0.13-test row to
+  the TESTED table.
+- **Broken mdbook `SUMMARY.md`**: it linked to 11 chapters that were never
+  written (mdbook would fail to build) while 3 real docs were orphaned
+  (`ffi-hardening`, `gap004-actorid`, `kqueue-analysis`). Rewrote `SUMMARY.md`
+  to reference exactly the files that exist, indexed the orphans, and added a
+  concise `docs/src/introduction.md` landing page. Every link now resolves;
+  no orphans.
+
+### Verified — no change needed
+
+All EventLoop/handoff signatures, the `recvAck`/`sendAck`/`ackReady` surface,
+result/event/config types, the 15 native FFI function names, all matrix
+theorem counts (77), and the documented Lean/FFI gotchas were cross-checked
+and match the code.
+
 ## [0.13.0-dev] — 2026-06-10
 
 Settles the three v1.0 open items the API-stability audit named, emptying the

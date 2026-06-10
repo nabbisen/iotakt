@@ -41,6 +41,9 @@ Dependency to henret v0.15.2 (non-breaking through v0.13.x–v0.15.2). Adopted R
 ## Released: v0.12.0-dev — proof/trust/test-matrix refresh + API stability review
 Matrix doc refreshed to current state (77 theorems, 0 sorry/axiom, 321 checks, native implemented); matrix-honesty CI guard added (count can't drift). API stability audit (`docs/src/api-stability.md`, applies RFC 031) classifies the public surface Stable/Provisional/Internal toward v1.0. jemmet prototype preserved as handoff seed in `jemmet-handoff/`. CI renumbered to 25 sequential steps.
 
+## Released: v0.13.1-dev — documentation-fitness audit
+Audited all docs against the codebase; fixed six mismatches (stale Router-in-surface claims, non-compiling prototype seed, wrong proof build command, stale check count, broken mdbook SUMMARY with 11 dangling links + 3 orphans). Prototype seed compile-verified. No code changes except comments.
+
 ## Released: v0.13.0-dev — v1.0 surface decisions settled (v1.0 candidate)
 Coalesce ack pinned to explicit acknowledgement (`recvAck`/`sendAck` added; `CoalesceState` → Stable). Routing removed from the stable `Iotakt.Server` surface (`Iotakt.Router` is now an optional non-stable module). Gap-006 task-tracking reclassified Internal. The core consumer surface is a **v1.0 candidate**; only kqueue (RFC 021) and `recvInto` (RFC 022) remain, neither a surface blocker. 26-step CI.
 

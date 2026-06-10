@@ -1,4 +1,5 @@
 import «Jemmet»
+import Iotakt.Router  -- optional convenience module; imported directly
 
 /-!
 # jemmet demo (prototype seed — NOT part of iotakt)

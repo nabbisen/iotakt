@@ -16,13 +16,17 @@ request/response stack without reaching into iotakt internals.
 ```text
 Iotakt.Server
 ├── EventLoop        — non-blocking accept/read/write, idle reaping (Iotakt.Loop)
-├── Router           — path + method dispatch with :param capture
 ├── HttpRequest      — request parsing + header access
 ├── HttpResponse     — response building (Content-Length or keep-alive)
 ├── RequestBody      — body-aware reading (Content-Length + chunked)
 ├── Chunked          — chunked transfer encoding (both directions)
 └── WriteBuffer      — partial-write-safe response streaming
 ```
+
+Routing is **not** part of this surface (an RFC 001 non-goal). The optional
+`Iotakt.Router` convenience module is available via a separate
+`import Iotakt.Router`, but carries no stability promise — a consumer
+(jemmet) owns real dispatch.
 
 ## The boundary iotakt guarantees
 
@@ -36,13 +40,16 @@ boundary, jemmet is the HTTP server. `Iotakt.Server` is where they meet.
 
 ## Stability
 
-Everything re-exported here is part of the v0.x public surface. The
-consumer contract is in `docs/src/jemmet-handoff.md`.
+Everything re-exported here is part of the v0.x public surface. Routing
+(`Iotakt.Router`) is deliberately excluded — see `docs/src/api-stability.md`.
+The consumer contract is in `docs/src/jemmet-handoff.md`.
 
 ## Minimal jemmet-style server
 
 ```lean
-open Iotakt.Server
+import Iotakt.Server
+import Iotakt.Router   -- optional convenience; not part of the stable surface
+open Iotakt.Server Iotakt.Router
 
 def router : Router :=
   Router.empty

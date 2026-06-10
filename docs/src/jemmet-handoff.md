@@ -17,12 +17,15 @@ import Iotakt.Server   -- brings the whole stack transitively
 Iotakt.Server
 ├── EventLoop      — non-blocking accept/read/write, adaptive poll timeout,
 │                    idle reaping, Gap 006 connection teardown (Iotakt.Loop)
-├── Router         — path + method dispatch, :param capture (Iotakt.Router)
 ├── HttpRequest    — request line + headers + body (Iotakt.Http)
 ├── HttpResponse   — response building, Content-Length / keep-alive (Iotakt.Http)
-├── RequestBody    — readFull: headers + body, both framings (Iotakt.RequestBody)
+├── RequestBody    — readFull / readFromBuffer: headers + body, both framings
 ├── Chunked        — chunked transfer encoding, both directions (Iotakt.Chunked)
 └── WriteBuffer    — partial-write-safe response streaming (Iotakt.WriteBuffer)
+
+Routing is NOT in this surface (RFC 001 non-goal). `Iotakt.Router` is an
+optional convenience reached via a separate `import Iotakt.Router`; it carries
+no stability promise.
 ```
 
 ### The one call that matters: `readRequest`
@@ -77,8 +80,9 @@ boundary, jemmet is the HTTP server. `Iotakt.Server` is where they meet.
 
 ```lean
 import Iotakt.Server
+import Iotakt.Router   -- optional convenience; not part of the stable surface
 open Iotakt.Server Iotakt.Loop Iotakt.Http Iotakt.RequestBody
-     Iotakt.Native Iotakt.Model
+     Iotakt.Router Iotakt.Native Iotakt.Model
 
 def router : Router :=
   Router.empty
@@ -117,10 +121,11 @@ versions of this pattern.
 the consolidated chunked/read abbrevs (`encodeChunk`, `readRequest`,
 `decodeChunked`, …) are available as `Iotakt.Server.*`. Dot-notation
 *constructors* on re-exported types (e.g. `HttpResponse.ok`) live in their
-original namespaces, so a consumer still `open`s `Iotakt.Http`,
-`Iotakt.Loop`, `Iotakt.Router` for ergonomic dot-notation. The single
-import is what guarantees the whole stack is present and version-aligned;
-the `open`s are a notational convenience.
+original namespaces, so a consumer still `open`s `Iotakt.Http` and
+`Iotakt.Loop` for ergonomic dot-notation. (`Iotakt.Router`, if used, needs
+its own `import Iotakt.Router` — it is not part of the `Iotakt.Server`
+surface.) The single import is what guarantees the rest of the stack is
+present and version-aligned; the `open`s are a notational convenience.
 
 ---
 
