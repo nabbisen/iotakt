@@ -89,6 +89,10 @@ abbrev isChunked := @Iotakt.Chunked.isChunked
 The one call jemmet needs to get a dispatch-ready `HttpRequest`. -/
 abbrev readRequest := @Iotakt.RequestBody.readFull
 
+/-- Keep-alive-aware read carrying leftover bytes between pipelined requests
+on one connection. -/
+abbrev readRequestBuffered := @Iotakt.RequestBody.readFromBuffer
+
 /-- Determine a request's body framing from its headers. -/
 abbrev bodyFramingOf := @Iotakt.RequestBody.framingOf
 

@@ -241,6 +241,38 @@ else
   pass "upload server smoke test: SKIP (curl not found)"
 fi
 
+step "22. v0.10 integration test (size limits + keep-alive + jemmet)"
+lake build iotakt-v10-test 2>/dev/null && \
+  .lake/build/bin/iotakt-v10-test > /tmp/v10_out.txt 2>&1
+V10_FAIL=$(grep -c "\[FAIL\]" /tmp/v10_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V10_PASS=$(grep -c "\[PASS\]" /tmp/v10_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V10_FAIL" -eq 0 ] && [ "$V10_PASS" -gt 0 ]; then
+  pass "v0.10-test: $V10_PASS checks (size limits + keep-alive + jemmet) all PASS"
+else
+  cat /tmp/v10_out.txt
+  fail "v0.10-test: $V10_FAIL failed, $V10_PASS passed"
+fi
+
+step "23. jemmet prototype smoke test (routes + keep-alive)"
+if require curl; then
+  lake build iotakt-jemmet-demo 2>/dev/null
+  .lake/build/bin/iotakt-jemmet-demo > /tmp/jemmet_ci.txt 2>&1 &
+  JM_PID=$!
+  sleep 1
+  J_USER=$(curl -s http://127.0.0.1:49997/users/42 2>/dev/null)
+  J_KA=$(curl -s http://127.0.0.1:49997/a http://127.0.0.1:49997/b 2>/dev/null)
+  sleep 3
+  kill "$JM_PID" 2>/dev/null || true; wait "$JM_PID" 2>/dev/null || true
+  if echo "$J_USER" | grep -q '"id":"42"' && [ "$J_KA" = "AB" ]; then
+    pass "jemmet: /users/42 → JSON, keep-alive /a/b on one conn → AB ✓"
+  else
+    echo "user='$J_USER' ka='$J_KA'"
+    fail "jemmet: routing or keep-alive failed"
+  fi
+else
+  pass "jemmet smoke test: SKIP (curl not found)"
+fi
+
 step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1

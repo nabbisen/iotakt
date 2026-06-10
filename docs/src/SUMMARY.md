@@ -16,6 +16,7 @@
 - [Fake Poller and Testing](./fake-poller.md)
 - [Chunked Encoding and Scheduled Actors](./chunked-and-scheduled.md)
 - [jemmet Handoff Surface](./jemmet-handoff.md)
+- [jemmet Prototype and Keep-Alive](./jemmet-prototype.md)
 - [TLS Boundary](./tls-boundary.md)
 
 ## Maintainers and Contributors

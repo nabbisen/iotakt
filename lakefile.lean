@@ -90,7 +90,7 @@ lean_lib IotaktWriteBuffer where
   globs := #[.one `Iotakt.WriteBuffer]
   extraDepTargets := #[`iotaktNativeLib.static]
 
-/-- Minimal HTTP/1.0 parser + response builder (v0.4 henejt integration prep). -/
+/-- Minimal HTTP/1.0 parser + response builder (v0.4 jemmet integration prep). -/
 lean_lib IotaktHttp where
   globs := #[.one `Iotakt.Http]
   extraDepTargets := #[`iotaktNativeLib.static]
@@ -115,9 +115,14 @@ lean_lib IotaktRequestBody where
   globs := #[.one `Iotakt.RequestBody]
   extraDepTargets := #[`iotaktNativeLib.static]
 
-/-- henejt handoff surface: consolidated HTTP server building blocks (v0.9). -/
+/-- jemmet handoff surface: consolidated HTTP server building blocks (v0.9). -/
 lean_lib IotaktServer where
   globs := #[.one `Iotakt.Server]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- jemmet prototype: HTTP/1.1 service framework on the handoff surface (v0.10). -/
+lean_lib IotaktJemmet where
+  globs := #[.one `Iotakt.Jemmet]
   extraDepTargets := #[`iotaktNativeLib.static]
 
 /-- Connection actor abstraction: callback lifecycle, ActorRegistry (v0.5). -/
@@ -211,4 +216,14 @@ lean_exe «iotakt-upload-server» where
 /-- v0.9 integration test: body framing, live request reading, handoff surface. -/
 lean_exe «iotakt-v9-test» where
   root := `examples.V9Test
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.10 jemmet prototype demo: keep-alive HTTP/1.1 service on the handoff surface. -/
+lean_exe «iotakt-jemmet-demo» where
+  root := `examples.JemmetDemo
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.10 integration test: request-size limits, keep-alive serve loop, jemmet router. -/
+lean_exe «iotakt-v10-test» where
+  root := `examples.V10Test
   extraDepTargets := #[`iotaktNativeLib.static]

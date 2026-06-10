@@ -6,6 +6,67 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.10.0-dev] — 2026-06-10
+
+### Added
+
+**Request-size limits (`Iotakt.RequestBody`)**
+
+- `ReadResult.tooLarge` — new variant returned when a request exceeds the
+  `maxBytes` bound (slow-loris / oversized-body protection).
+- `readFull` and `readFromBuffer` now enforce `maxBytes` in every read phase:
+  header flood, oversized declared Content-Length, and oversized chunked body.
+- Internal `ReadPhase` type threads done/incomplete/tooLarge through the
+  read helpers.
+
+**Keep-alive + pipelining (`Iotakt.RequestBody.readFromBuffer`)**
+
+- `readFromBuffer fd initial maxBytes maxPolls : IO (ReadResult × ByteArray)`
+  — parses one request starting from leftover bytes and returns the bytes of
+  the *next* request, so HTTP/1.1 request pipelining loses no data.
+- `findHeaderEnd` — byte offset past the `\r\n\r\n` header terminator.
+- Computes exact request end for all three framings (bodyless / Content-Length
+  / chunked) and returns the remainder as leftover.
+- Exposed on the handoff surface as `Iotakt.Server.readRequestBuffered`.
+
+**jemmet prototype (`Iotakt.Jemmet`)**
+
+The first genuine downstream consumer of iotakt — a prototype HTTP/1.1
+service built entirely on the `Iotakt.Server` handoff surface.
+
+- `Config` (port, maxBytes, idleTimeoutMs, maxKeepAlive).
+- `serveConnection` — keep-alive serve loop carrying a leftover buffer across
+  pipelined requests; stops on `Connection: close`, peer close, incomplete/
+  too-large request, or `maxKeepAlive`; rewrites the response `Connection`
+  header to the negotiated intent.
+- `run` — `runStepAuto` + idle reaping driver: accept → serve → close.
+- `payloadTooLarge` — 413 response for oversized requests.
+- `IotaktJemmet` Lake library target.
+
+**Examples**
+
+- `iotakt-jemmet-demo` — a runnable jemmet service: `/`, `/health`,
+  `/users/:id` (JSON-ish), `/echo` (POST body), `/a`, `/b` (keep-alive).
+  Verified live with curl: `/users/42` → JSON, `curl /a /b` on one
+  connection → `AB`.
+- `iotakt-v10-test` — request-size limits (3), keep-alive serve loop (5),
+  jemmet router + 413 + config (6).
+
+**Documentation**
+
+- `docs/src/jemmet-prototype.md` — request-size limits, keep-alive +
+  pipelining design (with the leftover-buffer diagram), and the jemmet
+  prototype. Indexed in `docs/src/SUMMARY.md`.
+
+### Changed
+
+**`examples/UploadServer.lean`** — handles the new `.tooLarge` variant (the
+compiler caught the missing case, which is the intended safety).
+
+**CI gate extended to 23 steps** — step 22: v0.10 integration test;
+step 23: jemmet prototype smoke test (routes + live keep-alive).
+24 RFCs in done/, 37 in proposed/.
+
 ## [0.9.1-dev] — 2026-06-10
 
 ### Dependency

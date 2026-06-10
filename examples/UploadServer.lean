@@ -32,6 +32,10 @@ def handle (loop : EventLoop) (key : FdKey) : IO EventLoop := do
       let resp := (HttpResponse.ok s!"received {n} bytes on {req.path}").toBytes
       let _ ← Io.send fd resp 0 resp.size
       loop.closeConnection key
+  | .tooLarge =>
+      let resp := (HttpResponse.notFound "(request too large)").toBytes
+      let _ ← Io.send fd resp 0 resp.size
+      loop.closeConnection key
   | .incomplete =>
       let resp := (HttpResponse.notFound "(incomplete request)").toBytes
       let _ ← Io.send fd resp 0 resp.size
