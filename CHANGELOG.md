@@ -6,6 +6,64 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.8.0-dev] — 2026-06-10
+
+### Added
+
+**HTTP/1.1 chunked transfer encoding (`Iotakt.Chunked`, RFC 7230 §4.1)**
+
+- `toHex` / `fromHex` — hex chunk sizes; `fromHex` ignores chunk extensions
+  after `;` and accepts upper/lower case.
+- `encodeChunk` — one frame `<hex-size>\r\n<data>\r\n`.
+- `terminator` — the final `0\r\n\r\n` chunk.
+- `encodeBody` — one chunk + terminator (non-streaming convenience).
+- `responseHeader` — chunked response header (Transfer-Encoding, no Content-Length).
+- `decode` — parse a complete chunked body back to concatenated payload bytes;
+  `none` on malformed/incomplete framing.
+- `isChunked` — detect `Transfer-Encoding: chunked` (case-insensitive).
+- `IotaktChunked` Lake library target.
+- Verified end-to-end: `curl` decodes the streaming server's output to the
+  concatenated payload (RFC-compliant 7/8/7-byte chunks + terminator).
+
+**Scheduled connection-actor lifecycle (`Iotakt.SchedConn`)**
+
+The formal specification deferred from v0.7: a connection actor as a genuine
+Henret-running task that parks via `receiveUntil`.
+
+- `ConnPhase` (spawned / running / parkedTimed / ready / closed / other) +
+  `phaseOf` reading the phase from a Henret task state.
+- `SchedConn` state machine over `Henret.RuntimeState`.
+- Operations, each over real Henret `step`: `spawn` (→ spawned), `schedule`
+  (→ running), `parkWithDeadline` (`receiveUntil`, → parkedTimed + timer),
+  `wakeOnIo` (`inject`, → ready), `tick` (timeout path, → ready), `close`
+  (`cancel`, → closed).
+- `IotaktSchedConn` Lake library target.
+- Two-tier design documented: the model shows the full scheduled lifecycle;
+  the native driver keeps the optimized single-outer-loop inject path.
+
+**`iotakt-streaming-server` example**
+
+- HTTP/1.1 chunked streaming server using `runStepAuto` (adaptive poll
+  timeout, idle = 0% CPU) + `withIdleTimeout 2000` (idle reaping) + chunked
+  encoding for `/stream`.
+- Demonstrates the v0.7 zero-CPU-idle property end-to-end with real streaming.
+
+**v0.8 integration test (`iotakt-v8-test`, all PASS)**
+
+- Hex (12), chunk encoding (5), chunk decoding (4), isChunked (3),
+  scheduled connection actor lifecycle (14).
+
+**Documentation**
+
+- `docs/src/chunked-and-scheduled.md` — chunked encoding API + wire format,
+  scheduled connection-actor lifecycle, and the two-tier model/native design.
+
+### Changed
+
+**CI gate extended to 19 steps** — step 18: v0.8 integration test;
+step 19: chunked streaming server smoke test (verifies live chunked framing).
+24 RFCs in done/, 37 in proposed/.
+
 ## [0.7.0-dev] — 2026-06-10
 
 ### Dependency

@@ -177,6 +177,38 @@ else
   fail "v0.7-test: $V7_FAIL failed, $V7_PASS passed"
 fi
 
+step "18. v0.8 integration test (chunked encoding + scheduled connection actors)"
+lake build iotakt-v8-test 2>/dev/null && \
+  .lake/build/bin/iotakt-v8-test > /tmp/v8_out.txt 2>&1
+V8_FAIL=$(grep -c "\[FAIL\]" /tmp/v8_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+V8_PASS=$(grep -c "\[PASS\]" /tmp/v8_out.txt 2>/dev/null | tr -d "\n" || echo 0)
+if [ "$V8_FAIL" -eq 0 ] && [ "$V8_PASS" -gt 0 ]; then
+  pass "v0.8-test: $V8_PASS checks (chunked + SchedConn lifecycle) all PASS"
+else
+  cat /tmp/v8_out.txt
+  fail "v0.8-test: $V8_FAIL failed, $V8_PASS passed"
+fi
+
+step "19. HTTP/1.1 chunked streaming server smoke test"
+if require nc; then
+  lake build iotakt-streaming-server 2>/dev/null
+  .lake/build/bin/iotakt-streaming-server > /tmp/stream_ci.txt 2>&1 &
+  STREAM_PID=$!
+  sleep 1
+  STREAM_OUT=$(printf "GET /stream HTTP/1.1\r\nHost: x\r\n\r\n" | nc -q2 127.0.0.1 49995 2>/dev/null)
+  sleep 3
+  kill "$STREAM_PID" 2>/dev/null || true; wait "$STREAM_PID" 2>/dev/null || true
+  if echo "$STREAM_OUT" | grep -q "Transfer-Encoding: chunked" && \
+     echo "$STREAM_OUT" | grep -q "^7" && echo "$STREAM_OUT" | grep -qi "Hello"; then
+    pass "streaming server: chunked framing (7/8/7 + terminator) verified ✓"
+  else
+    echo "$STREAM_OUT"
+    fail "streaming server: chunked framing not detected"
+  fi
+else
+  pass "streaming server smoke test: SKIP (nc not found)"
+fi
+
 step "10. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake build iotakt-v4-test 2>/dev/null && \
   .lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1

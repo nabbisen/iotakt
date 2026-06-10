@@ -100,6 +100,16 @@ lean_lib IotaktRouter where
   globs := #[.one `Iotakt.Router]
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- HTTP/1.1 chunked transfer encoding (RFC 7230 §4.1) — v0.8. -/
+lean_lib IotaktChunked where
+  globs := #[.one `Iotakt.Chunked]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- Scheduled connection-actor lifecycle model over Henret (v0.8). -/
+lean_lib IotaktSchedConn where
+  globs := #[.one `Iotakt.SchedConn]
+  extraDepTargets := #[`iotaktNativeLib.static]
+
 /-- Connection actor abstraction: callback lifecycle, ActorRegistry (v0.5). -/
 lean_lib IotaktActor where
   globs := #[.one `Iotakt.Actor]
@@ -171,4 +181,14 @@ lean_exe «iotakt-v6-test» where
 /-- v0.7 integration test: adaptive poll timeout, idle reaping, receiveUntil infra. -/
 lean_exe «iotakt-v7-test» where
   root := `examples.V7Test
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.8 chunked streaming server: runStepAuto + idle reaping + chunked encoding. -/
+lean_exe «iotakt-streaming-server» where
+  root := `examples.StreamingServer
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- v0.8 integration test: chunked encode/decode, scheduled connection actor. -/
+lean_exe «iotakt-v8-test» where
+  root := `examples.V8Test
   extraDepTargets := #[`iotaktNativeLib.static]

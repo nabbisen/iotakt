@@ -23,7 +23,17 @@ Dependency bumped to henret v0.11.0 (RFCs 033–040). `inject_ok_of_mailbox` upd
 ## Released: v0.7.0-dev — henret v0.12.1 + adaptive poll timeout + idle reaping
 Dependency to henret v0.12.1 (non-breaking through v0.11.1/v0.12.0/v0.12.1). `pollTimeoutMs`/`runStepAuto` park/wake driver (idle server = 0% CPU). Idle connection reaping. `receiveUntil` timer infrastructure verified. 17-step CI.
 
-## Next: v0.8.0 — scheduled connection actors + chunked encoding
+## Released: v0.8.0-dev — chunked encoding + scheduled connection actors
+HTTP/1.1 chunked transfer encoding (`Iotakt.Chunked`, RFC 7230 §4.1). Scheduled connection-actor lifecycle model (`Iotakt.SchedConn`) — genuine Henret-running task via receiveUntil, verified against real semantics. Chunked streaming server using runStepAuto + idle reaping. 19-step CI.
+
+## Next: v0.9.0 — chunked request decoding + henejt handoff
+
+Priority items:
+- **Chunked request decoding in the live read path** — wire `Chunked.decode` into the server read loop so request bodies with `Transfer-Encoding: chunked` are reassembled before dispatch (currently decode is tested standalone).
+- **henejt handoff surface** — package the Router + Http + Chunked + SchedConn as the stable API that henejt builds its HTTP layer on; document the consumer contract (mirrors what `henret-integration.md` does for the Henret side).
+- **RFC 021** — BSD/macOS kqueue native backend (needs a macOS CI runner; model compatibility already documented in RFC 016).
+- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if henejt needs them.
+- **Scheduled driver prototype** — an optional `runStepScheduled` that actually drives connection actors through the `SchedConn` lifecycle, as an alternative to the inject path, for multi-worker futures.
 
 Priority items:
 - **Scheduled connection actors** — restructure so connection actors are genuine Henret-running tasks that can call `receiveUntil` directly, unifying iotakt's wall-clock park/wake with Henret's logical timer model. This is the deferred deep change from v0.7.
