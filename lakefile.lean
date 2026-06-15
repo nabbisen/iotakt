@@ -8,10 +8,21 @@ package iotakt where
   leanOptions := #[⟨`autoImplicit, false⟩]
 
 /-- Pinned Henret dependency (RFC 007 bridge layer only).
-    For release, pin an exact tag per the Henret handoff:
-      require henret from git "https://github.com/nabbisen/henret" @ "v0.15.2"
-    During local development we use a path require to the vendored v0.15.2 tree. -/
-require henret from "../henret/henret-v0.15.2"
+
+    CI-PORTABLE / RELEASE form — fetches Henret from GitHub, matching the CI
+    workflow (`lake update` with `LAKE_PKG_URL_MAP: henret=…`). Henret tags
+    carry NO `v` prefix (they are `0.X.Y`), so the exact tag is `"0.17.7"`:
+      require henret from git "https://github.com/nabbisen/henret" @ "0.17.7"
+
+    LOCAL / VENDORED form (active below) — builds against a vendored Henret
+    tree at a sibling path. NOT CI-portable on its own: a clean checkout has
+    no `../henret/…`, so CI must either provide it or use the git form above.
+
+    NOTE: the git form cannot resolve until Henret publishes the `0.17.7`
+    tag on GitHub (highest published tag is `0.15.2` as of this release).
+    Until then iotakt builds only against the vendored tree. See README
+    "Building" / CHANGELOG for the provisioning contract. -/
+require henret from "../henret/henret-v0.17.7"
 
 /-- Core library: pure model, fake poller, and proofs.
     Does NOT import Henret — builds standalone (RFC 001 Lean-only core). -/

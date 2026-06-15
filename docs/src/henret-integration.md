@@ -10,7 +10,7 @@ checklist to re-verify.
 ## Pinned version
 
 ```text
-henret v0.15.2
+henret v0.17.7
 ```
 
 `lakefile.lean` requires henret at this tag. The path from v0.6.0:
@@ -25,9 +25,19 @@ henret v0.15.2
 | v0.13.x → v0.14.x | Fairness/liveness policy layer (RFC 046) + bounded model explorer (RFC 048) — additive, no iotakt change. |
 | v0.14.x → v0.15.0 | **Supervision restart (RFC 049)**: new `TaskState.failed`, `fail`/`restartOne` ops, `restartOf` field. iotakt's only `TaskState` match (`SchedConn.phaseOf`) has a catch-all, so non-breaking; iotakt *adopted* the new ops (see below). |
 | v0.15.0 → v0.15.2 | Renderers (RFC 050) + package/doc maturity (RFC 051) — additive, no iotakt change. |
+| v0.15.2 → v0.16.0 | Semantic Profiles (RFC 054) — optional metadata vocabulary (`core ⊂ actor ⊂ full`); no behavior/theorem change. iotakt depends on the **`actor`** profile (lifecycle + scheduling + mailboxes + parking + occurrence identity). |
+| v0.16.0 → v0.17.0 | **Structured Cancellation & Shutdown (RFC 055)**: +3 `RuntimeOp` (`closeActor`/`shutdown`/`stopWhenIdle` → 21), +2 `RuntimeState` fields (`actorStatus`/`runtimeStatus`), +2 enums, +3 trace events, +`RuntimeQuiescent`. Admission guards added to `spawn`/`send`/`inject`. **One proof fix** — `inject_ok_of_mailbox` gained two hypotheses (`runtimeStatus = .running`, `actorStatus a ≠ .closed`) to discharge the new `inject` guard. No compiler-caught break (iotakt uses `RuntimeState.init`, no exhaustive `RuntimeOp`/`TraceEvent` match). |
+| v0.17.0 → v0.17.7 | Release-engineering wave (RFCs 080–086): release gate, evidence ledger, conformance coverage (37 scenarios), proof ergonomics, generated docs. No model behavior change; no iotakt change. |
 
-`RuntimeState`, `StepResult`, the `inject` branch, and `Envelope` are
-byte-for-byte identical from v0.11.0 through v0.15.2. Every bump from
+`StepResult` (8 constructors), `TaskState` (10), and `WellFormed` (28
+fields) are byte-for-byte identical from v0.11.0 through v0.17.7.
+`RuntimeState` gained two RFC 055 status fields (`actorStatus`,
+`runtimeStatus`) at v0.17.0; both are `WellFormed`-irrelevant and are
+populated by `RuntimeState.init` (running / all-active), so iotakt's
+driver never observes a fired admission guard. The `inject` branch gained
+an RFC 055 admission guard, mitigated by the strengthened
+`inject_ok_of_mailbox` (see below). `Envelope` (3-field, RFC 033) is
+unchanged. Every bump from
 v0.11.0 onward required **zero** iotakt code changes to keep building; the
 RFC 049 capabilities were adopted by choice, not necessity.
 
@@ -199,3 +209,36 @@ but iotakt does not rely on atomic handoff, so the contract holds.
    same signatures: `spawn`, `inject`, `tick`, `cancel`.
 4. Confirm `StepResult.spawned` still carries the task id.
 5. Run the full CI gate (`scripts/ci.sh`).
+
+---
+
+## v0.17.7 adoption notes (RFC 055 structured shutdown)
+
+Henret RFC 055 (v0.17.0) added orderly-shutdown **admission control**.
+iotakt's impact was assessed against the three compiler-caught migration
+triggers and one proof-level concern:
+
+- **Exhaustive `RuntimeOp` match** — iotakt has none. ✓ no break.
+- **Literal `RuntimeState` construction** — iotakt uses `RuntimeState.init`
+  (`Loop.lean`); the +2 fields are populated automatically. ✓ no break.
+- **Exhaustive `TraceEvent` match** — iotakt has none. ✓ no break.
+- **Proof-level** — `inject` now rejects (`StepResult.invalid`, state
+  unchanged) when `runtimeStatus ≠ .running` **or** `actorStatus a =
+  .closed`. iotakt's `inject_ok_of_mailbox` (a standalone leaf theorem,
+  no proof callers) was strengthened with two hypotheses
+  (`runtimeStatus = .running`, `actorStatus a ≠ .closed`) so the existing
+  waiter-queue case-split discharges the new guard.
+
+**Why the guard never fires at runtime.** iotakt's driver starts from
+`RuntimeState.init` (running, every actor `.active`) and never issues
+`closeActor`, `shutdown`, or `stopWhenIdle` — the only ops that could
+falsify the strengthened hypotheses. (iotakt's own `EventLoop.shutdown`,
+RFC 037, is an IO-level graceful drain; it does **not** emit Henret's
+`RuntimeOp.shutdown`.) The hypotheses therefore hold at every inject the
+driver issues, so no readiness event is lost.
+
+**Assurance.** Verified by full `lake build` (58/58) and the 26-step CI
+gate (333 checks, 14 suites): **77 theorems, 0 sorry/admit, 0 project
+axiom**, matrix-honesty guard matches. Henret v0.17.7 itself: 62 audited
+public theorems, 0 sorry, 0 project axioms (6 native FFI axioms, not in
+the default model).

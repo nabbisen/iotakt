@@ -135,18 +135,29 @@ def runPoll (ds : DriverState) (rt : Henret.RuntimeState) (now : Nat) :
 /-! ## Theorems -/
 
 /-- **Guarded inject always succeeds.** When the owner's mailbox exists,
-Henret `inject` returns `.ok` (never `.invalid`). This is the formal
-mitigation of Henret's inject precondition: the driver's mailbox guard
-guarantees no readiness is lost to an invalid inject. -/
+the runtime is running, and the owner is not closed, Henret `inject`
+returns `.ok` (never `.invalid`). This is the formal mitigation of
+Henret's inject precondition: the driver's mailbox guard guarantees no
+readiness is lost to an invalid inject.
+
+The `runtimeStatus`/`actorStatus` preconditions are RFC 055 (Henret
+v0.17.0) admission guards. They hold throughout iotakt's driver operation
+because the driver starts from `RuntimeState.init` (`runtimeStatus =
+.running`, every actor `.active`) and never issues `closeActor`,
+`shutdown`, or `stopWhenIdle` — the only ops that could falsify them. -/
 theorem inject_ok_of_mailbox {rt : Henret.RuntimeState} {a : Henret.ActorId}
-    {mb : Henret.Mailbox} (h : rt.mailboxes a = some mb) (m : Henret.Message) :
+    {mb : Henret.Mailbox} (h : rt.mailboxes a = some mb)
+    (hrun : rt.runtimeStatus = .running) (hact : rt.actorStatus a ≠ .closed)
+    (m : Henret.Message) :
     (Henret.step rt (.inject a m)).2 = .ok := by
-  -- v0.11.0 (RFC 040): inject checks mailboxWaiters first, then
-  -- timedMailboxWaiters; all three branches return .ok when the mailbox
-  -- exists. Case-split on both waiter queues.
+  -- RFC 055 (v0.17.0): inject is first guarded by
+  --   runtimeStatus = .running ∧ actorStatus a ≠ .closed
+  -- (discharged by hrun/hact). v0.11.0 (RFC 040): it then checks
+  -- mailboxWaiters, then timedMailboxWaiters; all three branches return
+  -- .ok when the mailbox exists. Case-split on both waiter queues.
   cases hw : rt.mailboxWaiters a <;>
     cases htw : rt.timedMailboxWaiters a <;>
-    simp [Henret.step, h, hw, htw]
+    simp [Henret.step, h, hw, htw, hrun, hact]
 
 /-- **Unknown events never inject.** Applying an `unknownRawFd` drop
 leaves the Henret runtime untouched and traces only the drop. -/

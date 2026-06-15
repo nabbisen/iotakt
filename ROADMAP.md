@@ -41,6 +41,9 @@ Dependency to henret v0.15.2 (non-breaking through v0.13.x–v0.15.2). Adopted R
 ## Released: v0.12.0-dev — proof/trust/test-matrix refresh + API stability review
 Matrix doc refreshed to current state (77 theorems, 0 sorry/axiom, 321 checks, native implemented); matrix-honesty CI guard added (count can't drift). API stability audit (`docs/src/api-stability.md`, applies RFC 031) classifies the public surface Stable/Provisional/Internal toward v1.0. jemmet prototype preserved as handoff seed in `jemmet-handoff/`. CI renumbered to 25 sequential steps.
 
+## Released: v0.13.2-dev — henret v0.17.7 adoption (RFC 055 structured shutdown)
+Bumped the henret dependency v0.15.2 → v0.17.7. RFC 055 admission control is additive/safety-only; one leaf proof (`inject_ok_of_mailbox`) strengthened with the runtime-running / actor-not-closed hypotheses to discharge the new `inject` guard. No compiler-caught break (uses `RuntimeState.init`; no exhaustive `RuntimeOp`/`TraceEvent` match); iotakt never issues the shutdown ops so guards never fire. Declares dependence on henret's `actor` profile (RFC 054). 26-step CI / 333 checks, 77 theorems, 0 sorry/axiom.
+
 ## Released: v0.13.1-dev — documentation-fitness audit
 Audited all docs against the codebase; fixed six mismatches (stale Router-in-surface claims, non-compiling prototype seed, wrong proof build command, stale check count, broken mdbook SUMMARY with 11 dangling links + 3 orphans). Prototype seed compile-verified. No code changes except comments.
 

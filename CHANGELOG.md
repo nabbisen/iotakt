@@ -6,6 +6,47 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.13.2-dev] — 2026-06-15
+
+Dependency adoption: **henret v0.15.2 → v0.17.7** (ten releases). One semantic-core
+change (RFC 055 Structured Cancellation & Shutdown) and one optional feature
+(RFC 054 Semantic Profiles); the rest is henret release-engineering hardening.
+Toolchain unchanged (Lean 4.15.0). 77 theorems, 0 sorry/axiom; CI 26 steps / 333
+checks all pass.
+
+### Changed
+- **henret pin v0.15.2 → v0.17.7** (`lakefile.lean`, `lake-manifest.json`,
+  vendored tree). RFC 055 added +3 `RuntimeOp` (`closeActor`/`shutdown`/
+  `stopWhenIdle` → 21), +2 `RuntimeState` fields (`actorStatus`/`runtimeStatus`),
+  +2 enums, +3 trace events, +`RuntimeQuiescent`. `StepResult` (8), `TaskState`
+  (10), `WellFormed` (28) unchanged.
+- **One proof strengthened** — `Iotakt.Bridge.inject_ok_of_mailbox` gained two
+  hypotheses (`runtimeStatus = .running`, `actorStatus a ≠ .closed`) to discharge
+  RFC 055's new `inject` admission guard. No proof callers, so no cascade; the
+  hypotheses hold throughout iotakt's driver (starts from `RuntimeState.init`,
+  never issues `closeActor`/`shutdown`/`stopWhenIdle`).
+
+### Unchanged (verified)
+- No compiler-caught migration break: no exhaustive `RuntimeOp`/`TraceEvent`
+  match; state built via `RuntimeState.init`. iotakt never issues the three
+  shutdown ops, so admission guards never fire at runtime — behaviorally
+  identical to v0.15.2.
+- Docs: `docs/src/henret-integration.md` updated (pin, version-path table,
+  RFC 055 adoption notes); iotakt declares dependence on henret's **`actor`**
+  semantic profile (RFC 054).
+
+### Build / dependency note
+- iotakt requires **Henret v0.17.7**. The lakefile's active require is the
+  vendored path form (`../henret/henret-v0.17.7`); the CI-portable git form
+  (tag `"0.17.7"`, no `v` prefix, via `LAKE_PKG_URL_MAP`) becomes usable once
+  Henret publishes the `0.17.7` tag on GitHub (highest published: `0.15.2`).
+  Fixed a latent tag-format bug in the lakefile's documented git pin
+  (`v0.17.7` → `0.17.7`). Until Henret publishes the tag, build against a
+  vendored Henret tree (see README "Quick Start"). The path-type
+  `lake-manifest.json` entry reflects this vendored build and is not portable;
+  it is regenerated to a git-based entry when the release switches to the git
+  require.
+
 ## [0.13.1-dev] — 2026-06-10
 
 Documentation-fitness release: a full audit of the docs against the codebase,
