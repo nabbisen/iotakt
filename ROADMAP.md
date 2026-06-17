@@ -41,6 +41,9 @@ Dependency to henret v0.15.2 (non-breaking through v0.13.x–v0.15.2). Adopted R
 ## Released: v0.12.0-dev — proof/trust/test-matrix refresh + API stability review
 Matrix doc refreshed to current state (77 theorems, 0 sorry/axiom, 321 checks, native implemented); matrix-honesty CI guard added (count can't drift). API stability audit (`docs/src/api-stability.md`, applies RFC 031) classifies the public surface Stable/Provisional/Internal toward v1.0. jemmet prototype preserved as handoff seed in `jemmet-handoff/`. CI renumbered to 25 sequential steps.
 
+## Released: v0.13.3-dev — henret v0.34.0 adoption (RFC 056/057/091)
+Bumped the henret dependency v0.17.7 → v0.34.0 (17 minor versions; v0.33→v0.34 is henret mdbook-docs only, `Henret/` source byte-identical). Additive model growth (RuntimeOp 21→29, StepResult 8→10, WellFormed 28→33); one leaf proof (`inject_ok_of_mailbox`) gained a `mailboxFull = false` hypothesis for RFC 056's backpressure guard — discharged because iotakt never bounds mailboxes (unbounded policy from `RuntimeState.init`). No compiler-caught break (no exhaustive RuntimeOp/StepResult match; `.init` construction; no renamed-name or ResourceState-clash issues). Resource ledger (RFC 057/091) unused. 26-step CI / 333 checks, 77 theorems, 0 sorry/axiom.
+
 ## Released: v0.13.2-dev — henret v0.17.7 adoption (RFC 055 structured shutdown)
 Bumped the henret dependency v0.15.2 → v0.17.7. RFC 055 admission control is additive/safety-only; one leaf proof (`inject_ok_of_mailbox`) strengthened with the runtime-running / actor-not-closed hypotheses to discharge the new `inject` guard. No compiler-caught break (uses `RuntimeState.init`; no exhaustive `RuntimeOp`/`TraceEvent` match); iotakt never issues the shutdown ops so guards never fire. Declares dependence on henret's `actor` profile (RFC 054). 26-step CI / 333 checks, 77 theorems, 0 sorry/axiom.
 

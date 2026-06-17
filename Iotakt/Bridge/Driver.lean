@@ -135,29 +135,34 @@ def runPoll (ds : DriverState) (rt : Henret.RuntimeState) (now : Nat) :
 /-! ## Theorems -/
 
 /-- **Guarded inject always succeeds.** When the owner's mailbox exists,
-the runtime is running, and the owner is not closed, Henret `inject`
-returns `.ok` (never `.invalid`). This is the formal mitigation of
-Henret's inject precondition: the driver's mailbox guard guarantees no
-readiness is lost to an invalid inject.
+the runtime is running, the owner is not closed, and the mailbox is not at
+capacity, Henret `inject` returns `.ok` (never `.invalid`, never
+`.backpressured`). This is the formal mitigation of Henret's inject
+precondition: the driver's mailbox guard guarantees no readiness is lost.
 
-The `runtimeStatus`/`actorStatus` preconditions are RFC 055 (Henret
-v0.17.0) admission guards. They hold throughout iotakt's driver operation
-because the driver starts from `RuntimeState.init` (`runtimeStatus =
-.running`, every actor `.active`) and never issues `closeActor`,
-`shutdown`, or `stopWhenIdle` — the only ops that could falsify them. -/
+The preconditions track Henret's admission guards, all of which hold
+throughout iotakt's driver operation:
+* `runtimeStatus`/`actorStatus` — RFC 055 (v0.17.0) shutdown guards. The
+  driver starts from `RuntimeState.init` (`runtimeStatus = .running`, every
+  actor `.active`) and never issues `closeActor`/`shutdown`/`stopWhenIdle`.
+* `mailboxFull a mb = false` — RFC 056 (v0.18.0) backpressure guard. iotakt
+  never configures a mailbox bound, so `mailboxPolicy` stays `.unbounded`
+  (from `RuntimeState.init`) and `mailboxFull` is always `false`; readiness
+  occupancy is independently bounded by the coalescing discipline. -/
 theorem inject_ok_of_mailbox {rt : Henret.RuntimeState} {a : Henret.ActorId}
     {mb : Henret.Mailbox} (h : rt.mailboxes a = some mb)
     (hrun : rt.runtimeStatus = .running) (hact : rt.actorStatus a ≠ .closed)
+    (hfull : rt.mailboxFull a mb = false)
     (m : Henret.Message) :
     (Henret.step rt (.inject a m)).2 = .ok := by
-  -- RFC 055 (v0.17.0): inject is first guarded by
-  --   runtimeStatus = .running ∧ actorStatus a ≠ .closed
-  -- (discharged by hrun/hact). v0.11.0 (RFC 040): it then checks
-  -- mailboxWaiters, then timedMailboxWaiters; all three branches return
-  -- .ok when the mailbox exists. Case-split on both waiter queues.
+  -- Inject guard order: RFC 055 (v0.17.0) runtimeStatus/actorStatus
+  -- (discharged by hrun/hact), then mailbox-exists (h), then RFC 056
+  -- (v0.18.0) mailboxFull backpressure (discharged by hfull). v0.11.0
+  -- (RFC 040): the enqueue path then checks mailboxWaiters, then
+  -- timedMailboxWaiters; all branches return .ok. Case-split on both queues.
   cases hw : rt.mailboxWaiters a <;>
     cases htw : rt.timedMailboxWaiters a <;>
-    simp [Henret.step, h, hw, htw, hrun, hact]
+    simp [Henret.step, h, hw, htw, hrun, hact, hfull]
 
 /-- **Unknown events never inject.** Applying an `unknownRawFd` drop
 leaves the Henret runtime untouched and traces only the drop. -/

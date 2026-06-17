@@ -39,22 +39,17 @@ production-grade async runtime — those live above or below this layer.
 
 ## Quick Start
 
-> **Henret dependency.** iotakt requires **Henret v0.17.7**. The lakefile's
-> active require is a path to a vendored sibling tree
-> (`../henret/henret-v0.17.7`), used for local and CI builds against a
-> known Henret. The CI-portable form is the git require shown in the
-> lakefile comment (tag `"0.17.7"` — Henret tags carry no `v` prefix),
-> resolved via `LAKE_PKG_URL_MAP`; it becomes usable once Henret publishes
-> the `0.17.7` tag on GitHub (highest published tag is `0.15.2` at the time
-> of this release). Until then, place a Henret v0.17.7 checkout at
-> `../henret/henret-v0.17.7` relative to this repo before building.
+> **Henret dependency.** iotakt requires **Henret v0.34.0**, pinned as a git
+> dependency on the published tag `"0.34.0"` (Henret tags carry no `v`
+> prefix). A clean checkout builds with no extra setup — `lake` fetches and
+> caches Henret under `.lake/packages/`. For offline work or co-developing
+> Henret, swap the require for a vendored path (see the lakefile comment).
 
 ```bash
 # Requires elan and Lean 4.15.0 (see lean-toolchain)
 git clone https://github.com/nabbisen/iotakt
 cd iotakt
-# Provide Henret v0.17.7 at ../henret/henret-v0.17.7 (vendored), OR — once the
-# 0.17.7 tag is published — switch the lakefile to the git require.
+# Henret v0.34.0 is fetched automatically from GitHub (pinned tag 0.34.0).
 lake build Iotakt          # pure model + fake poller (Lean-only, no C)
 lake build IotaktBridge    # + Henret bridge
 lake build iotakt-fake-demo && ./.lake/build/bin/iotakt-fake-demo

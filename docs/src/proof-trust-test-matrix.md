@@ -1,6 +1,6 @@
 # Proof, Trust, and Test Matrix
 
-**iotakt v0.11 — RFC 014 — henret v0.17.7**
+**iotakt v0.11 — RFC 014 — henret v0.34.0**
 
 iotakt classifies every correctness-relevant claim as PROVEN, TESTED,
 ASSUMED, or OUTSCOPE. This is the project's central honesty artifact: it
@@ -60,7 +60,7 @@ readiness; active registered entries are in non-closed states.
 
 | Theorem | Property |
 |---------|----------|
-| `inject_ok_of_mailbox` | when the owner mailbox exists **and** the runtime is running **and** the owner is not closed, Henret `inject` always returns `.ok` — the formal mitigation of Henret's `inject` precondition (mailbox v0.6.0+, RFC 055 admission guard v0.17.0+) |
+| `inject_ok_of_mailbox` | when the owner mailbox exists, the runtime is running, the owner is not closed, **and the mailbox is not at capacity**, Henret `inject` returns `.ok` (never `.invalid`/`.backpressured`) — mitigates Henret's inject precondition (mailbox v0.6.0+, RFC 055 shutdown guard v0.17.0+, RFC 056 backpressure guard v0.18.0+) |
 
 ### Fake poller (`Fake/Poller.lean`, 4)
 
@@ -101,7 +101,7 @@ Linux epoll backend and real Henret.
 | FFI ownership contract (RFC 028): one `lean_dec` per arg per path; recvfrom double-free avoided |
 | Throughput benchmark sustains ~250–400k req/s over socketpair (`benchmark`, 4) |
 
-### Lifecycle, framing, and stabilization (v0.5 – v0.11, against real Henret v0.17.7)
+### Lifecycle, framing, and stabilization (v0.5 – v0.11, against real Henret v0.34.0)
 
 | Claim | Suite (checks) |
 |-------|----------------|
@@ -132,7 +132,7 @@ Accepted from OS, C compiler, or Lean runtime documentation.
 | `clock_gettime(CLOCK_MONOTONIC)` (via `iotakt_mono_ns`) is monotonic | OS |
 | Henret `spawn` creates the owner mailbox if absent (v0.6.0+, RFC 032) | Henret source (verified in review) |
 | Henret `inject` with an existing mailbox returns `.ok` | **PROVEN** by `inject_ok_of_mailbox` |
-| Henret `StepResult` (8) / `TaskState` (10) / `WellFormed` (28) unchanged v0.11.0 → v0.17.7; `RuntimeState` +2 RFC 055 status fields (WellFormed-irrelevant); `inject` gained an RFC 055 admission guard (mitigated); `Envelope` 3-field unchanged | Henret source + `docs/generated/` (diffed each bump) |
+| Henret `TaskState` (10) unchanged v0.11.0 → v0.34.0; `StepResult` (8 → 10) and `WellFormed` (28 → 33) grew additively; `RuntimeOp` 21 → 29 — iotakt matches none exhaustively; `RuntimeState` new fields populated by `.init`; resource ledger (RFC 057/091) unused; public theorem surface additive-only | Henret source + `docs/generated/` (diffed each bump) |
 
 ---
 

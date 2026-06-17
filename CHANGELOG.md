@@ -6,6 +6,42 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.13.3-dev] — 2026-06-16
+
+Dependency adoption: **henret v0.17.7 → v0.34.0** (17 minor versions). Despite the
+span, iotakt's narrow consumption surface absorbed it with **one** proof
+strengthening; behavior is unchanged. Toolchain unchanged (Lean 4.15.0). 77
+theorems, 0 sorry/axiom; CI 26 steps / 333 checks all pass.
+
+### Changed
+- **henret pin v0.17.7 → v0.34.0**, as a **CI-portable git require** on the
+  published tag `"0.34.0"` (`lake-manifest.json` is a git entry, rev `63f10f48`).
+  v0.33.0 → v0.34.0 is a henret mdbook-docs migration only — `Henret/` source is
+  byte-identical (verified `diff -rq`), so no model/proof/verification change. A clean checkout/CI builds with no vendoring (Henret published the
+  tag); the vendored path remains a documented offline override. Model grew additively: `RuntimeOp` 21 → 29, `StepResult` 8 → 10
+  (`.backpressured` RFC 056, `.acquired` RFC 057), `WellFormed` 28 → 33,
+  `RuntimeState` +3 fields (`mailboxPolicy`/`resources`/`nextResourceId`).
+  `TaskState` (10) unchanged.
+- **One proof strengthened** — `Iotakt.Bridge.inject_ok_of_mailbox` gained a fourth
+  hypothesis `mailboxFull a mb = false` to discharge RFC 056's (v0.18.0) `inject`
+  backpressure guard. No proof callers, so no cascade; the hypothesis holds
+  throughout iotakt's driver (unbounded `mailboxPolicy` from `RuntimeState.init`,
+  so `mailboxFull` is always `false`; readiness occupancy is independently bounded
+  by coalescing).
+
+### Unchanged (verified)
+- No compiler-caught break across the 16-version span: no exhaustive
+  `RuntimeOp`/`StepResult`/`TraceEvent` match; state via `RuntimeState.init`; no
+  references to renamed henret names (RFC 091 `status_irrel` → `runtimeStatus_irrel`,
+  `ResourceRecord.owner`); no `ResourceState` namespace clash.
+- iotakt does not use the resource ledger (RFC 057/091), so those features are
+  vacuous for it. RFC 056 bounded mailboxes is Option A (reject-only); iotakt sets
+  no bound and is byte-for-byte behaviourally identical.
+- Public theorem surface additive-only since henret's v0.30.0 snapshot (no
+  renames/removals), so iotakt's theorem-name dependencies are safe.
+- Docs: `docs/src/henret-integration.md` (pin, full version-path table, v0.17.7 →
+  v0.34.0 adoption notes) and `proof-trust-test-matrix.md` updated.
+
 ## [0.13.2-dev] — 2026-06-15
 
 Dependency adoption: **henret v0.15.2 → v0.17.7** (ten releases). One semantic-core
