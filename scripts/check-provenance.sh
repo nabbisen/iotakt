@@ -5,7 +5,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 # Canonical counts (same greps as ci.sh / gen-provenance.sh).
-THM=$(grep -rhE "^(theorem|lemma|@\[simp\] theorem|@\[simp\] lemma)" Iotakt/ --include="*.lean" | wc -l | tr -d ' ')
+THM=$(grep -rhE "^(theorem|lemma|@\[simp\] theorem|@\[simp\] lemma)" Iotakt/ runtime/IotaktRuntime/ --include="*.lean" | wc -l | tr -d ' ')
 
 # Exercise the generator twice against a stable stand-in input.
 bash scripts/gen-provenance.sh _check lakefile.lean /tmp/_prov_a.json >/dev/null 2>&1

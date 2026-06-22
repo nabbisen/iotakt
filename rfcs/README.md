@@ -33,6 +33,7 @@ The folder is the source of truth for each RFC's state.
 | 030 | [Resource Limits and Load-Shedding Policy](./done/030-resource-limits-and-load-shedding-policy.md) | Implemented (v0.11.0-dev) |
 | 037 | [Graceful Shutdown, Drain, and Listener-Stop Workflow](./done/037-graceful-shutdown-drain-and-listener-stop-workflow.md) | Implemented (v0.11.0-dev) |
 | 041 | [TLS Boundary, ALPN, and Secure Transport Handoff](./done/041-tls-boundary-alpn-and-secure-transport-handoff.md) | Implemented (v0.6.0-dev) |
+| 061 | [Model/Bridge Package Split for Henret-Free Model Resolution (Option B: `Iotakt.*` model + `IotaktRuntime.*` runtime)](./done/061-model-bridge-package-split.md) | Implemented (v0.14.0-dev) |
 | 062 | [Release-Provenance Manifest and Stack-Release-Contract Participation](./done/062-release-provenance-manifest.md) | Implemented (v0.13.4-dev) |
 
 ## Proposed (v0.1 scope — RFCs 001–015, 017–018)
@@ -96,14 +97,10 @@ Post-v0.1 design RFCs for portability, performance, ecosystem, and advanced feat
 | 035–048 | Henret wait-queue parking, graceful shutdown, multi-listener, outbound connect, UDP, TLS boundary, model-based testing, advanced proofs |
 | 049–060 | io_uring, Windows IOCP, QUIC/HTTP3, zero-copy, metrics, Lake packaging, io_uring, multi-process, buffer pools, post-v1 formal verification, API consolidation |
 
-## Proposed (consumer-integration — RFCs 061–062)
+## Proposed
 
-Consumer-driven RFCs from the jemmet integration review. Both are additive and do
-not change the iotakt surface or proofs.
-
-| ID | Title |
-|----|-------|
-| 061 | [Model/Bridge Package Split for Henret-Free Model Resolution](./proposed/061-model-bridge-package-split.md) |
+No proposed RFCs open. (RFCs 061–062, from the jemmet integration review, are now
+Implemented — see Done above.)
 
 ## Archive
 

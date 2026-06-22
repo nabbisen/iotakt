@@ -5,6 +5,7 @@
 ## Intermediate Users
 
 - [jemmet Handoff Surface](./jemmet-handoff.md)
+- [RFC 061 Migration — Model/Runtime Package Split](./rfc-061-migration.md)
 - [Keep-Alive and Consumer Pattern](./keep-alive-and-consumers.md)
 - [Chunked Encoding and Scheduled Actors](./chunked-and-scheduled.md)
 - [TLS Boundary](./tls-boundary.md)

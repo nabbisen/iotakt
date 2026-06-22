@@ -11,9 +11,9 @@ OUT="${3:-/dev/stdout}"
 cd "$(dirname "$0")/.."
 
 # Integrity counts — identical greps to ci.sh (single source of truth).
-THM=$(grep -rhE "^(theorem|lemma|@\[simp\] theorem|@\[simp\] lemma)" Iotakt/ --include="*.lean" | wc -l | tr -d ' ')
-SRY=$(grep -rn "sorry\|admit" Iotakt/ --include="*.lean" | grep -v "•" | wc -l | tr -d ' ')
-AX=$(grep -rn "^axiom " Iotakt/ --include="*.lean" | wc -l | tr -d ' ')
+THM=$(grep -rhE "^(theorem|lemma|@\[simp\] theorem|@\[simp\] lemma)" Iotakt/ runtime/IotaktRuntime/ --include="*.lean" | wc -l | tr -d ' ')
+SRY=$(grep -rn "sorry\|admit" Iotakt/ runtime/IotaktRuntime/ --include="*.lean" | grep -v "•" | wc -l | tr -d ' ')
+AX=$(grep -rn "^axiom " Iotakt/ runtime/IotaktRuntime/ --include="*.lean" | wc -l | tr -d ' ')
 STEPS=$(grep -cE 'step "[0-9]+\.' scripts/ci.sh | tr -d ' ')
 
 export PV_VERSION="$VERSION" PV_ARCHIVE="$ARCHIVE" PV_THM="$THM" PV_SRY="$SRY" PV_AX="$AX" PV_STEPS="$STEPS"
@@ -26,12 +26,12 @@ def sha(p):
     return h.hexdigest()
 arch=os.environ['PV_ARCHIVE']
 # Reproducible, archive-metadata-independent content hash.
-files=sorted(glob.glob('Iotakt/**/*.lean',recursive=True))+['lakefile.lean','lake-manifest.json','lean-toolchain']
+files=sorted(glob.glob('Iotakt/**/*.lean',recursive=True))+sorted(glob.glob('runtime/IotaktRuntime/**/*.lean',recursive=True))+['Iotakt.lean','runtime/IotaktRuntime.lean','lakefile.lean','runtime/lakefile.lean','lake-manifest.json','runtime/lake-manifest.json','lean-toolchain']
 th=hashlib.sha256()
 for f in files:
     if os.path.isfile(f):
         th.update(f.encode()); th.update(b'\x00'); th.update(open(f,'rb').read()); th.update(b'\x00')
-man=json.load(open('lake-manifest.json'))
+man=json.load(open('runtime/lake-manifest.json'))
 hpin=[p for p in man['packages'] if p['name']=='henret'][0]
 prov={
   "schema":"iotakt.provenance/v1",

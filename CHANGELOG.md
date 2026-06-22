@@ -6,6 +6,50 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.14.0-dev] — 2026-06-22
+
+**RFC 061 resolved via Option B** — iotakt is now **two Lake packages** so a
+verified, model-only consumer resolves with **Henret absent** from its dependency
+graph and no C toolchain. Consumer-visible build-structure change (hence a MINOR
+bump): full-stack consumers migrate their `require` and runtime imports; model-only
+consumers are unaffected. Corpus preserved exactly — **77 theorems** (68 model + 9
+runtime), 0 sorry/admit, 0 axioms. CI now **28 steps** (added the model-only
+resolution gate, step 28); all pass. Henret pin unchanged (commit `63f10f48`).
+
+### Changed
+- **Package split (RFC 061, Option B).** The repository root is now the Henret-free
+  **`iotakt` model package** (`Iotakt.*`: model, fake poller, API, proofs). The
+  runtime/bridge/native layer moved to a sibling **`«iotakt-runtime»` package**
+  (`runtime/`) under the distinct **`IotaktRuntime.*`** namespace, depending on the
+  model package and Henret.
+  - The original RFC 061 design (both packages sharing the `Iotakt.*` root) was
+    found **unbuildable** in Lean 4.15.0 / Lake 5.0.0 — a dependent package cannot
+    extend a dependency-owned module root. Architecture review selected Option B.
+- **Breaking for full-stack consumers** (model-only consumers unaffected):
+  - `require iotakt` → `require «iotakt-runtime» from … / "runtime"`.
+  - Runtime imports `import Iotakt.{Bridge,Native,Driver,Loop,SchedConn,Server,
+    Http,Router,Chunked,RequestBody,WriteBuffer,Actor,Stats}` →
+    `import IotaktRuntime.{…}` (19 modules). See `docs/src/rfc-061-migration.md`
+    for the full rename table.
+  - **Unchanged:** `Iotakt.Api`, `Iotakt.Model.*`, `Iotakt.Fake.*`,
+    `Iotakt.Proofs`. jemmet's model binding is unaffected.
+- Model package manifest now carries **zero dependencies** (Henret absent). The
+  Henret commit-pin and the native `extern_lib` live in the runtime package.
+- `scripts/ci.sh`, `gen-provenance.sh`, `check-provenance.sh`, and
+  `check-model-only-resolution.sh` updated for the two-tree layout; the
+  provenance `henret_pin` is now read from the runtime manifest, and
+  `source_tree_sha256` spans both trees + both lakefiles + both manifests.
+
+### Added
+- `docs/src/rfc-061-migration.md` — package-split overview + import rename table.
+
+### Fixed
+- `examples/EchoServer.lean`: stale pair-destructure of the accept result
+  (`(streamKey, streamFd)`) updated to the triple `(streamKey, streamFd, _task)`
+  matching `acceptBurst`'s `List (FdKey × Int × Nat)` signature (the `Nat` is the
+  Henret task id). Pre-existing latent break in scaffolding, surfaced by the first
+  full gate since the model split; model/proof corpus unaffected.
+
 ## [0.13.4-dev] — 2026-06-22
 
 Release-provenance tooling (RFC 062, **resolved**) plus two filed RFCs from the

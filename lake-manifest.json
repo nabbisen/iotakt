@@ -1,15 +1,5 @@
 {"version": "1.1.0",
  "packagesDir": ".lake/packages",
- "packages":
- [{"url": "https://github.com/nabbisen/henret",
-   "type": "git",
-   "subDir": null,
-   "scope": "",
-   "rev": "63f10f482933969b75cbe278b6eea55764919507",
-   "name": "henret",
-   "manifestFile": "lake-manifest.json",
-   "inputRev": "0.34.0",
-   "inherited": false,
-   "configFile": "lakefile.lean"}],
+ "packages": [],
  "name": "iotakt",
  "lakeDir": ".lake"}
