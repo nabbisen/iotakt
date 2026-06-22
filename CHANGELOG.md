@@ -6,6 +6,38 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.13.4-dev] — 2026-06-22
+
+Release-provenance tooling (RFC 062, **resolved**) plus two filed RFCs from the
+jemmet integration review. Additive release-process change only — no iotakt
+library API, model, proof, or runtime behavior change; henret pin unchanged
+(git `0.34.0`). 77 theorems, 0 sorry/axiom; CI now **27 steps** (added a
+provenance-consistency gate), all pass.
+
+### Added
+- **Release-provenance manifest (RFC 062).** Each release publishes a companion
+  `iotakt-<version>.provenance.json` (schema `iotakt.provenance/v1`) aligned with
+  henret RFC 080: source-archive `sha256`, lake-manifest and toolchain hashes, a
+  reproducible `source_tree_sha256`, the `henret_pin` chain link (tag `0.34.0`,
+  rev `63f10f48`), and the certified verification block (77 / 0 / 0).
+  - `scripts/gen-provenance.sh` (generate at release time),
+    `scripts/verify-provenance.sh` (consumer-side archive check),
+    `scripts/check-provenance.sh` (CI gate, step 27 — manifest stays consistent
+    with the live corpus; counts derived by the same greps as `ci.sh`).
+  - `docs/src/release-provenance.md` documents the schema and verify workflow.
+
+### Proposed (filed, not yet implemented)
+- **RFC 061 — Model/Bridge package split.** Splits iotakt into a Henret-free model
+  package and a bridge package so a model-only consumer (jemmet's verified core)
+  resolves with Henret absent from the graph. Empirically motivated: a model-only
+  consumer currently still materializes Henret at resolution time. Structural
+  build change — awaiting design review before implementation.
+
+### Notes
+- jemmet integration Q1 (offline consumption): confirmed by test — a root
+  `require henret from "path"` overrides iotakt's transitive git require with no
+  GitHub fetch; no iotakt change needed.
+
 ## [0.13.3-dev] — 2026-06-16
 
 Dependency adoption: **henret v0.17.7 → v0.34.0** (17 minor versions). Despite the

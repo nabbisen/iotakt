@@ -361,6 +361,9 @@ else
   echo "SKIP: nc not found"
 fi
 
+step "27. Release provenance manifest consistency (RFC 062)"
+sh scripts/check-provenance.sh && pass "provenance: manifest consistent with corpus (RFC 062)" || fail "provenance: manifest inconsistent"
+
 echo ""
 echo "══════════════════════════════════"
 echo "CI summary: $OK passed, $FAIL failed"

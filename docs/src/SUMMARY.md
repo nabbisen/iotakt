@@ -13,6 +13,7 @@
 ## Maintainers and Contributors
 
 - [Proof, Trust, and Test Matrix](./proof-trust-test-matrix.md)
+- [Release Provenance](./release-provenance.md)
 - [API Stability Review](./api-stability.md)
 - [Native FFI Contract](./native-ffi-contract.md)
 - [FFI Hardening and ByteArray Ownership](./ffi-hardening.md)
