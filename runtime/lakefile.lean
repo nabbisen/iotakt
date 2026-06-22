@@ -10,18 +10,20 @@ package «iotakt-runtime» where
 
 /-- Pinned Henret dependency (RFC 007 bridge layer only).
 
-    Pinned to the COMMIT tag `0.34.0` dereferences to (`0.34.0^{}` = `63f10f48…`),
-    the byte-identical 0.34.0 source. We pin the commit, not `@ "0.34.0"`,
-    deliberately: upstream re-created `0.34.0` as an *annotated* tag (tag object
-    `137c1508…`), so `@ "0.34.0"` now records the tag-object SHA in the manifest
-    instead of the commit. Pinning the commit keeps the manifest rev stable at
-    `63f10f48…` — matching the RFC 062 provenance chain (v0.13.4 henret_pin.rev)
-    and immune to tag-object churn. Source unchanged; recorded rev deterministic.
+    Pinned to the COMMIT that tag `0.34.3` dereferences to (`0.34.3^{}` =
+    `a5f3f116…`). We pin the commit, not `@ "0.34.3"`, deliberately: upstream
+    publishes its release tags as *annotated* tags (e.g. `0.34.3` → tag object
+    `ec92246d…`, `0.34.0` → `137c1508…`), so `@ "0.34.3"` would record the
+    tag-object SHA in the manifest instead of the commit. Pinning the commit keeps
+    the recorded rev deterministic (`a5f3f116…`) and immune to tag-object churn.
+    Henret `Henret/` Lean source is byte-identical 0.34.0 → 0.34.3 (0.34.1–0.34.3
+    are docs + release-process only: RFCs 094/095/096); this bump changes no model,
+    no proof hypothesis, no `inject_ok_of_mailbox` guard.
     Git require → CI-portable via `LAKE_PKG_URL_MAP: henret=…`.
 
     LOCAL / VENDORED override — swap for a vendored tree:
-      require henret from "../henret/henret-v0.34.0"  -/
-require henret from git "https://github.com/nabbisen/henret" @ "63f10f482933969b75cbe278b6eea55764919507"
+      require henret from "../henret/henret-v0.34.3"  -/
+require henret from git "https://github.com/nabbisen/henret" @ "a5f3f1165718449e1ef4cf87607776af5fb6a1dd"
 
 /-- The Henret-free model package (RFC 061): pure model, fake poller, public API,
     and proofs. Full-stack consumers depending on `iotakt-bridge` import

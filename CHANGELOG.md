@@ -6,6 +6,24 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.14.1-dev] — 2026-06-22
+
+Henret dependency bump **0.34.0 → 0.34.3** (commit `63f10f48` → `a5f3f116`,
+annotated-tag dereferenced). Trivial, source-identical: Henret's `Henret/` Lean
+source is **byte-identical** across 0.34.0–0.34.3 — the 0.34.1/0.34.2/0.34.3
+changes are docs and release-process tooling only (consumer-doc/archive hygiene;
+RFC 095 published release-verification manifest; RFC 096 stack release contract).
+No compiler-caught migration trigger, no proof-hypothesis change; `inject_ok_of_mailbox`
+and its guards are untouched. 28-step CI green, 77 theorems (68 model + 9 runtime),
+0 sorry/admit, 0 axioms.
+
+### Changed
+- `runtime/lakefile.lean`: Henret pin → commit `a5f3f116` (the commit `0.34.3^{}`
+  dereferences to). Continued commit-pinning (not `@ "0.34.3"`) because upstream
+  release tags are annotated, so a tag pin would record the tag-object SHA. The
+  model package remains dependency-free; the pin lives only in the runtime package.
+- Provenance `henret_pin.rev` → `a5f3f116…` for v0.14.1-dev.
+
 ## [0.14.0-dev] — 2026-06-22
 
 **RFC 061 resolved via Option B** — iotakt is now **two Lake packages** so a
