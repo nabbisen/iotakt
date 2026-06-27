@@ -105,6 +105,15 @@ publish its RFC 095 sidecar from CI (RFC 097 release-CI repair); Henret's Lean s
 is byte-identical 0.34.0–0.34.4, so the bump is a pin-only change. Edge anchored at
 sidecar `21d6e9d0…`, henret commit `ad0ceab4…`, surface "task/runtime model API".
 
+## Follow-up (v0.14.3-dev) — `package` field for the shared verifier
+
+henret's `verify_stack_release.py` resolves every manifest by hash and asserts
+`manifest["package"] == name`. `iotakt.provenance/v1` carried iotakt's name only under
+`project`, so the verifier rejected the iotakt node. v0.14.3-dev adds a top-level
+`"package": "iotakt"` **alongside** `project` (both retained; schema stays `v1`,
+additive). `check-provenance.sh` asserts it. Per RELEASES.md immutability, this shipped
+as a new version rather than re-cutting v0.14.2-dev.
+
 ## Open Questions
 
 None. If jemmet's stack contract later wants additional iotakt fields (detached

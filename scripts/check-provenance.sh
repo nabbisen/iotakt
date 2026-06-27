@@ -17,6 +17,7 @@ import json, os, sys
 a=json.load(open('/tmp/_prov_a.json')); b=json.load(open('/tmp/_prov_b.json'))
 errs=[]
 if a.get("schema")!="iotakt.provenance/v1": errs.append(f"schema={a.get('schema')}")
+if a.get("package")!="iotakt": errs.append(f"package={a.get('package')} (stack verifier asserts manifest.package==name)")
 v=a.get("verification",{})
 if v.get("theorems")!=int(os.environ['CP_THM']): errs.append(f"theorems {v.get('theorems')} != corpus {os.environ['CP_THM']}")
 if v.get("sorry")!=0: errs.append(f"sorry={v.get('sorry')}")

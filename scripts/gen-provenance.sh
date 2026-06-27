@@ -64,6 +64,7 @@ for sc in sidecars:
     })
 prov={
   "schema":"iotakt.provenance/v1",
+  "package":"iotakt",
   "project":"iotakt",
   "version":os.environ['PV_VERSION'],
   "source_archive":{"name":os.path.basename(arch),"sha256":sha(arch),"bytes":os.path.getsize(arch)},

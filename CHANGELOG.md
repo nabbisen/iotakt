@@ -6,6 +6,28 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.14.3-dev] — 2026-06-27
+
+Stack-verifier compatibility + a written release-immutability policy. No model, proof,
+build, or henret-pin change from v0.14.2-dev; henret stays at 0.34.4 (`ad0ceab4`), the
+dependency edge unchanged. 28-step CI green, 77 theorems, 0 sorry/admit, 0 axioms.
+
+### Added
+- `iotakt.provenance/v1` gains a top-level `"package": "iotakt"` field **alongside**
+  `project` (both retained; additive, schema stays `v1`). henret's shared
+  `verify_stack_release.py` asserts `manifest["package"] == name`; without this the
+  iotakt node failed with "manifest package is None". `check-provenance.sh` now asserts
+  it.
+- `RELEASES.md` — written release-immutability policy: a published release tag
+  (including `-dev`) is frozen and never re-published in place; any change ships as a
+  new version, so `source_archive.sha256` is a durable provenance anchor. Pre-1.0
+  posture and yank policy documented.
+
+### Note
+- This change post-dates the published v0.14.2-dev, so per the new immutability policy
+  it ships as v0.14.3-dev rather than re-cutting v0.14.2-dev. v0.14.2-dev's
+  `source_archive.sha256` (`ba25a8d1…`) remains valid and unchanged.
+
 ## [0.14.2-dev] — 2026-06-27
 
 Henret pin **0.34.3 → 0.34.4** and **RFC 063** — the stack-contract dependency edge.
