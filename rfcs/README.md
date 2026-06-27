@@ -34,6 +34,7 @@ The folder is the source of truth for each RFC's state.
 | 037 | [Graceful Shutdown, Drain, and Listener-Stop Workflow](./done/037-graceful-shutdown-drain-and-listener-stop-workflow.md) | Implemented (v0.11.0-dev) |
 | 041 | [TLS Boundary, ALPN, and Secure Transport Handoff](./done/041-tls-boundary-alpn-and-secure-transport-handoff.md) | Implemented (v0.6.0-dev) |
 | 061 | [Model/Bridge Package Split for Henret-Free Model Resolution (Option B: `Iotakt.*` model + `IotaktRuntime.*` runtime)](./done/061-model-bridge-package-split.md) | Implemented (v0.14.0-dev) |
+| 063 | [Stack-Release-Contract Dependency Edges in `iotakt.provenance/v1`](./done/063-stack-contract-dependency-edges.md) | Implemented (v0.14.2-dev) |
 | 062 | [Release-Provenance Manifest and Stack-Release-Contract Participation](./done/062-release-provenance-manifest.md) | Implemented (v0.13.4-dev) |
 
 ## Proposed (v0.1 scope — RFCs 001–015, 017–018)

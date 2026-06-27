@@ -10,20 +10,24 @@ package «iotakt-runtime» where
 
 /-- Pinned Henret dependency (RFC 007 bridge layer only).
 
-    Pinned to the COMMIT that tag `0.34.3` dereferences to (`0.34.3^{}` =
-    `a5f3f116…`). We pin the commit, not `@ "0.34.3"`, deliberately: upstream
-    publishes its release tags as *annotated* tags (e.g. `0.34.3` → tag object
-    `ec92246d…`, `0.34.0` → `137c1508…`), so `@ "0.34.3"` would record the
-    tag-object SHA in the manifest instead of the commit. Pinning the commit keeps
-    the recorded rev deterministic (`a5f3f116…`) and immune to tag-object churn.
-    Henret `Henret/` Lean source is byte-identical 0.34.0 → 0.34.3 (0.34.1–0.34.3
-    are docs + release-process only: RFCs 094/095/096); this bump changes no model,
-    no proof hypothesis, no `inject_ok_of_mailbox` guard.
+    Pinned to the COMMIT that tag `0.34.4` dereferences to (`0.34.4^{}` =
+    `ad0ceab4…`). We pin the commit, not `@ "0.34.4"`: upstream release tags are
+    *annotated* (`0.34.4` → tag object `059c504e…`), so a tag pin would record the
+    tag-object SHA instead of the commit. Henret `Henret/` Lean source is
+    byte-identical 0.34.0 → 0.34.4 (0.34.1–0.34.4 are docs / release-CI only —
+    RFCs 094/095/096/097); this bump changes no model, no proof, no
+    `inject_ok_of_mailbox` guard.
+
+    0.34.4 is the first henret release to publish its RFC 095 release-verification
+    sidecar from CI. iotakt's provenance `dependencies[]` entry (RFC 063) is derived
+    from that sidecar and bound to this commit via its `git_commit` field; the
+    sidecar's own SHA-256 (`21d6e9d0…`) is the value jemmet's stack edge and
+    henret's manifest cross-reference.
     Git require → CI-portable via `LAKE_PKG_URL_MAP: henret=…`.
 
     LOCAL / VENDORED override — swap for a vendored tree:
-      require henret from "../henret/henret-v0.34.3"  -/
-require henret from git "https://github.com/nabbisen/henret" @ "a5f3f1165718449e1ef4cf87607776af5fb6a1dd"
+      require henret from "../henret/henret-v0.34.4"  -/
+require henret from git "https://github.com/nabbisen/henret" @ "ad0ceab4ebed2884c9165be44154dca2c1f4816f"
 
 /-- The Henret-free model package (RFC 061): pure model, fake poller, public API,
     and proofs. Full-stack consumers depending on `iotakt-bridge` import

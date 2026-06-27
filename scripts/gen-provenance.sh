@@ -33,6 +33,35 @@ for f in files:
         th.update(f.encode()); th.update(b'\x00'); th.update(open(f,'rb').read()); th.update(b'\x00')
 man=json.load(open('runtime/lake-manifest.json'))
 hpin=[p for p in man['packages'] if p['name']=='henret'][0]
+
+# RFC 063 — stack-contract dependency edge, DERIVED from henret's published RFC 095
+# sidecar (vendored under provenance/) and VERIFIED to bind to the commit we build
+# against. We never transcribe hand-supplied hashes: manifest_sha256 is the SHA-256
+# of the sidecar file itself; tarball_sha256 is henret's published canonical-archive
+# hash; both are admitted only after the sidecar's git_commit equals our henret pin.
+deps=[]
+sidecars=sorted(glob.glob('provenance/henret-*.release-verification.json'))
+for sc in sidecars:
+    sm=json.load(open(sc))
+    sc_commit=sm.get('git_commit')
+    if sc_commit != hpin.get('rev'):
+        sys.stderr.write(f"FATAL: sidecar {sc} git_commit {sc_commit} != henret pin {hpin.get('rev')}\n")
+        sys.exit(3)
+    if not sm.get('required_gates_passed', False):
+        sys.stderr.write(f"FATAL: sidecar {sc} required_gates_passed is not true\n")
+        sys.exit(3)
+    deps.append({
+      "package":"henret",
+      "version":sm.get('version'),
+      "manifest_sha256":sha(sc),                       # = jemmet's provider_manifest_sha256
+      "tarball_sha256":sm.get('tarball_sha256') or (sm.get('source_archive') or {}).get('sha256'),
+      "surface":"task/runtime model API",
+      "scope":"iotakt-runtime package (the iotakt model package is henret-free)",
+      "git_rev":hpin.get('rev'),
+      "manifest_schema":sm.get('manifest_schema'),
+      "release_profile":sm.get('release_profile'),
+      "bound_by":"git_commit (verified) ; manifest_sha256/tarball_sha256 are henret's published values (trusted per henret RFC 080)",
+    })
 prov={
   "schema":"iotakt.provenance/v1",
   "project":"iotakt",
@@ -43,6 +72,7 @@ prov={
   "source_tree_sha256":th.hexdigest(),
   "henret_pin":{"name":"henret","type":hpin['type'],"inputRev":hpin.get('inputRev'),
                 "rev":hpin.get('rev'),"url":hpin.get('url'),"dir":hpin.get('dir')},
+  "dependencies":deps,
   "verification":{"theorems":int(os.environ['PV_THM']),"sorry":int(os.environ['PV_SRY']),
                   "admit":0,"project_axioms":int(os.environ['PV_AX']),
                   "ci_steps":int(os.environ['PV_STEPS']),

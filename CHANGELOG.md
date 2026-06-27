@@ -6,6 +6,35 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.14.2-dev] — 2026-06-27
+
+Henret pin **0.34.3 → 0.34.4** and **RFC 063** — the stack-contract dependency edge.
+0.34.4 is the first henret release to publish its RFC 095 release-verification
+sidecar from CI (its RFC 097 repaired the release gate); Henret's `Henret/` Lean
+source is byte-identical 0.34.0–0.34.4, so the pin bump changes no model/proof. With
+the sidecar finally published, `iotakt.provenance/v1` now declares the iotakt→henret
+edge so jemmet's stack manifest verifies under henret's RFC 096. 28-step CI green,
+77 theorems, 0 sorry/admit, 0 axioms.
+
+### Added
+- **RFC 063 — `dependencies[]` in `iotakt.provenance/v1`** (additive; schema stays
+  `v1`). Declares henret by `manifest_sha256` + `tarball_sha256` + `surface` in RFC
+  096's per-package shape, scoped to the runtime package (the model package stays
+  henret-free). Hashes are **derived** from henret's published RFC 095 sidecar and
+  admitted only after the sidecar's `git_commit` binds to `henret_pin.rev` — never
+  transcribed. The verified sidecar is vendored under `provenance/` and ships in the
+  release tarball for offline re-verification. `henret_pin` retained as a second
+  anchor.
+- `scripts/check-provenance.sh` now re-verifies each dependency edge offline (sidecar
+  hash, `git_commit` binding, tarball hash) every CI run; `gen-provenance.sh` aborts
+  if the binding fails.
+- Edge for v0.14.2-dev: henret 0.34.4, sidecar `21d6e9d0…`, tarball `ad9f0582…`,
+  commit `ad0ceab4…`.
+
+### Changed
+- `runtime/lakefile.lean`: henret pin → commit `ad0ceab4` (`0.34.4^{}`,
+  annotated-tag dereferenced). Continued commit-pinning.
+
 ## [0.14.1-dev] — 2026-06-22
 
 Henret dependency bump **0.34.0 → 0.34.3** (commit `63f10f48` → `a5f3f116`,

@@ -1,0 +1,162 @@
+{
+  "manifest_schema": 1,
+  "generated_by": "scripts/check.sh --release-core",
+  "package": "henret",
+  "version": "0.34.4",
+  "gate_registry": "rfc097-ci-core-v1",
+  "release_profile": "ci-core-v1",
+  "required_gates_passed": true,
+  "timestamp_utc": "2026-06-23T10:22:15.548189+00:00",
+  "git_commit": "ad0ceab4ebed2884c9165be44154dca2c1f4816f",
+  "git_dirty": false,
+  "git_dirty_paths": [],
+  "local_precheck": false,
+  "tarball_sha256": "ad9f05822f538fba7ecb077d3b86c005e6e3c49c21951884ef2c79f226cf9c67",
+  "source_archive": {
+    "name": "henret-0.34.4.tar.gz",
+    "sha256": "ad9f05822f538fba7ecb077d3b86c005e6e3c49c21951884ef2c79f226cf9c67",
+    "size_bytes": 573053
+  },
+  "lake_manifest_sha256": "42fcfacc1f17bfc003136b27897ba8a1b31efdb53d49027598c146126fe37a92",
+  "lean_toolchain_sha256": "aff3a276fcd1daa6f311e07baf168d5c0c89a3ddad4cd4e8de3e2ec779504e46",
+  "os": "Linux-6.17.0-1018-azure-x86_64-with-glibc2.39",
+  "runner": "github-actions",
+  "gate_policy": {
+    "check_sh_sha256": "d6730acdbc22577259045ad1f9b661d3252d7de1dd85137b68ea8e777046942f",
+    "check_selftest_py_sha256": "c7fae7f4791718854846739ac6cbd246b3ca6972495624fb7a7b2e37ebb1f294",
+    "axiom_audit_py_sha256": "ef80ed608589be0486dbadc57aeec5b1175385d2adffd630f68ad98c4ea6d2a0",
+    "doc_symbol_check_py_sha256": "5c3ae492e31d3892c171e64141b4257871fa235476ae68a9d5a8b7d017cbe61a",
+    "doc_count_check_py_sha256": "5073571a79a9c369377bd42d11df1ad9005e5c84b71c6ad990796694849401c0",
+    "rfc_metadata_check_py_sha256": "a58ae30be03a88fc36147143eb84b4b7063e0686b42cfc030b10e1a89f577d15",
+    "forbidden_claim_check_py_sha256": "23b84f83845d413a342371bf35157b8c0bad523cc651c45be8e49b699ce9f5c0",
+    "warning_budget_py_sha256": "9f425e4f30884447ccb79e8b5e99aa807cf9faf7b498e7978f1a335d3ee0c8db",
+    "helper_usage_check_py_sha256": "e7eb457095b5e5af61cd01e09ec993f5cdb2eb57311e06e6e26268d79d19b074",
+    "extract_model_docs_py_sha256": "693c1d06980028689cd03a5eae3cf623b8dc31cb535a496084d7229a50764d0d",
+    "extract_theorem_docs_py_sha256": "f3ad39a69a8965eed0f45c432642a328d773372c618abccad2843d3aa4e46ac6",
+    "extract_rfc_index_py_sha256": "067fd570c53ef55e67c8f68689e93c24b183b30c3a568496832735d0a935dc3c"
+  },
+  "gates": [
+    {
+      "id": 0,
+      "name": "gate-suite self-test",
+      "command": "gate-suite self-test",
+      "status": "pass",
+      "duration_ms": 530,
+      "stdout_log": "release/logs/gate-0.out",
+      "stdout_sha256": "2506089cb263b9202f5d87ba6785b8fef27dd07455a9a4d6228da2ba3e3a9c03",
+      "stderr_log": "release/logs/gate-0.err",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "criticality": "required"
+    },
+    {
+      "id": 1,
+      "name": "build libraries",
+      "command": "build libraries",
+      "status": "pass",
+      "duration_ms": 7701,
+      "stdout_log": "release/logs/gate-1.out",
+      "stdout_sha256": "a30d6eefe7ccec7803482bd446c3d48f7cc46ed86ba99cb839fca134dd7a5a3d",
+      "stderr_log": "release/logs/gate-1.err",
+      "stderr_sha256": "c6b043c3124868f6210ac65b6745878073e64ab219784bebc4c10a9bd526b98a",
+      "criticality": "required"
+    },
+    {
+      "id": 3,
+      "name": "examples compile + eval",
+      "command": "examples compile + eval",
+      "status": "pass",
+      "duration_ms": 5778,
+      "stdout_log": "release/logs/gate-3.out",
+      "stdout_sha256": "2b0111dc8d83bfe5d0f4d1337cef497e1343eaf3223ac3607c8792a20d5dba43",
+      "stderr_log": "release/logs/gate-3.err",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "criticality": "required"
+    },
+    {
+      "id": 5,
+      "name": "doc-symbol checker",
+      "command": "doc-symbol checker",
+      "status": "pass",
+      "duration_ms": 720,
+      "stdout_log": "release/logs/gate-5.out",
+      "stdout_sha256": "ef29117cd4aedabbe5583e9eda2d3f32fecf34f548dc34312c82eb65919ff9fc",
+      "stderr_log": "release/logs/gate-5.err",
+      "stderr_sha256": "ea0024a097de818e357b9b3ffb8d1c0b7ecf8c493e1329905ce1e1dd088366c5",
+      "criticality": "required"
+    },
+    {
+      "id": 6,
+      "name": "strict axiom audit",
+      "command": "strict axiom audit",
+      "status": "pass",
+      "duration_ms": 4086,
+      "stdout_log": "release/logs/gate-6.out",
+      "stdout_sha256": "92ae52d67243d82ee500357e7310bd5a7e2a7b17e364487a8dbca2f273d03c20",
+      "stderr_log": "release/logs/gate-6.err",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "criticality": "required"
+    },
+    {
+      "id": 7,
+      "name": "documentation consistency",
+      "command": "documentation consistency",
+      "status": "pass",
+      "duration_ms": 1093,
+      "stdout_log": "release/logs/gate-7.out",
+      "stdout_sha256": "6a93cd8b4b3c8c78466f2961e837303c49d63ea5f402d7ba8060be03d0f99e95",
+      "stderr_log": "release/logs/gate-7.err",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "criticality": "required"
+    },
+    {
+      "id": 8,
+      "name": "RFC metadata schema",
+      "command": "RFC metadata schema",
+      "status": "pass",
+      "duration_ms": 36,
+      "stdout_log": "release/logs/gate-8.out",
+      "stdout_sha256": "0dd2e33b91f1e757ef14ff6b1d2253c9ed634dee6de410415f5f03fddca462e2",
+      "stderr_log": "release/logs/gate-8.err",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "criticality": "required"
+    },
+    {
+      "id": 9,
+      "name": "linter warning budget",
+      "command": "linter warning budget",
+      "status": "pass",
+      "duration_ms": 40,
+      "stdout_log": "release/logs/gate-9.out",
+      "stdout_sha256": "32a73d2d78d11222f73ab04e7543dfdaf00a5847cf51805a040aac7dd0bcf1bc",
+      "stderr_log": "release/logs/gate-9.err",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "criticality": "required"
+    },
+    {
+      "id": 2,
+      "name": "demo regression scenarios",
+      "criticality": "advisory",
+      "status": "not_run_in_release_core",
+      "reason": "advisory executable validation; runs in the release-validation workflow (RFC 097)"
+    },
+    {
+      "id": 4,
+      "name": "golden conformance suite",
+      "criticality": "advisory",
+      "status": "not_run_in_release_core",
+      "reason": "advisory executable validation; runs in the release-validation workflow (RFC 097)"
+    }
+  ],
+  "validation_reports": [],
+  "runtime_package": {
+    "included": false,
+    "version_or_commit": null,
+    "verified_by_this_tarball": false,
+    "evidence_ledger": "docs/evidence-ledger.yaml",
+    "evidence": "Out-of-tree sibling package; runtime claims carry verified_by_this_tarball=false in the evidence ledger (RFC 081)."
+  },
+  "human_summary": {
+    "name": "GATE-RUN.md",
+    "sha256": "d90cc5f7fb9d0403334e97eab99a7c561e552ff71aab37bd4116edce700b1214"
+  }
+}
