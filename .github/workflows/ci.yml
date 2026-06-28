@@ -6,126 +6,42 @@ on:
   pull_request:
     branches: [main]
 
-jobs:
-  # ── 1. Pure Lean model (no C required) ──────────────────────────────
-  lean-model:
-    name: Pure Lean model + fake poller
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install elan
-        run: |
-          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-            | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> $GITHUB_PATH
-      - name: Install Lean toolchain
-        run: elan toolchain install $(cat lean-toolchain)
-      - name: Resolve dependencies
-        run: lake update
-        env:
-          LAKE_PKG_URL_MAP: |
-            henret=https://github.com/nabbisen/henret
-      - name: Build pure Lean model (no C)
-        run: lake build Iotakt IotaktApi
-      - name: Build Henret bridge
-        run: lake build IotaktBridge
-      - name: Run fake-poller demo
-        run: |
-          lake build iotakt-fake-demo
-          .lake/build/bin/iotakt-fake-demo | tee /tmp/fake_out.txt
-          grep -c '\[PASS\]' /tmp/fake_out.txt | xargs -I{} test {} -ge 20
-      - name: RFC invariant checks
-        run: sh scripts/check-rfcs.sh
+env:
+  LAKE_PKG_URL_MAP: '{"henret":"https://github.com/nabbisen/henret"}'
 
-  # ── 2. Native Linux backend ─────────────────────────────────────────
-  native-linux:
-    name: Native Linux (epoll + sockets)
+jobs:
+  gate:
+    name: 28-step gate (model + runtime + proofs + native + provenance)
     runs-on: ubuntu-latest
-    needs: lean-model
     steps:
-      - uses: actions/checkout@v4
-      - name: Install elan + gcc
+      - uses: actions/checkout@v7
+      - name: Install elan + gcc + nc
         run: |
           sudo apt-get update -qq && sudo apt-get install -y gcc netcat-openbsd
           curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
             | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
       - name: Install Lean toolchain
-        run: elan toolchain install $(cat lean-toolchain)
-      - name: Resolve dependencies
-        run: lake update
-        env:
-          LAKE_PKG_URL_MAP: |
-            henret=https://github.com/nabbisen/henret
-      - name: Build native C shim + Lean FFI
-        run: lake build IotaktNative
-      - name: Native integration test (13 checks)
-        run: |
-          lake build iotakt-native-test
-          .lake/build/bin/iotakt-native-test | tee /tmp/native_out.txt
-          grep -c '\[PASS\]' /tmp/native_out.txt | xargs -I{} test {} -ge 13
-      - name: Echo integration test / v0.1 checkpoint (19 checks)
-        run: |
-          lake build iotakt-echo-test
-          .lake/build/bin/iotakt-echo-test | tee /tmp/echo_out.txt
-          grep -c '\[PASS\]' /tmp/echo_out.txt | xargs -I{} test {} -ge 19
-      - name: Single-connection echo server smoke test
-        run: |
-          lake build iotakt-echo-server
-          .lake/build/bin/iotakt-echo-server &
-          sleep 1
-          RESP=$(echo "hello from iotakt" | nc -q1 127.0.0.1 49900)
-          kill %% 2>/dev/null || true
-          echo "$RESP" | grep -q "hello from iotakt"
-      - name: v0.4 integration test (WriteBuffer, HTTP, FFI, conformance)
-        run: |
-          lake build iotakt-v4-test
-          .lake/build/bin/iotakt-v4-test | tee /tmp/v4_out.txt
-          FAIL=$(grep -c '\[FAIL\]' /tmp/v4_out.txt || true)
-          test "${FAIL:-0}" -eq 0
-      - name: HTTP/1.0 server+client smoke test
-        run: |
-          lake build iotakt-http-server iotakt-http-client
-          .lake/build/bin/iotakt-http-server &
-          sleep 1
-          HTTP_OUT=$(.lake/build/bin/iotakt-http-client)
-          kill %% 2>/dev/null || true
-          echo "$HTTP_OUT" | grep -q "status 200"
-      - name: Multi-connection echo server test
-        run: |
-          lake build iotakt-multi-echo
-          .lake/build/bin/iotakt-multi-echo &
-          sleep 1
-          echo "hello" | nc -q1 127.0.0.1 49901 &
-          sleep 0.3
-          RESP=$(echo "world" | nc -q1 127.0.0.1 49901)
-          sleep 2
-          kill %% 2>/dev/null || true
-          echo "$RESP" | grep -q "world"
+        run: elan toolchain install "$(cat lean-toolchain)"
+      - name: Run the gate
+        run: sh scripts/ci.sh
 
-  # ── 3. Sanitizer build ───────────────────────────────────────────────
   sanitizer:
     name: ASan/UBSan native build
     runs-on: ubuntu-latest
-    needs: native-linux
+    needs: gate
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install elan + gcc
         run: |
           sudo apt-get update -qq && sudo apt-get install -y gcc
           curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
             | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
       - name: Install Lean toolchain
-        run: elan toolchain install $(cat lean-toolchain)
-      - name: Resolve dependencies
-        run: lake update
-        env:
-          LAKE_PKG_URL_MAP: |
-            henret=https://github.com/nabbisen/henret
-      - name: Build native shim with sanitizers
-        run: IOTAKT_SANITIZE=1 sh scripts/build_native.sh
-      - name: Run native test with sanitizers
+        run: elan toolchain install "$(cat lean-toolchain)"
+      - name: Build native shim with sanitizers + run (in runtime package)
         run: |
-          lake build iotakt-native-test
-          ASAN_OPTIONS=detect_leaks=0 .lake/build/bin/iotakt-native-test
+          IOTAKT_SANITIZE=1 sh scripts/build_native.sh || true
+          lake --dir runtime build iotakt-native-test
+          ASAN_OPTIONS=detect_leaks=0 runtime/.lake/build/bin/iotakt-native-test

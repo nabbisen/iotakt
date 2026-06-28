@@ -46,6 +46,37 @@ Verify a release with:
 scripts/verify-provenance.sh iotakt-<version>.tar.gz iotakt-<version>.provenance.json
 ```
 
+## Publishing a release (CI publishes the canonical archive on tag)
+
+A provenance anchor is only useful if the artifact it names is **obtainable**. The
+archive `iotakt.provenance/v1.source_archive` names is the **canonical, files-at-root**
+tarball — *not* GitHub's auto-generated "Source code (tar.gz)", which wraps every path
+in an `iotakt-<tag>/` parent directory and has entirely different bytes. Publishing
+only GitHub's auto-tarball leaves the manifest pointing at a file no consumer can
+download.
+
+Publishing is automated by CI (`.github/workflows/release.yml`), mirroring henret:
+
+1. Cut from a tree whose gate is green and tag the release **`vX.Y.Z-dev`** — with the
+   `-dev` suffix — so the git tag, the archive filename, and the manifest `version` all
+   agree. (A tag like `0.14.3` produces an `iotakt-0.14.3/` auto-tarball prefix that
+   disagrees with the manifest name `iotakt-v0.14.3-dev.tar.gz`; avoid that mismatch.)
+2. On the tag push, the `release` workflow runs the full 28-step gate, then
+   `scripts/package-release.sh` to build the canonical files-at-root archive and its
+   provenance sidecar, verifies them, and **uploads both as downloadable release
+   assets** via `gh release upload`:
+   - `iotakt-vX.Y.Z-dev.tar.gz` (the canonical archive the manifest names)
+   - `iotakt-vX.Y.Z-dev.provenance.json`
+
+   No manual attach step, and GitHub's auto-generated source tarball is never the
+   anchor.
+
+The archive is **byte-reproducible** (`package-release.sh` uses `--sort=name`, a fixed
+mtime/owner, and `gzip -n`), so `source_archive.sha256` is auditable: anyone can
+rebuild the tree and reproduce the hash, the way henret's release archive is
+reproducible. `scripts/package-release.sh <version>` can also be run locally to
+reproduce or pre-check the exact assets CI will publish.
+
 ## Yanking
 
 If a published release is found to be broken or unsafe, it is **superseded by a new

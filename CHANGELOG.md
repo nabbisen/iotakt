@@ -6,6 +6,34 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.14.4-dev] — 2026-06-28
+
+Release-CI: the canonical release archive and its provenance sidecar are now published
+as downloadable GitHub **release assets from CI on tag**, mirroring henret. This closes
+the gap where `iotakt.provenance/v1.source_archive` named a canonical files-at-root
+archive that wasn't downloadable — the only fetchable artifact had been GitHub's
+auto-generated source tarball, which wraps every path in an `iotakt-<tag>/` parent dir
+and has different bytes. No model, proof, or henret-pin change (henret stays 0.34.4,
+`ad0ceab4`); corpus unchanged. 28-step gate green, 77 theorems, 0 sorry/admit, 0 axioms.
+
+### Added
+- `.github/workflows/release.yml` — on a `vX.Y.Z-dev` tag push, runs the 28-step gate,
+  builds the canonical archive + provenance via `scripts/package-release.sh`, verifies
+  them, and uploads both as release assets (`gh release upload`). GitHub's auto-tarball
+  is never the anchor.
+- `scripts/package-release.sh` — builds the **byte-reproducible**, files-at-root
+  archive (`--sort=name`, fixed mtime/owner, `gzip -n`) and its provenance, and prints
+  the exact assets to publish. `source_archive.sha256` is now auditable/reproducible,
+  the way henret's release archive is.
+- `RELEASES.md` documents the CI publishing flow and the `vX.Y.Z-dev` tag convention
+  (so tag, archive name, and manifest `version` agree).
+
+### Fixed
+- `.github/workflows/ci.yml` was stale from before the RFC 061 split (it built
+  `IotaktBridge`/`IotaktNative` at the repo root and used `.lake/build/bin/`, which no
+  longer exist in the two-package layout). Repaired to delegate to the authoritative
+  `scripts/ci.sh` gate, with the sanitizer job pointed at the runtime package.
+
 ## [0.14.3-dev] — 2026-06-27
 
 Stack-verifier compatibility + a written release-immutability policy. No model, proof,

@@ -1,0 +1,72 @@
+name: release
+
+# Publishes the canonical, files-at-root, reproducible release archive AND its
+# provenance sidecar as downloadable release ASSETS — the artifacts
+# iotakt.provenance/v1.source_archive names. This is what makes the provenance
+# anchor obtainable; consumers (e.g. jemmet's RFC 017 archive→tree gate) fetch
+# these assets, not GitHub's auto-generated source tarball (which wraps every
+# path in a parent dir and has different bytes). Mirrors henret's release CI.
+#
+# Trigger: push of a version tag (use the -dev suffix, e.g. v0.14.4-dev), or
+# manual dispatch. The asset names follow the tag, so the tag, archive name, and
+# manifest version all agree.
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags: ["v[0-9]*", "[0-9]*.[0-9]*.[0-9]*"]
+  workflow_dispatch:
+
+env:
+  LAKE_PKG_URL_MAP: '{"henret":"https://github.com/nabbisen/henret"}'
+
+jobs:
+  release:
+    name: Gate + package + publish assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install elan + gcc + nc
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y gcc netcat-openbsd
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Install Lean toolchain
+        run: elan toolchain install "$(cat lean-toolchain)"
+
+      - name: Full release gate (28 steps — model + runtime + proofs + provenance)
+        run: sh scripts/ci.sh
+
+      - name: Package canonical archive + provenance (reproducible, files-at-root)
+        run: bash scripts/package-release.sh "${GITHUB_REF_NAME}" "${RUNNER_TEMP}/release"
+
+      - name: Verify provenance against the archive
+        run: |
+          bash scripts/verify-provenance.sh \
+            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.tar.gz" \
+            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.provenance.json"
+
+      - name: Publish assets to the release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
+            || gh release create "${GITHUB_REF_NAME}" --title "iotakt ${GITHUB_REF_NAME}" \
+                 --notes "iotakt ${GITHUB_REF_NAME}. Canonical files-at-root archive + iotakt.provenance/v1 sidecar attached as assets (see RELEASES.md)."
+          gh release upload "${GITHUB_REF_NAME}" \
+            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.tar.gz" \
+            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.provenance.json" \
+            --clobber
+
+      - name: Upload assets as workflow artifacts (dispatch / non-tag runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: iotakt-release-${{ github.ref_name }}
+          path: ${{ runner.temp }}/release/
