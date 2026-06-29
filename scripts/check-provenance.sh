@@ -4,6 +4,16 @@
 set -eu
 cd "$(dirname "$0")/.."
 
+# Convention guard (runs every CI build): the latest CHANGELOG release heading is the
+# canonical bare X.Y.Z — no -dev suffix, no v prefix. This is what stops a label like
+# 0.14.4-dev from drifting back in; package-release.sh additionally asserts the release
+# version equals this heading.
+CL=$(grep -oE '^## \[[0-9][^]]*\]' CHANGELOG.md | grep -v '\[Unreleased\]' | head -1 | sed -E 's/^## \[([^]]*)\].*/\1/')
+if ! printf '%s' "$CL" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "[FAIL] provenance consistency: latest CHANGELOG heading '$CL' is not canonical bare X.Y.Z" >&2
+  exit 1
+fi
+
 # Canonical counts (same greps as ci.sh / gen-provenance.sh).
 THM=$(grep -rhE "^(theorem|lemma|@\[simp\] theorem|@\[simp\] lemma)" Iotakt/ runtime/IotaktRuntime/ --include="*.lean" | wc -l | tr -d ' ')
 

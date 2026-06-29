@@ -7,9 +7,9 @@ name: release
 # these assets, not GitHub's auto-generated source tarball (which wraps every
 # path in a parent dir and has different bytes). Mirrors henret's release CI.
 #
-# Trigger: push of a version tag (use the -dev suffix, e.g. v0.14.4-dev), or
-# manual dispatch. The asset names follow the tag, so the tag, archive name, and
-# manifest version all agree.
+# Trigger: push of a version tag. The canonical label is bare X.Y.Z (e.g. 0.14.5);
+# a leading "v" is tolerated and stripped, so the asset names, the manifest version,
+# and the tag all agree.
 
 permissions:
   contents: write
@@ -43,25 +43,29 @@ jobs:
         run: sh scripts/ci.sh
 
       - name: Package canonical archive + provenance (reproducible, files-at-root)
-        run: bash scripts/package-release.sh "${GITHUB_REF_NAME}" "${RUNNER_TEMP}/release"
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          bash scripts/package-release.sh "$VER" "${RUNNER_TEMP}/release"
 
       - name: Verify provenance against the archive
         run: |
+          VER="${GITHUB_REF_NAME#v}"
           bash scripts/verify-provenance.sh \
-            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.tar.gz" \
-            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.provenance.json"
+            "${RUNNER_TEMP}/release/iotakt-${VER}.tar.gz" \
+            "${RUNNER_TEMP}/release/iotakt-${VER}.provenance.json"
 
       - name: Publish assets to the release (tag pushes only)
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          VER="${GITHUB_REF_NAME#v}"
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
             || gh release create "${GITHUB_REF_NAME}" --title "iotakt ${GITHUB_REF_NAME}" \
                  --notes "iotakt ${GITHUB_REF_NAME}. Canonical files-at-root archive + iotakt.provenance/v1 sidecar attached as assets (see RELEASES.md)."
           gh release upload "${GITHUB_REF_NAME}" \
-            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.tar.gz" \
-            "${RUNNER_TEMP}/release/iotakt-${GITHUB_REF_NAME}.provenance.json" \
+            "${RUNNER_TEMP}/release/iotakt-${VER}.tar.gz" \
+            "${RUNNER_TEMP}/release/iotakt-${VER}.provenance.json" \
             --clobber
 
       - name: Upload assets as workflow artifacts (dispatch / non-tag runs)

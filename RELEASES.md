@@ -3,7 +3,8 @@
 ## Immutability — a published release is frozen
 
 **A published release tag is never re-published in place. Any change ships as a new
-version.** This applies to `-dev`-suffixed tags as well as future non-`-dev` tags.
+version.** This applies to every release tag (the early `-dev`-suffixed releases and
+the bare `X.Y.Z` releases from 0.14.4 onward alike).
 
 This is the same discipline henret states for its releases, and it is what makes the
 provenance anchor meaningful: once `iotakt-<version>.tar.gz` is published, its
@@ -19,17 +20,27 @@ shipped the field in `v0.14.3-dev`. `v0.14.2-dev`'s `source_archive.sha256`
 
 ## Versioning and stability (pre-1.0)
 
-iotakt is pre-1.0; every release is `-dev`-suffixed. Per the immutability guarantee
-above, a published `-dev` release is a **frozen, pinnable artifact** — not a moving
-target. A consumer may pin a `-dev` release and treat its `source_archive.sha256` and
-`iotakt-<version>.provenance.json` as stable for provenance purposes.
+iotakt is pre-1.0. The canonical version label is **bare `X.Y.Z`** (e.g. `0.14.5`) —
+no `-dev` suffix and no `v` prefix in the manifest/archive name; a leading `v` on the
+git tag is tolerated and stripped. (Historical note: releases 0.14.0–0.14.3 were
+published with a `-dev` suffix; from 0.14.4 onward the label is bare `X.Y.Z`. Those
+older `-dev` tags remain valid, frozen provenance anchors.)
 
-A non-`-dev` release (v1.0) is the eventual stability milestone, cut once the public
-model surface (`Iotakt.Api`, `Iotakt.Model.*`) is declared stable. Until then, the
-latest frozen `-dev` release is the artifact to pin, and remaining pre-1.0 work on the
-model surface is intended to be additive. When a non-`-dev` release lands, it will be
-announced as the preferred pin; existing frozen `-dev` pins remain valid provenance
-anchors regardless.
+Being pre-1.0 (a `0.x` line) is itself the stability signal: the public model surface
+(`Iotakt.Api`, `Iotakt.Model.*`) may still change, so a consumer pins a specific
+`0.x` release and treats its `source_archive.sha256` and
+`iotakt-<version>.provenance.json` as a stable, frozen anchor (per the immutability
+guarantee above). `v1.0` is the eventual stability milestone, cut once the public
+model surface is declared stable; remaining pre-1.0 work on that surface is intended
+to be additive. When `1.0` lands it will be announced as the preferred pin; existing
+frozen pins remain valid provenance anchors regardless.
+
+The tag, the archive filename, the manifest `version`, and the latest `CHANGELOG.md`
+release heading must all agree. This is enforced mechanically:
+`scripts/package-release.sh` aborts unless the release version equals the latest
+CHANGELOG heading, and `scripts/check-provenance.sh` (run every CI build) asserts that
+heading is a canonical bare `X.Y.Z` — so a stray `-dev` or a tag/CHANGELOG mismatch
+fails CI rather than shipping.
 
 ## Provenance
 
@@ -57,19 +68,21 @@ download.
 
 Publishing is automated by CI (`.github/workflows/release.yml`), mirroring henret:
 
-1. Cut from a tree whose gate is green and tag the release **`vX.Y.Z-dev`** — with the
-   `-dev` suffix — so the git tag, the archive filename, and the manifest `version` all
-   agree. (A tag like `0.14.3` produces an `iotakt-0.14.3/` auto-tarball prefix that
-   disagrees with the manifest name `iotakt-v0.14.3-dev.tar.gz`; avoid that mismatch.)
+1. Cut from a tree whose gate is green and tag the release **`X.Y.Z`** (canonical bare
+   form, e.g. `0.14.5`; a leading `v` is tolerated and stripped). The archive is named
+   from the stripped version, so the tag, the archive filename `iotakt-X.Y.Z.tar.gz`,
+   and the manifest `version` all agree. The canonical archive is files-at-root, so it
+   is never GitHub's `iotakt-<tag>/`-prefixed auto-tarball.
 2. On the tag push, the `release` workflow runs the full 28-step gate, then
    `scripts/package-release.sh` to build the canonical files-at-root archive and its
    provenance sidecar, verifies them, and **uploads both as downloadable release
    assets** via `gh release upload`:
-   - `iotakt-vX.Y.Z-dev.tar.gz` (the canonical archive the manifest names)
-   - `iotakt-vX.Y.Z-dev.provenance.json`
+   - `iotakt-X.Y.Z.tar.gz` (the canonical archive the manifest names)
+   - `iotakt-X.Y.Z.provenance.json`
 
    No manual attach step, and GitHub's auto-generated source tarball is never the
-   anchor.
+   anchor. The canonical archive contains source only — cross-team handoff
+   correspondence under `handoff/` and `jemmet-handoff/` is excluded.
 
 The archive is **byte-reproducible** (`package-release.sh` uses `--sort=name`, a fixed
 mtime/owner, and `gzip -n`), so `source_archive.sha256` is auditable: anyone can

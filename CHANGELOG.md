@@ -6,7 +6,32 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
-## [0.14.4-dev] — 2026-06-28
+## [0.14.5] — 2026-06-29
+
+Release-label hygiene and archive scope. The canonical version label is now bare
+**X.Y.Z** (no `-dev` suffix); releases 0.14.0–0.14.3 were published with a `-dev`
+suffix, and 0.14.4 onward are bare. No model, proof, or henret-pin change (henret
+stays 0.34.4, `ad0ceab4`); 28-step gate green, 77 theorems, 0 sorry/admit, 0 axioms.
+
+### Changed
+- **Canonical version label is bare `X.Y.Z`.** `package-release.sh` derives the
+  version from the tag with any leading `v` stripped, and `RELEASES.md` /
+  `release.yml` describe the bare convention. (Resolves the label inconsistency
+  jemmet flagged on 0.14.4, where the manifest said `0.14.4` while the in-tree docs
+  said `0.14.4-dev`.)
+- **Release archive carries source only.** Cross-team handoff correspondence
+  (`handoff/`, `jemmet-handoff/`) is excluded from the canonical archive. Besides not
+  being source, one handoff note cited the archive's own hash — a self-reference that
+  made the archive hash depend on a document quoting it. Excluding it makes the
+  archive hash stable and version-independent.
+
+### Added
+- **Label-drift guard.** `package-release.sh` aborts unless the release version equals
+  the latest `CHANGELOG.md` release heading; `check-provenance.sh` (run every CI build)
+  asserts that heading is canonical bare `X.Y.Z`. Tag, manifest `version`, and CHANGELOG
+  can no longer disagree.
+
+## [0.14.4] — 2026-06-28
 
 Release-CI: the canonical release archive and its provenance sidecar are now published
 as downloadable GitHub **release assets from CI on tag**, mirroring henret. This closes
