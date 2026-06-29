@@ -38,4 +38,4 @@ vs. assumed, see the [Proof, Trust, and Test Matrix](./proof-trust-test-matrix.m
 iotakt is at a **v1.0-candidate** surface (v0.13.0-dev): the core consumer
 API is settled, with 77 machine-checked theorems (no `sorry`/`axiom`) and a
 27-step CI gate. The HTTP server that consumes it, **jemmet**, is a separate
-project — see the `jemmet-handoff/` directory for its starting material.
+project — see `rfcs/handoff/jemmet/prototype/` for its starting material.

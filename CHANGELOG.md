@@ -19,11 +19,18 @@ stays 0.34.4, `ad0ceab4`); 28-step gate green, 77 theorems, 0 sorry/admit, 0 axi
   `release.yml` describe the bare convention. (Resolves the label inconsistency
   jemmet flagged on 0.14.4, where the manifest said `0.14.4` while the in-tree docs
   said `0.14.4-dev`.)
-- **Release archive carries source only.** Cross-team handoff correspondence
-  (`handoff/`, `jemmet-handoff/`) is excluded from the canonical archive. Besides not
-  being source, one handoff note cited the archive's own hash — a self-reference that
-  made the archive hash depend on a document quoting it. Excluding it makes the
-  archive hash stable and version-independent.
+- **Cross-team handoff correspondence relocated to `rfcs/handoff/<counterparty>/`** —
+  `jemmet/`, `kroopt/`, `henret/`, `self/`, with the jemmet seed prototype under
+  `rfcs/handoff/jemmet/prototype/` (previously top-level `handoff/` and `jemmet-handoff/`).
+  `check-rfcs.sh` excludes this tree from the RFC `NNN-slug.md` rule; it is distinct from
+  the RFC 000 `rfcs/handoffs/` implementation-handoff convention.
+- **Release archive retains handoff correspondence (traceability), with a discipline
+  guard.** `rfcs/handoff/` is kept in the canonical archive as the project's cross-team
+  decision record. The one document that must not sit in a release's own archive is that
+  release's outbound announcement, since it quotes the hash of the very archive it would
+  sit in (quoting the hash changes it). Such announcements are named for their version
+  and committed *after* the cut, landing in the next release's archive; `package-release.sh`
+  refuses to cut version V while an `rfcs/handoff/` doc named for V is staged.
 
 ### Added
 - **Label-drift guard.** `package-release.sh` aborts unless the release version equals

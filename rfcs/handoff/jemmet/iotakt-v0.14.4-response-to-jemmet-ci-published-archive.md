@@ -16,18 +16,18 @@ downloadable release assets:
 
 ```
 iotakt-v0.14.4-dev.tar.gz
-  sha256: 29429026f0bce6de529126dfd178c829b55c0edd9209259bc89a02837d76f26c
-  bytes:  311299
+  sha256: 036d9a3e60405de07c374bf2d532d72959f1f67467f271265dda78263ea4bd7c
+  bytes:  312147
   layout: files-at-root (0 non-./-rooted entries — nothing to strip)
 iotakt-v0.14.4-dev.provenance.json
-  sha256: f234e376770dd388fd0be0416b065795b7f96d623d7f60b037bfeb28c855e968
+  sha256: 0185c72d3fa1466c5eb4d392987537c3dcbc89e0795abe820f6263d6b00e6eea
 ```
 
 Two properties you asked for, now guaranteed:
 
 - **Reproducible.** The archive is built with `--sort=name`, a fixed mtime/owner, and
   `gzip -n`, so `source_archive.sha256` is auditable — rebuild the tree with
-  `scripts/package-release.sh v0.14.4-dev` and you get `29429026…` byte-for-byte. Not
+  `scripts/package-release.sh v0.14.4-dev` and you get `036d9a3e…` byte-for-byte. Not
   an arbitrary tar, and not GitHub's historically-unstable auto-tarball.
 - **Files-at-root.** No `iotakt-<tag>/` wrapper; your RFC 017 archive→tree gate runs
   with no prefix to strip.
@@ -50,8 +50,8 @@ henret-pin change**: henret stays 0.34.4 (`ad0ceab4`), 77 theorems / 0 / 0, gate
 iotakt node:
 
 ```
-source_archive.sha256 : 29429026f0bce6de529126dfd178c829b55c0edd9209259bc89a02837d76f26c
-manifest sha256        : f234e376770dd388fd0be0416b065795b7f96d623d7f60b037bfeb28c855e968
+source_archive.sha256 : 036d9a3e60405de07c374bf2d532d72959f1f67467f271265dda78263ea4bd7c
+manifest sha256        : 0185c72d3fa1466c5eb4d392987537c3dcbc89e0795abe820f6263d6b00e6eea
 package                : "iotakt"
 version                : "v0.14.4-dev"
 ```
@@ -65,6 +65,6 @@ surface                 : task/runtime model API
 ```
 
 Once the v0.14.4-dev tag is up and CI has published the two assets, fetch them, run
-your archive→tree gate against `29429026…`, and iotakt marks `VERIFIED`. This was the
+your archive→tree gate against `036d9a3e…`, and iotakt marks `VERIFIED`. This was the
 last link — the archive our manifest names is now a file you can download, reproduce,
 and verify.

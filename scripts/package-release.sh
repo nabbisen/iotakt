@@ -15,9 +15,10 @@
 #
 # Reproducible: --sort=name + fixed mtime/owner + gzip -n make the archive
 # byte-identical across machines, so source_archive.sha256 is auditable, not arbitrary.
-# Cross-team handoff correspondence (handoff/, jemmet-handoff/) is NOT source and is
-# excluded — it would otherwise make the archive hash depend on documents that cite
-# that very hash (a self-reference that can never settle).
+# Cross-team handoff correspondence under rfcs/handoff/ is kept as the project's traceability
+# record. A discipline guard (below) refuses to cut a release while that release's own
+# announcement is staged, since an announcement quotes the hash of the very archive it
+# would sit in (committed after the cut, it lands in the next release).
 set -eu
 
 RAW="${1:?usage: package-release.sh <version> [out-dir]}"
@@ -40,21 +41,36 @@ if [ "$VERSION" != "$CL" ]; then
   exit 1
 fi
 
-# Stage a clean tree: source only — no build artifacts, no cross-team handoff mail.
+# Stage a clean tree: source only — no build artifacts.
 ST="$(mktemp -d)"
 tar cf - --exclude='.lake' --exclude='*.olean' --exclude='*.o' --exclude='*.a' \
-         --exclude='*.ilean' --exclude='./.git' \
-         --exclude='./handoff' --exclude='./jemmet-handoff' . | tar xf - -C "$ST"
+         --exclude='*.ilean' --exclude='./.git' . | tar xf - -C "$ST"
+
+# Discipline guard. rfcs/handoff/ is retained in full as the project's cross-team
+# traceability record. The one thing that must NOT be in a release's own archive is
+# that release's own outbound announcement: it quotes the release's archive hash, which
+# can't be correct from inside the same archive (quoting the hash changes it). Such
+# announcements are named for their version and are committed AFTER the cut, so they
+# land in the NEXT release's archive. Refuse to cut version V while an rfcs/handoff doc named
+# for V is staged.
+if find "$ST/rfcs/handoff" -type f -name "*${VERSION}*" 2>/dev/null | grep -q .; then
+  echo "FATAL: rfcs/handoff/ stages a document named for $VERSION:" >&2
+  find "$ST/rfcs/handoff" -type f -name "*${VERSION}*" | sed "s#$ST/#       - #" >&2
+  echo "       A release's own announcement is committed AFTER it is cut — it belongs in" >&2
+  echo "       the next release's archive, not its own. Move it out of the tree and re-cut." >&2
+  rm -rf "$ST"; exit 1
+fi
 
 # Canonical, files-at-root, reproducible archive.
 tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
     -cf - -C "$ST" . | gzip -n > "$TAR"
 rm -rf "$ST"
 
+SHA=$(sha256sum "$TAR" | cut -d' ' -f1)
+
 # Provenance sidecar (RFC 062/063) over this exact archive.
 bash scripts/gen-provenance.sh "$VERSION" "$TAR" "$PROV"
 
-SHA=$(sha256sum "$TAR" | cut -d' ' -f1)
 PSHA=$(sha256sum "$PROV" | cut -d' ' -f1)
 echo
 echo "=== publish these as release assets on tag ${VERSION} (files-at-root, henret-style) ==="

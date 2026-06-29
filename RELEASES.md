@@ -81,8 +81,11 @@ Publishing is automated by CI (`.github/workflows/release.yml`), mirroring henre
    - `iotakt-X.Y.Z.provenance.json`
 
    No manual attach step, and GitHub's auto-generated source tarball is never the
-   anchor. The canonical archive contains source only — cross-team handoff
-   correspondence under `handoff/` and `jemmet-handoff/` is excluded.
+   anchor. The archive retains `rfcs/handoff/` cross-team correspondence as the project's
+   traceability record. The sole exception is a release's own announcement (it quotes the
+   hash of the archive it would sit in): those are named for their version and committed
+   after the cut, so `package-release.sh` refuses to cut version V while an `rfcs/handoff/` doc
+   named for V is staged, and the announcement lands in the next release's archive.
 
 The archive is **byte-reproducible** (`package-release.sh` uses `--sort=name`, a fixed
 mtime/owner, and `gzip -n`), so `source_archive.sha256` is auditable: anyone can
