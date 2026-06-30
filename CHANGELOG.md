@@ -6,6 +6,27 @@ All notable changes to iotakt are documented here.
 
 Work in progress toward v0.1.0.
 
+## [0.14.6] — 2026-06-30
+
+Stages iotakt's half of the RFC 015 three-project (kroopt + jemmet + iotakt)
+real-socket TLS standup harness. Example/integration scaffolding only — no model,
+proof, or henret-pin change (henret stays 0.34.4, `ad0ceab4`); 28-step gate green,
+77 theorems, 0 sorry/admit, 0 axioms. The binding surface kroopt depends on
+(`Iotakt.Model.*` + `IotaktRuntime.Loop`) is unchanged from 0.14.5.
+
+### Added
+- **`runtime/examples/StandupListener.lean`** (exe `iotakt-standup-listener`) —
+  iotakt's half of the standup harness: accepts TCP, drives the loop, emits
+  `newConnection (FdKey, rawFd)`, and hands each accepted fd to a pluggable
+  *consumer seam* (kroopt's TLS `IotaktTransport` in the assembled harness; a
+  logging seam standalone). Depends **only** on `iotakt-runtime` — never on kroopt
+  or jemmet, keeping every library dependency pointing downward.
+- **`runtime/examples/kroopt-jemmet-tls-standup/README.md`** — the integration
+  spec: separate-target build structure, released-provenance version pinning,
+  assertion ownership (iotakt loop/readiness · kroopt TLS engine + negative
+  assertions · jemmet `IotaktTransport` adapter + HTTP fixture), a failure-triage table, RFC 015 §10 acceptance criteria, and the
+  x25519-baseline curve-coverage matrix.
+
 ## [0.14.5] — 2026-06-29
 
 Release-label hygiene and archive scope. The canonical version label is now bare
