@@ -15,6 +15,17 @@ freeze applies because effectful fd authority, native buffer bounds, public even
 delivery, CI/sanitizer evidence, release packaging, and durable documentation do not
 yet meet the project's claimed boundary.
 
+## R0 planning approval
+
+- **Status:** Approved for R1 implementation.
+- **Approved by:** Project maintainer.
+- **Approval date:** 2026-07-13.
+- **Approved planning baseline:** `0929860cbbb76929f548c36ac068b936fe9e6665`.
+- **Approval scope:** The roadmap and RFC changes in that baseline; the `.gitignore`
+  change in the same commit is outside this planning approval.
+- **Release status:** No-Go pending R1–R5 completion and independent
+  requalification.
+
 ## Scheduling assumptions
 
 - Dates below are planning targets starting 2026-07-13 for one primary maintainer.
