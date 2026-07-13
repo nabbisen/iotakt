@@ -51,62 +51,75 @@ theorem setState_byKey_ne (reg : Registry) {k key : FdKey} (st : ResourceState)
 
 theorem close_nextGen (reg : Registry) (key : FdKey) :
     (reg.close key).nextGen = reg.nextGen := by
-  unfold close; simp [setState_nextGen]
+  by_cases h : reg.resolveCurrent key.raw = some key
+  · simp [close, h, setState_nextGen]
+  · simp [close, h]
 
-theorem close_currentGen_self (reg : Registry) (key : FdKey) :
+theorem close_currentGen_self (reg : Registry) (key : FdKey)
+    (h : reg.resolveCurrent key.raw = some key) :
     (reg.close key).currentGen key.raw = none := by
-  unfold close; simp [upd]
+  simp [close, h, upd]
 
 theorem close_currentGen_ne (reg : Registry) {r : RawFd} (key : FdKey)
     (h : r ≠ key.raw) : (reg.close key).currentGen r = reg.currentGen r := by
-  unfold close; simp [upd, h, setState_currentGen]
+  by_cases hc : reg.resolveCurrent key.raw = some key
+  · simp [close, hc, upd, h, setState_currentGen]
+  · simp [close, hc]
 
 theorem close_byKey_ne (reg : Registry) {k key : FdKey} (h : k ≠ key) :
     (reg.close key).byKey k = reg.byKey k := by
-  unfold close; simp only []; exact setState_byKey_ne reg .closed h
+  by_cases hc : reg.resolveCurrent key.raw = some key
+  · simp only [close, hc, if_true]
+    exact setState_byKey_ne reg .closed h
+  · simp [close, hc]
 
-theorem close_byKey_self (reg : Registry) (key : FdKey) :
+theorem close_byKey_self (reg : Registry) (key : FdKey)
+    (h : reg.resolveCurrent key.raw = some key) :
     (reg.close key).byKey key
       = (reg.byKey key).map (fun e => { e with state := .closed }) := by
-  unfold close; simp only []; exact setState_byKey_self reg key .closed
+  simp only [close, h, if_true]
+  exact setState_byKey_self reg key .closed
 
 /-! ## close preserves well-formedness -/
 
 theorem close_preserves_wf {reg : Registry} (h : WellFormed reg) (key : FdKey) :
     WellFormed (reg.close key) := by
-  refine ⟨?_, ?_, ?_⟩
-  · -- current_resolves
-    intro r g hg
-    have hrne : r ≠ key.raw := by
-      intro hc; subst hc; rw [close_currentGen_self] at hg; cases hg
-    rw [close_currentGen_ne reg key hrne] at hg
-    obtain ⟨e, he, hek, hes⟩ := h.current_resolves r g hg
-    have hkne : (⟨r, g⟩ : FdKey) ≠ key := by
-      intro hc; exact hrne (congrArg FdKey.raw hc)
-    exact ⟨e, by rw [close_byKey_ne reg hkne]; exact he, hek, hes⟩
-  · -- current_gen_lt
-    intro r g hg
-    have hrne : r ≠ key.raw := by
-      intro hc; subst hc; rw [close_currentGen_self] at hg; cases hg
-    rw [close_currentGen_ne reg key hrne] at hg
-    rw [close_nextGen]
-    exact h.current_gen_lt r g hg
-  · -- entry_key_consistent
-    intro k e hk
-    by_cases hkey : k = key
-    · subst hkey
-      rw [close_byKey_self] at hk
-      cases hb : reg.byKey k with
-      | none => rw [hb] at hk; simp at hk
-      | some e0 =>
-        rw [hb] at hk; simp at hk; subst hk
-        obtain ⟨hek, hlt⟩ := h.entry_key_consistent k e0 hb
+  by_cases hc : reg.resolveCurrent key.raw = some key
+  · -- The current key takes the terminal transition.
+    refine ⟨?_, ?_, ?_⟩
+    · -- current_resolves
+      intro r g hg
+      have hrne : r ≠ key.raw := by
+        intro heq; subst heq; rw [close_currentGen_self reg key hc] at hg; cases hg
+      rw [close_currentGen_ne reg key hrne] at hg
+      obtain ⟨e, he, hek, hes⟩ := h.current_resolves r g hg
+      have hkne : (⟨r, g⟩ : FdKey) ≠ key := by
+        intro heq; exact hrne (congrArg FdKey.raw heq)
+      exact ⟨e, by rw [close_byKey_ne reg hkne]; exact he, hek, hes⟩
+    · -- current_gen_lt
+      intro r g hg
+      have hrne : r ≠ key.raw := by
+        intro heq; subst heq; rw [close_currentGen_self reg key hc] at hg; cases hg
+      rw [close_currentGen_ne reg key hrne] at hg
+      rw [close_nextGen]
+      exact h.current_gen_lt r g hg
+    · -- entry_key_consistent
+      intro k e hk
+      by_cases hkey : k = key
+      · subst hkey
+        rw [close_byKey_self reg k hc] at hk
+        cases hb : reg.byKey k with
+        | none => rw [hb] at hk; simp at hk
+        | some e0 =>
+          rw [hb] at hk; simp at hk; subst hk
+          obtain ⟨hek, hlt⟩ := h.entry_key_consistent k e0 hb
+          rw [close_nextGen]
+          exact ⟨hek, hlt⟩
+      · rw [close_byKey_ne reg hkey] at hk
+        obtain ⟨hek, hlt⟩ := h.entry_key_consistent k e hk
         rw [close_nextGen]
         exact ⟨hek, hlt⟩
-    · rw [close_byKey_ne reg hkey] at hk
-      obtain ⟨hek, hlt⟩ := h.entry_key_consistent k e hk
-      rw [close_nextGen]
-      exact ⟨hek, hlt⟩
+  · simpa [close, hc] using h
 
 /-! ## Terminality and double close -/
 
@@ -119,17 +132,17 @@ theorem close_terminal (reg : Registry) (key : FdKey) :
 /-- After closing, the entry for the key is in state `closed` (when it
 existed at all). -/
 theorem close_state_closed {reg : Registry} {key : FdKey} {e : RegistryEntry}
-    (h : reg.byKey key = some e) :
+    (hc : reg.resolveCurrent key.raw = some key) (h : reg.byKey key = some e) :
     ∃ e', (reg.close key).byKey key = some e' ∧ e'.state = .closed := by
-  rw [close_byKey_self, h]
+  rw [close_byKey_self reg key hc, h]
   exact ⟨{ e with state := .closed }, rfl, rfl⟩
 
 /-- **Double close is idempotent on the safety-relevant state.** Closing
 an already-closed key leaves its current-generation resolution absent
 (so no stale resolution) — the second close performs no reactivation. -/
 theorem double_close_idempotent (reg : Registry) (key : FdKey) :
-    ((reg.close key).close key).currentGen key.raw = none :=
-  close_currentGen_self (reg.close key) key
+    ((reg.close key).close key).resolveCurrent key.raw ≠ some key :=
+  (reg.close key).close_not_current key
 
 /-! ## Lifecycle transition wrappers -/
 

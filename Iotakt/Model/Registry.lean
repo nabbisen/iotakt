@@ -41,6 +41,16 @@ structure RegistryEntry where
   interests : InterestSet
   deriving Repr, Inhabited
 
+/-- Authority-validation failures for operations that can cause an fd effect.
+Native wrappers lift these into their domain error type before performing I/O. -/
+inductive KeyError where
+  | invalidRawFd
+  | unknownKey
+  | staleKey
+  | wrongKind
+  | inactive
+  deriving DecidableEq, Repr, Inhabited
+
 /-- The registry. `byKey` and `currentGen` are total function-maps;
 `nextGen` is a monotone fresh-generation counter. -/
 structure Registry where
@@ -67,6 +77,27 @@ the only sanctioned way to turn a native raw fd back into an iotakt
 identity. -/
 def resolveCurrent (reg : Registry) (raw : RawFd) : Option FdKey :=
   (reg.currentGen raw).map (fun g => ⟨raw, g⟩)
+
+/-- Resolve and validate the authority carried by `key` before an effectful fd
+operation. Failure is pure and therefore cannot cause a native side effect. -/
+def resolveEffectKey (reg : Registry) (key : FdKey)
+    (allowedKinds : List ResourceKind) : Except KeyError RegistryEntry :=
+  if key.raw < 0 then
+    .error .invalidRawFd
+  else
+    match reg.resolveCurrent key.raw with
+    | none => .error .unknownKey
+    | some current =>
+        if current != key then
+          .error .staleKey
+        else
+          match reg.lookup key with
+          | none => .error .unknownKey
+          | some entry =>
+              if entry.key != key then .error .staleKey
+              else if !entry.state.isLive then .error .inactive
+              else if !allowedKinds.contains entry.kind then .error .wrongKind
+              else .ok entry
 
 /-- Allocate a fresh resource for `raw`, owned by `owner`. The new key
 takes generation `reg.nextGen` (strictly newer than any previously
@@ -101,13 +132,16 @@ def setInterests (reg : Registry) (key : FdKey) (i : InterestSet) : Registry :=
 def setState (reg : Registry) (key : FdKey) (st : ResourceState) : Registry :=
   reg.setEntry key (fun e => { e with state := st })
 
-/-- Close a key: mark its entry `closed` and remove it from
-`currentGen` so it can never again be resolved as the current key for
-its raw fd. A subsequent `allocate` for the same raw fd installs a new,
-strictly-newer generation. This is the terminal lifecycle transition. -/
+/-- Close a key only when it is the current generation: mark its entry `closed`
+and remove it from `currentGen`. Unknown and stale keys are pure no-ops, so an old
+key can never clear a newer generation's authority. Effectful callers must use
+`resolveEffectKey` first so the no-op is surfaced as a typed error. -/
 def close (reg : Registry) (key : FdKey) : Registry :=
-  let reg' := reg.setState key .closed
-  { reg' with currentGen := upd reg'.currentGen key.raw Option.none }
+  if reg.resolveCurrent key.raw = some key then
+    let reg' := reg.setState key .closed
+    { reg' with currentGen := upd reg'.currentGen key.raw Option.none }
+  else
+    reg
 
 /-! ## Allocate projection lemmas
 
@@ -213,12 +247,57 @@ can never again be reported as the current resolution for its raw fd.
 a fresh `allocate`, but never back to the closed one.) -/
 theorem close_not_current {reg : Registry} (key : FdKey) :
     (reg.close key).resolveCurrent key.raw ≠ some key := by
-  unfold close resolveCurrent setState setEntry
-  intro h
-  -- currentGen at key.raw was set to none, so the map is none ⇒ no resolution
-  cases hb : reg.byKey key with
-  | none => simp [hb, upd] at h
-  | some e => simp [hb, upd] at h
+  by_cases h : reg.resolveCurrent key.raw = some key
+  · unfold close
+    rw [if_pos h]
+    unfold resolveCurrent setState setEntry
+    cases hb : reg.byKey key with
+    | none => simp [hb, upd]
+    | some e => simp [hb, upd]
+  · simp [close, h]
+
+/-- Closing a key that is not current is a pure no-op. -/
+theorem close_eq_self_of_not_current {reg : Registry} {key : FdKey}
+    (h : reg.resolveCurrent key.raw ≠ some key) :
+    reg.close key = reg := by
+  simp [close, h]
+
+/-- A stale close cannot clear the newer key currently owning the same raw fd. -/
+theorem close_stale_preserves_current {reg : Registry} {stale current : FdKey}
+    (hcurrent : reg.resolveCurrent stale.raw = some current)
+    (hne : current ≠ stale) :
+    (reg.close stale).resolveCurrent stale.raw = some current := by
+  have hstale : reg.resolveCurrent stale.raw ≠ some stale := by
+    intro hs
+    apply hne
+    exact Option.some.inj (hcurrent.symm.trans hs)
+  rw [close_eq_self_of_not_current hstale]
+  exact hcurrent
+
+/-- A stale close cannot alter any registry entry, including the newer owner. -/
+theorem close_stale_preserves_entry {reg : Registry} {stale current : FdKey}
+    (hcurrent : reg.resolveCurrent stale.raw = some current)
+    (hne : current ≠ stale) :
+    (reg.close stale).lookup current = reg.lookup current := by
+  have hstale : reg.resolveCurrent stale.raw ≠ some stale := by
+    intro hs
+    apply hne
+    exact Option.some.inj (hcurrent.symm.trans hs)
+  rw [close_eq_self_of_not_current hstale]
+
+/-- Negative raw fds are rejected before registry lookup. -/
+theorem resolveEffectKey_invalidRaw {reg : Registry} {key : FdKey}
+    (h : key.raw < 0) (allowedKinds : List ResourceKind) :
+    reg.resolveEffectKey key allowedKinds = .error .invalidRawFd := by
+  simp [resolveEffectKey, h]
+
+/-- A non-current generation is rejected as stale before entry use. -/
+theorem resolveEffectKey_stale {reg : Registry} {key current : FdKey}
+    (hraw : ¬key.raw < 0)
+    (hcurrent : reg.resolveCurrent key.raw = some current)
+    (hne : current ≠ key) (allowedKinds : List ResourceKind) :
+    reg.resolveEffectKey key allowedKinds = .error .staleKey := by
+  simp [resolveEffectKey, hraw, hcurrent, hne]
 
 /-- **Fresh allocation is strictly newer.** The key produced by
 `allocate` carries generation `reg.nextGen`, so it differs from every
