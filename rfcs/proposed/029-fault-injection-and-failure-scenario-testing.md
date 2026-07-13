@@ -80,6 +80,7 @@ Fake poller should support scripted event traces:
 ```lean
 inductive TransitionOp where
   | register | modify | deregister
+  | configureListener | bindListener | listenListener | registerListener
   | registerAccepted | registerConnected
   | closeAfterDeregister
 
@@ -115,6 +116,10 @@ evidence. Test IDs are stable identifiers used by the retained R2 evidence repor
 | Subject | Injection seam | Typed result | Expected model state | Expected kernel-resource disposition | Class | Test ID |
 |---|---|---|---|---|---|---|
 | Register failure | `transitionResult register (nativeError e)` | `Except.error (registerFailed e)` | entry/current generation absent; prior registry unchanged | candidate fd remains open and caller-owned; callee acquires no ownership | P+F+N | `FI-REG-001` |
+| Listener socket-option failure | `transitionResult configureListener (nativeError e)` | `Except.error (listenerConfigureFailed e)` | no listener entry, endpoint mapping, or generation is published | candidate listener fd is closed exactly once | P+F+N | `FI-LST-OPT-001` |
+| Listener bind failure | `transitionResult bindListener (nativeError e)` | `Except.error (listenerBindFailed e)` | no listener entry, endpoint mapping, or generation is published | candidate listener fd is closed exactly once; endpoint remains available according to kernel state | P+F+N | `FI-LST-BIND-001` |
+| Listener listen failure | `transitionResult listenListener (nativeError e)` | `Except.error (listenerListenFailed e)` | no listener entry, endpoint mapping, or generation is published | bound candidate listener fd is closed exactly once | P+F+N | `FI-LST-LISTEN-001` |
+| Listener poller-registration failure | `transitionResult registerListener (nativeError e)` | `Except.error (listenerRegistrationFailed e)` | no listener entry/current mapping or active endpoint record is published | listening candidate fd is closed exactly once and has no poller registration | P+F+N | `FI-LST-REG-001` |
 | Modify failure | `transitionResult modify (nativeError e)` | `Except.error (modifyFailed e)` | prior interest and pending bits unchanged | kernel registration retains prior interest | P+F+N | `FI-MOD-001` |
 | Deregister failure | `transitionResult deregister (nativeError e)` | `Except.error (deregisterFailed e)` | entry remains live/registered; no terminal transition committed | registration and fd remain open and owned; this operation performs no implicit retry or close | P+F+N | `FI-DEL-001` |
 | Accepted-socket registration failure | `transitionResult registerAccepted (nativeError e)` | `Except.error (acceptRegistrationFailed e)` | no accepted entry/current mapping is published | accepted fd is closed exactly once before return | P+F+N | `FI-ACC-001` |
@@ -180,6 +185,10 @@ required row may be marked out of scope for the remediation release.
 Tests must also cover bounded cleanup/retry exhaustion, demonstrate that no fd is
 orphaned or closed twice, and compare the model's ownership/registration state with
 the observed fake/native resource set after each failure.
+
+RFC 070 applies `FI-CLS-001` and `FI-CLS-002` to both stream and listener keys; the
+retained report contains a distinct execution for each resource kind even though the
+transition contract and stable IDs are shared.
 
 ## Trust / Assumption Changes
 

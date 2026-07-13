@@ -7,7 +7,8 @@ indexed separately by [its own README](./handoff/README.md) and has no RFC lifec
 
 ## Current release decision
 
-**No-Go as of 2026-07-13.** RFCs 064–069 are the release-blocking remediation train.
+**No-Go remains in force.** RFCs 064–070 are the release-blocking remediation train;
+RFC 070 is the maintainer-approved 2026-07-14 jemmet consumer-scope amendment.
 Supporting RFCs 029, 032, 033, and 046 are scheduled by the current
 [`ROADMAP.md`](../ROADMAP.md). Release/v1.0 promotion remains frozen until RFC 033
 records an evidence-backed independent Go.
@@ -22,6 +23,7 @@ records an evidence-backed independent Go.
 | 067 | [Fail-closed CI, sanitizer, and clean-checkout evidence](./proposed/067-fail-closed-ci-sanitizer-and-clean-checkout-evidence.md) | B4, N4 |
 | 068 | [Tracked-source release packaging and complete provenance](./proposed/068-tracked-source-release-packaging-and-complete-provenance.md) | B5 |
 | 069 | [Architecture baseline, scope, and documentation integrity](./proposed/069-architecture-baseline-scope-and-documentation-integrity.md) | B6 |
+| 070 | [Address-aware listener identity and lifecycle](./proposed/070-address-aware-listener-identity-and-lifecycle.md) | Jemmet M2C consumer contract; listener lifecycle |
 
 ## Proposed — scheduled remediation support
 

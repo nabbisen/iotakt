@@ -47,13 +47,26 @@ Work items use three distinct states:
   and reviewed. A remediation RFC remains Proposed until this state, then moves to
   Done; code completion alone does not change its lifecycle status.
 
+## Consumer-driven scope amendment
+
+- **Status:** Approved by the project maintainer on 2026-07-14.
+- **Input:** Jemmet M2C requires address-aware listener identity, one authoritative
+  event channel, consumer-owned deadlines, complete terminal acknowledgement, and
+  checked listener lifecycle before adopting `iotakt-runtime`.
+- **Decision:** Add RFC 070 to R2 and strengthen RFCs 064/066. Stable external
+  consumers use returned-event authority with no parallel Henret readiness copy;
+  jemmet owns its phase deadlines; IPv6 is explicitly deferred from the first
+  consumer-capable release.
+- **Release status:** No-Go remains unchanged. No version or consumer recommendation
+  is promised before R3 evidence and R5 requalification.
+
 ## Remediation release train
 
 | Milestone | Target window | Theme | Required RFCs | Exit decision |
 |---|---|---|---|---|
 | R0 | Jul 13–15 | Freeze and approved work plan | 064–069 proposed; roadmap/index repaired | Scope ready for implementation; release remains frozen |
 | R1 | Jul 16–24 | Authority and native memory safety | 064, 065 | RFC 064 accepted; RFC 065 code complete with sanitizer evidence explicitly pending R3 |
-| R2 | Jul 25–Aug 2 | Event and state integrity | 066, 029 | One delivery path; faulted native transitions remain state-safe |
+| R2 | Jul 25–Aug 2 | Event, listener, and state integrity | 066, 070, 029 | One consumer channel; attributed listeners; faulted native transitions remain state-safe |
 | R3 | Aug 3–9 | Evidence and supply-chain integrity | 067, 068 | Fail-closed clean gate; real sanitizers; tracked reproducible candidate archive |
 | R4 | Aug 10–16 | Architecture and documentation rebaseline | 069, then 032 and 046 review work | Approved scope; current docs/RFC truth; downstream probes pass |
 | R5 | Aug 17–23 | Release requalification | 033 | Independent Go/No-Go recorded from complete evidence |
@@ -106,6 +119,8 @@ Close the two critical direct security paths before broader refactoring.
 - Repair `Registry.close` generation preservation and settle visible double-close
   semantics.
 - Add proofs and live raw-fd-reuse tests for close, recv/send, and interest changes.
+- Record RFC 070's future `closeListener` inventory row as unreachable until its R2
+  implementation, when it must become checked-stable with authority/reuse tests.
 
 ### RFC 065 workstream
 
@@ -137,7 +152,15 @@ aligned across failures.
 ### Work
 
 - Implement RFC 066's authoritative delivered-event result.
-- Derive Henret injection and public `.dataReady` only from that result.
+- Make returned events authoritative for stable external consumers, with no parallel
+  Henret readiness injection; isolate any mailbox-only mode.
+- Implement [RFC 070](./rfcs/proposed/070-address-aware-listener-identity-and-lifecycle.md):
+  typed IPv4 endpoints, listener-key attribution on accept, checked listener close,
+  and coherent shutdown/destroy ownership.
+- Apply the normative readable/writable/terminal acknowledgement table and clear all
+  generation pending state on successful close.
+- Support consumer-owned deadlines through `runStep timeoutMs`; `idleTimeoutMs = none`
+  disables iotakt reaping for jemmet.
 - Surface fatal poll errors; prevent pending-state leaks on failed delivery.
 - Return structured errors from register/modify/deregister/accept/connect/close and
   commit model transitions only after native success.
@@ -151,7 +174,14 @@ aligned across failures.
 ### Exit criteria
 
 - Duplicate readiness without acknowledgement produces one public delivery.
+- Consumer-event mode produces no Henret readiness copy or mailbox growth.
 - No-interest, stale, unknown, closed, and coalesced events produce none.
+- Every accepted event identifies its listener and connection by generation-safe
+  keys without exposing a raw fd.
+- IPv4 loopback, wildcard, specified-address, multi-listener attribution, individual
+  listener close, shutdown, destroy, and bind-again tests pass.
+- Same-batch readiness/terminal ordering, EINTR retry, deferred acknowledgement, and
+  clear-on-close/reuse behavior match RFC 066's table.
 - Fatal poll and native-transition failures are observable and state-safe.
 - Missing-mailbox/injection failure cannot permanently suppress future delivery.
 - Fault-injection matrix covers every state-changing native operation.
@@ -257,6 +287,8 @@ Decide Go/No-Go from evidence rather than schedule pressure.
 | Clean full gate passes and injected failure exits nonzero | 067 |
 | Public delivery respects interest/coalescing/lifecycle and surfaces fatal errors | 066 |
 | Native transition fault injection preserves model/kernel correspondence | 066, 029 |
+| Returned events are the sole stable consumer channel and close clears pending state | 066 |
+| Address-aware listeners attribute accepts and close exactly once without raw-fd authority | 070 |
 | Tracked manifest excludes ignored/untracked material and reproduces | 068 |
 | Approved requirements/design are tracked, linked, baseline-identical, and in the release manifest | 068, 069 |
 | Current downstream model/runtime compile probes pass | 069 |
@@ -264,7 +296,7 @@ Decide Go/No-Go from evidence rather than schedule pressure.
 
 ### Exit criteria
 
-- RFCs 064–069 satisfy acceptance criteria and have observed evidence.
+- RFCs 064–070 satisfy acceptance criteria and have observed evidence.
 - RFC 033 checklist is complete.
 - Independent review verdict is Go or Accept with no release-blocking findings.
 - Maintainer explicitly authorizes the release/version decision.
@@ -282,4 +314,4 @@ that they are required for safety:
   status, unless downstream teams promote it into the release gate.
 
 No post-Go feature work may weaken the authority, buffer, delivery, gate, packaging,
-or scope controls established by RFCs 064–069.
+or scope controls established by RFCs 064–070.

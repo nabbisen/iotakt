@@ -101,6 +101,7 @@ test, or gate log; an unchecked box or missing citation is release-blocking.
 | Native buffer/resource bounds | Is all buffer arithmetic subtraction-safe, and does every stable receive-allocation path enforce configured limits before allocation/FFI? | RFC 065 receive-path inventory, ordinary boundary log, and RFC 067 ASan/UBSan log |
 | Authoritative delivery | Is there exactly one authoritative delivered-event result from which injection and public readiness are derived? | RFC 066 delivery/coalescing/lifecycle tests and result-flow review |
 | Failure-atomic transitions | Do register/modify/deregister/accept/connect/close and delivery failures preserve model/native correspondence with bounded orphan cleanup? | RFC 029 complete matrix, state/resource snapshots, and RFC 066 transition tests |
+| Listener identity and lifecycle | Are bind endpoints typed, accepted connections attributed by generation-safe listener identity, and listener close/shutdown/destroy exactly once? | RFC 070 endpoint, multi-listener attribution, fault, descriptor-reuse, shutdown, and destroy evidence |
 | Fail-closed evidence | Does every mandatory gate fail closed, and do sanitizer claims identify the instrumented objects, command, revision, and retained log? | RFC 067 injected-failure self-test and clean-checkout/sanitizer provenance |
 | Tracked-source integrity | Does the archive equal its tracked manifest, exclude ignored/untracked inputs, reproduce, and bind provenance to the same revision/input set? | RFC 068 manifest/archive audit, canonical-baseline checks, and two-worktree reproduction logs |
 
@@ -110,7 +111,7 @@ test, or gate log; an unchecked box or missing citation is release-blocking.
 - Any RFC touching native code must include a security section.
 - CI includes at least basic sanitizer/native warning gates where available.
 - Release notes explicitly state native-boundary assumptions.
-- The final review artifact contains all six remediation controls above, with an
+- The final review artifact contains all seven remediation controls above, with an
   explicit pass/fail disposition and a resolvable proof/test/log citation per row.
 - Missing, stale, or non-reproducible evidence is a failed control rather than a
   reviewer warning.

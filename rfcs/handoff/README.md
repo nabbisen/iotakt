@@ -17,6 +17,10 @@ lifecycle policy's `rfcs/handoffs/NNN-slug/` implementation-handoff convention (
 that area, if used, holds per-RFC implementation guides; this `rfcs/handoff/` area holds
 cross-team correspondence.
 
+## Current design responses
+
+- [Jemmet M2C native-runtime consumer request response](./jemmet/iotakt-response-to-jemmet-m2c-native-runtime-request.md) — accepted architecture decisions; implementation and release evidence pending under RFCs 064, 066, and 070.
+
 ## Convention: a release's own announcement is committed after the cut
 
 Announcement docs that quote a release's archive hash (e.g.

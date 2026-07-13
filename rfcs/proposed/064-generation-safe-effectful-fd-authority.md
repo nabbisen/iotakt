@@ -56,8 +56,9 @@ Success requires:
 4. `entry.state.isLive = true`; and
 5. `entry.kind` is valid for the requested operation.
 
-`enableWrite`, `disableWrite`, `recvAck`, `sendAck`, and `closeConnection` must use
-this resolution. A failure returns a typed result and performs no native call.
+`enableWrite`, `disableWrite`, `recvAck`, `sendAck`, `closeConnection`, and RFC 070's
+`closeListener` must use this resolution. A failure returns a typed result and
+performs no native call.
 
 This result shape is the R0 decision for the stable API. Construction opacity is
 deferred to RFC 043; until then, construction-safe validation is mandatory at every
@@ -71,6 +72,12 @@ records each path as `checked-stable`, `unsafe-internal`, or `unreachable`, name
 resolver/native call and test identifier, and fails verification when a discovered
 path lacks a row. `unsafe-internal` paths must not be re-exported through a stable
 module; `unreachable` rows require a cited proof or structural justification.
+
+The R1 inventory records RFC 070's not-yet-implemented `closeListener` as
+`unreachable`, citing the accepted RFC as its structural justification. Before RFC
+070 can be accepted in R2, that row must become `checked-stable` and bind to stale,
+forged, invalid-range, wrong-kind, double-close, and raw-fd-reuse tests. RFC 064
+acceptance does not grant future stable operations an inventory exemption.
 
 ## Model and lifecycle changes
 
@@ -105,6 +112,8 @@ API and no second native `close` call.
 - Live fd-reuse tests where stale close/recv/send/interest operations cannot affect
   the new owner.
 - Forged-key tests for every stable effectful operation.
+- `closeListener` authority tests required by RFC 070 before that operation becomes
+  stable.
 - An inventory completeness test discovers the stable native-effect surface and
   verifies every row's classification and enforcement test.
 - Double-close test proving there is no second native close.
@@ -122,6 +131,8 @@ the proof claim.
 - Blocks RFCs 066, 033, and any release/v1.0 claim.
 - RFC 029 supplies fault scenarios after the checked operation seam exists.
 - RFC 043 remains a post-remediation capability-hardening follow-up.
+- RFC 070 reuses this resolver and must update the effect inventory when
+  `closeListener` becomes reachable.
 
 ## Acceptance criteria
 
