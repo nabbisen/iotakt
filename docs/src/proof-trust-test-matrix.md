@@ -15,7 +15,7 @@ scope.
 | **ASSUMED** | Accepted from OS, C compiler, or Lean runtime documentation. |
 | **OUTSCOPE** | Outside iotakt's defined responsibility. |
 
-**Corpus at v0.11:** 77 machine-checked theorems/lemmas across `Iotakt/`,
+**Corpus during RFC 064 remediation:** 82 machine-checked theorems/lemmas across `Iotakt/`,
 **no `sorry`, no `admit`, no project `axiom`**. The full proven core builds
 with `lake build Iotakt.Proofs`. The CI gate runs **333 executable checks**
 across 14 test suites plus the live server smoke tests.
@@ -112,7 +112,7 @@ Linux epoll backend and real Henret.
 | Body framing (Content-Length + chunked); `readFull`; handoff surface | `v0.9-test` (22) |
 | **Request-size limits** (`.tooLarge`); `readFromBuffer` pipelining (no dropped requests) | `v0.10-test` (13) |
 | **Connection limits / load shedding** (cap=1 admits ≤1 of 3 clients); **graceful shutdown** (drains connections + listeners) | `v0.11-test` (17) |
-| **Explicit-ack coalescing** (suppress → deliver-after-ack); `recvAck`/`sendAck` combined helpers | `v0.13-test` (12) |
+| **Explicit-ack coalescing** plus checked stale/invalid/out-of-range authority for `enableWrite`, `disableWrite`, `closeConnection`, `recvAck`, and `sendAck` | `v0.13-test` (25) |
 | Echo, multi-connection echo, live HTTP server+client, routing/streaming/upload/reference servers | server smoke tests |
 
 ---

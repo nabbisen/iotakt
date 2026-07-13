@@ -57,7 +57,7 @@ def handleConn (loop : EventLoop) (connKey : FdKey) : IO EventLoop := do
   let (_, _) ← wb.flushAll fd
 
   -- Close the connection
-  loop.closeConnection connKey
+  EffectError.orThrow (← loop.closeConnection connKey)
 
 /-- HTTP/1.0 server: accepts connections and handles each one. -/
 def main : IO Unit := do

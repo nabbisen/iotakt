@@ -64,7 +64,7 @@ def main : IO Unit := do
                   let (_, _) ← wb.flushAll key.raw
                   requestSent := true
                   -- disable write interest; wait for readable
-                  loop := ← loop.disableWrite key
+                  loop := ← EffectError.orThrow (← loop.disableWrite key)
             | .readable =>
                 let resp ← HttpResponse.readAll key.raw
                 responseBytes := resp
@@ -74,7 +74,7 @@ def main : IO Unit := do
       | .newConnection _ _ => pure ()
       | .tick _ => pure ()
 
-  loop := ← loop.closeConnection clientKey
+  loop := ← EffectError.orThrow (← loop.closeConnection clientKey)
   loop.destroy
 
   -- Validate response

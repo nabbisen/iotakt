@@ -78,22 +78,23 @@ def main : IO Unit := do
                                              requests := cs.requests + n }
                       conns := conns.map fun c => if c.key == key then newCs else c
                       totalRequests := totalRequests + n
-                      if !sendBuf.isEmpty then loop := ← loop.enableWrite key
+                      if !sendBuf.isEmpty then
+                        loop := ← EffectError.orThrow (← loop.enableWrite key)
                   | .eof =>
-                      loop := ← loop.closeConnection key
+                      loop := ← EffectError.orThrow (← loop.closeConnection key)
                       conns := conns.filter (·.key != key)
                   | _ => pure ()
               | .writable =>
                   let (wb, done) ← cs.sendBuf.flush key.raw
                   conns := conns.map fun c =>
                     if c.key == key then { c with sendBuf := wb } else c
-                  if done then loop := ← loop.disableWrite key
+                  if done then loop := ← EffectError.orThrow (← loop.disableWrite key)
               | _ =>
-                  loop := ← loop.closeConnection key
+                  loop := ← EffectError.orThrow (← loop.closeConnection key)
                   conns := conns.filter (·.key != key)
       | .tick _ => pure ()
 
-  for cs in conns do loop := ← loop.closeConnection cs.key
+  for cs in conns do loop := ← EffectError.orThrow (← loop.closeConnection cs.key)
   loop.destroy
 
   IO.println s!"Connections:  {totalConns}"

@@ -86,7 +86,7 @@ only.
 
 ---
 
-## `EventLoop` operational surface (in `Iotakt.Loop`)
+## `EventLoop` operational surface (in `IotaktRuntime.Loop`)
 
 ### Stable
 
@@ -96,7 +96,29 @@ only.
 `shutdown`.
 
 These are the connection-lifecycle and resource-control entry points; their
-signatures are settled and exercised by the integration tests.
+authority contract is settled by RFC 064 and exercised by the integration
+tests. Every stable operation that accepts an `FdKey` resolves the current live
+registry entry and validates the native fd representation before making a
+native call.
+
+The effectful key-based operations return typed results:
+
+```lean
+enableWrite / disableWrite / closeConnection
+  : EventLoop → FdKey → IO (Except EffectError EventLoop)
+
+recvAck : EventLoop → FdKey → Nat
+  → IO (Except EffectError (EventLoop × ReadResult))
+
+sendAck : EventLoop → FdKey → ByteArray → Nat → Nat
+  → IO (Except EffectError (EventLoop × WriteResult))
+```
+
+`EffectError` distinguishes invalid, stale, out-of-range, wrong-kind,
+inactive, and native failures. Authority-validation failure performs no native
+call and leaves registry, coalescing, and runtime state unchanged. Examples may
+explicitly convert an error to an `IO` exception with `EffectError.orThrow`;
+library adapters should normally propagate the typed result.
 
 ### Internal (settled v0.13 — no stability promise)
 
@@ -128,10 +150,8 @@ the task-tracking bookkeeping is reclassified Internal. The remaining items do
 3. `FakePoller` DSL and `processEvent` remain Provisional but are test/utility
    surface, not part of the core consumer contract.
 
-The core consumer surface (`Iotakt.Api` model types, `Iotakt.Server` I/O +
-framing primitives, the `EventLoop` operational API including
-`ackReady`/`recvAck`/`sendAck`/`shutdown`/`withMaxConnections`) is therefore a
-**v1.0 candidate**.
+The core consumer surface is under the R1–R5 remediation train. It is not a
+v1.0 candidate while the project-wide No-Go decision is active.
 
 > **v1.0 is not cut and will not be cut without explicit maintainer sign-off.**
 > This audit establishes that the surface is *ready* for that decision; it does

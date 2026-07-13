@@ -22,6 +22,14 @@ private def fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 def check (label : String) (ok : Bool) : IO Unit :=
   IO.println s!"  [{if ok then "PASS" else "FAIL"}] {label}"
 
+def isStale {α : Type} : Except EffectError α → Bool
+  | .error .staleKey => true
+  | _ => false
+
+def isInvalidRaw {α : Type} : Except EffectError α → Bool
+  | .error .invalidRawFd => true
+  | _ => false
+
 -- A. Explicit ack via the coalesce model (pure)
 def testCoalesceAck : IO Unit := do
   IO.println "=== A. Coalesce: explicit ack pinned ==="
@@ -59,23 +67,59 @@ def testRecvSendAck : IO Unit := do
   let (a, b) ← Socket.socketpairRaw
   if a < 0 then check "socketpair" false
   else do
-    -- Pretend `b` is a registered connection key; mark its readable readiness
-    -- pending so we can observe recvAck clearing it.
-    let key : FdKey := { raw := b, gen := 1 }
+    -- Register `b` as a live stream, then mark its readable readiness pending
+    -- so we can observe checked authority and recvAck clearing it.
+    let (reg1, key) := loop.nds.ds.registry.allocate b 1 .stream
+    let reg2 := reg1.setInterests key InterestSet.readOnly |>.markActive key
+    let loop0 := { loop with nds := { loop.nds with
+                    ds := { loop.nds.ds with registry := reg2 } } }
     let pk : PendingKey := { fd := key, kind := .readable }
     -- Manually set pending via a step on the coalesce state
     let oe : OwnerEvent := { owner := 1, key := key, event := .readable }
-    let cs1 := (loop.nds.ds.coalesce.step oe).1
-    let loop1 := { loop with nds := { loop.nds with
-                    ds := { loop.nds.ds with coalesce := cs1 } } }
+    let cs1 := (loop0.nds.ds.coalesce.step oe).1
+    let loop1 := { loop0 with nds := { loop0.nds with
+                    ds := { loop0.nds.ds with coalesce := cs1 } } }
     check "readable readiness pending before recvAck" (loop1.nds.ds.coalesce.pending pk)
 
-    -- Send some bytes on `a` so recvAck on `b` returns data
+    -- Queue bytes before the rejected authority calls. A later successful
+    -- recv proves those calls neither consumed data nor closed the live fd.
     let msg := "ping".toUTF8
-    let _ ← Io.send a msg 0 msg.size
+    let pingWrite ← Io.send a msg 0 msg.size
+    match pingWrite with
+    | .wrote n => IO.println s!"    peer send count={n.toNat}"
+    | .wouldBlock => IO.println "    peer send result=wouldBlock"
+    | .interrupted => IO.println "    peer send result=interrupted"
+    | .closed => IO.println "    peer send result=closed"
+    | .error e => IO.println s!"    peer send error={repr e}"
+    check "peer send before authority checks wrote bytes"
+      (match pingWrite with | .wrote n => n.toNat == 4 | _ => false)
     IO.sleep 20
 
-    let (loop2, rr) ← loop1.recvAck key 64
+    let stale : FdKey := { key with gen := key.gen + 1 }
+    let invalid : FdKey := { raw := -1, gen := key.gen }
+    let outOfRange : FdKey := { raw := 2147483648, gen := key.gen }
+    check "stale enableWrite rejected" (isStale (← loop1.enableWrite stale))
+    check "stale disableWrite rejected" (isStale (← loop1.disableWrite stale))
+    check "stale close rejected" (isStale (← loop1.closeConnection stale))
+    check "stale close preserves current key"
+      (loop1.nds.ds.registry.resolveCurrent key.raw == some key)
+    check "invalid-raw enableWrite rejected" (isInvalidRaw (← loop1.enableWrite invalid))
+    check "invalid-raw disableWrite rejected" (isInvalidRaw (← loop1.disableWrite invalid))
+    check "invalid-raw close rejected" (isInvalidRaw (← loop1.closeConnection invalid))
+    check "out-of-range raw fd rejected before native conversion"
+      (isInvalidRaw (← loop1.closeConnection outOfRange))
+
+    check "stale recvAck rejected without consuming data"
+      (isStale (← loop1.recvAck stale 64))
+    check "invalid-raw recvAck rejected" (isInvalidRaw (← loop1.recvAck invalid 64))
+
+    let (loop2, rr) ← EffectError.orThrow (← loop1.recvAck key 64)
+    match rr with
+    | .bytes d => IO.println s!"    recvAck bytes={d.size}"
+    | .wouldBlock => IO.println "    recvAck result=wouldBlock"
+    | .eof => IO.println "    recvAck result=eof"
+    | .interrupted => IO.println "    recvAck result=interrupted"
+    | .error e => IO.println s!"    recvAck error={repr e}"
     check "recvAck returned the bytes"
       (match rr with | .bytes d => (String.fromUTF8? d |>.getD "") == "ping" | _ => false)
     check "recvAck cleared readable pending" (!loop2.nds.ds.coalesce.pending pk)
@@ -88,7 +132,16 @@ def testRecvSendAck : IO Unit := do
                     ds := { loop2.nds.ds with coalesce := cs2 } } }
     check "writable readiness pending before sendAck" (loop3.nds.ds.coalesce.pending wpk)
     let out := "pong".toUTF8
-    let (loop4, wr) ← loop3.sendAck key out 0 out.size
+    check "stale sendAck rejected" (isStale (← loop3.sendAck stale out 0 out.size))
+    check "invalid-raw sendAck rejected"
+      (isInvalidRaw (← loop3.sendAck invalid out 0 out.size))
+    let (loop4, wr) ← EffectError.orThrow (← loop3.sendAck key out 0 out.size)
+    match wr with
+    | .wrote n => IO.println s!"    sendAck count={n.toNat}"
+    | .wouldBlock => IO.println "    sendAck result=wouldBlock"
+    | .interrupted => IO.println "    sendAck result=interrupted"
+    | .closed => IO.println "    sendAck result=closed"
+    | .error e => IO.println s!"    sendAck error={repr e}"
     check "sendAck wrote bytes"
       (match wr with | .wrote n => n.toNat == 4 | _ => false)
     check "sendAck cleared writable pending" (!loop4.nds.ds.coalesce.pending wpk)

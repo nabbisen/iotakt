@@ -56,7 +56,7 @@ def streamChunked (fd : Int) : IO Unit := do
 def handle (loop : EventLoop) (key : FdKey) : IO EventLoop := do
   let fd := key.raw
   match ← readReq fd with
-  | none => loop.closeConnection key
+  | none => EffectError.orThrow (← loop.closeConnection key)
   | some raw =>
       match HttpRequest.parse raw with
       | some req =>
@@ -68,7 +68,7 @@ def handle (loop : EventLoop) (key : FdKey) : IO EventLoop := do
       | none =>
           let resp := (HttpResponse.notFound "(bad request)").toBytes
           let _ ← Io.send fd resp 0 resp.size
-      loop.closeConnection key
+      EffectError.orThrow (← loop.closeConnection key)
 
 def main : IO Unit := do
   IO.println "iotakt HTTP/1.1 chunked streaming server (v0.8)"

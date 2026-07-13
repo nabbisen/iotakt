@@ -123,8 +123,8 @@ def testOutboundConnect : IO Unit := do
       let rr ← Io.recv sKey.raw 64
       check "data received on server side of connect"
         (match rr with | .bytes ba => ba.toList == data.toList | _ => false)
-      loop := ← loop.closeConnection sKey
-    loop := ← loop.closeConnection cKey
+      loop := ← EffectError.orThrow (← loop.closeConnection sKey)
+    loop := ← EffectError.orThrow (← loop.closeConnection cKey)
 
   loop.destroy
 

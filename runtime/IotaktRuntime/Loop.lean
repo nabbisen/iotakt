@@ -46,6 +46,45 @@ open Iotakt.Model IotaktRuntime.Bridge IotaktRuntime.Driver IotaktRuntime.Native
 
 private def fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 
+/-- Typed failure for stable operations that can cause a native fd effect. -/
+inductive EffectError where
+  | invalidKey
+  | staleKey
+  | invalidRawFd
+  | wrongKind
+  | inactive
+  | nativeError (errno : IoErrno)
+  deriving DecidableEq, Repr, Inhabited
+
+namespace EffectError
+
+/-- Explicitly lift a checked effect result into `IO` for examples and internal
+drivers whose own API still uses exceptions. Stable fd operations return the
+`Except` value directly. -/
+def orThrow {α : Type} : Except EffectError α → IO α
+  | .ok value => pure value
+  | .error e => throw <| IO.userError s!"iotakt fd effect failed: {repr e}"
+
+end EffectError
+
+private def ofKeyError : Iotakt.Model.KeyError → EffectError
+  | .invalidRawFd => .invalidRawFd
+  | .unknownKey => .invalidKey
+  | .staleKey => .staleKey
+  | .wrongKind => .wrongKind
+  | .inactive => .inactive
+
+/-- Convert a validated POSIX fd to the native ABI representation without
+`Int.toNat` truncation or signed wrap. -/
+private def checkedFd32 (raw : Int) : Except EffectError Int32 :=
+  if raw < 0 || raw > 2147483647 then
+    .error .invalidRawFd
+  else
+    .ok (Int32.mk raw.toNat.toUInt32)
+
+private def nativeStatus (status : Int) : Except EffectError Unit :=
+  if status < 0 then .error (.nativeError (classifyErrno (-status))) else .ok ()
+
 /-- An event delivered to the caller from one driver step. -/
 inductive LoopEvent where
   /-- A new connection was accepted on the listener. -/
@@ -80,6 +119,13 @@ structure EventLoop where
   maxConnections : Option Nat := none
 
 namespace EventLoop
+
+/-- Resolve model authority and native fd representation before an effect. -/
+private def resolveEffect (loop : EventLoop) (key : FdKey)
+    (allowedKinds : List ResourceKind) : Except EffectError (RegistryEntry × Int32) := do
+  let nativeFd ← checkedFd32 key.raw
+  let entry ← (loop.nds.ds.registry.resolveEffectKey key allowedKinds).mapError ofKeyError
+  return (entry, nativeFd)
 
 /-! ### Internal: Gap-006 task tracking
 
@@ -275,39 +321,58 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
 
 /-- Register write interest for a connection (call when you have pending
 output; disable when the output buffer is drained). -/
-def enableWrite (loop : EventLoop) (key : FdKey) : IO EventLoop := do
-  let newInterests := InterestSet.readOnly.enableWrite
-  let reg1 := loop.nds.ds.registry.setInterests key newInterests
-  let _ ← Epoll.modify (fd32 loop.ph.epfd) (fd32 key.raw)
-            (Epoll.interestFlags newInterests)
-  return { loop with nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
+def enableWrite (loop : EventLoop) (key : FdKey) : IO (Except EffectError EventLoop) := do
+  match loop.resolveEffect key [.stream, .datagram] with
+  | .error e => return .error e
+  | .ok (_, nativeFd) =>
+      let newInterests := InterestSet.readOnly.enableWrite
+      let status ← Epoll.modify (fd32 loop.ph.epfd) nativeFd (Epoll.interestFlags newInterests)
+      match nativeStatus status with
+      | .error e => return .error e
+      | .ok () =>
+          let reg1 := loop.nds.ds.registry.setInterests key newInterests
+          return .ok { loop with
+            nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
 
 /-- Disable write interest for a connection (output buffer drained). -/
-def disableWrite (loop : EventLoop) (key : FdKey) : IO EventLoop := do
-  let newInterests := InterestSet.readOnly
-  let reg1 := loop.nds.ds.registry.setInterests key newInterests
-  let _ ← Epoll.modify (fd32 loop.ph.epfd) (fd32 key.raw)
-            (Epoll.interestFlags newInterests)
-  return { loop with nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
+def disableWrite (loop : EventLoop) (key : FdKey) : IO (Except EffectError EventLoop) := do
+  match loop.resolveEffect key [.stream, .datagram] with
+  | .error e => return .error e
+  | .ok (_, nativeFd) =>
+      let newInterests := InterestSet.readOnly
+      let status ← Epoll.modify (fd32 loop.ph.epfd) nativeFd (Epoll.interestFlags newInterests)
+      match nativeStatus status with
+      | .error e => return .error e
+      | .ok () =>
+          let reg1 := loop.nds.ds.registry.setInterests key newInterests
+          return .ok { loop with
+            nds := { loop.nds with ds := { loop.nds.ds with registry := reg1 } } }
 
 /-- Close and deregister a connection fd. Must be called when the
 connection closes or the actor is done. -/
-def closeConnection (loop : EventLoop) (key : FdKey) : IO EventLoop := do
-  let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 key.raw)
-  Socket.closeFdRaw (fd32 key.raw)
-  let reg1 := loop.nds.ds.registry.close key
-  -- Gap 006 (henret ≥ v0.11.0): cancel the owning task to free its
-  -- runtime state (readyQ / timers / mailboxWaiters entries). The actor
-  -- mailbox itself persists in Henret — that is upstream behaviour and is
-  -- documented in docs/src/henret-integration.md.
-  let rt1 := match loop.taskOf key with
-    | some task => (Henret.step loop.rt (.cancel task)).1
-    | none      => loop.rt
-  return (loop.forgetTask key)
-    |> fun l => l.forgetActivity key
-    |> fun l => { l with
-        nds := { l.nds with ds := { l.nds.ds with registry := reg1 } }
-        rt  := rt1 }
+def closeConnection (loop : EventLoop) (key : FdKey) :
+    IO (Except EffectError EventLoop) := do
+  match loop.resolveEffect key [.stream, .datagram] with
+  | .error e => return .error e
+  | .ok (_, nativeFd) =>
+      let status ← Epoll.deregister (fd32 loop.ph.epfd) nativeFd
+      match nativeStatus status with
+      | .error e => return .error e
+      | .ok () =>
+          Socket.closeFdRaw nativeFd
+          let reg1 := loop.nds.ds.registry.close key
+          -- Gap 006 (henret ≥ v0.11.0): cancel the owning task to free its
+          -- runtime state (readyQ / timers / mailboxWaiters entries). The actor
+          -- mailbox itself persists in Henret — that is upstream behaviour and is
+          -- documented in docs/src/henret-integration.md.
+          let rt1 := match loop.taskOf key with
+            | some task => (Henret.step loop.rt (.cancel task)).1
+            | none      => loop.rt
+          return .ok <| (loop.forgetTask key)
+            |> fun l => l.forgetActivity key
+            |> fun l => { l with
+                nds := { l.nds with ds := { l.nds.ds with registry := reg1 } }
+                rt  := rt1 }
 
 /-- Close every connection idle past the configured timeout at wall-clock
 `nowNs`. Returns the updated loop and the closed keys (v0.7). -/
@@ -315,7 +380,7 @@ def reapIdle (loop : EventLoop) (nowNs : Nat) : IO (EventLoop × List FdKey) := 
   let expired := loop.idleExpired nowNs
   let mut l := loop
   for key in expired do
-    l ← l.closeConnection key
+    l ← EffectError.orThrow (← l.closeConnection key)
   return (l, expired)
 
 /-- One adaptive step: block in `epoll_wait` only as long as the next
@@ -363,7 +428,7 @@ def shutdown (loop : EventLoop) : IO EventLoop := do
   let mut l := { loop with listeners := [] }
   let activeKeys := loop.taskByKey.map (·.1)
   for key in activeKeys do
-    l ← l.closeConnection key
+    l ← EffectError.orThrow (← l.closeConnection key)
   return l
 
 /-- Acknowledge that a connection's readiness has been handled.
@@ -382,9 +447,12 @@ iotakt's coalescing contract to **explicit acknowledgement**: pending
 readiness clears when the actor calls `recvAck`/`sendAck`/`ackReady`, never
 implicitly. Returns the updated loop and the read result. -/
 def recvAck (loop : EventLoop) (key : FdKey) (maxBytes : Nat) :
-    IO (EventLoop × Iotakt.Model.ReadResult) := do
-  let r ← Io.recv key.raw maxBytes
-  return (loop.ackReady key .readable, r)
+    IO (Except EffectError (EventLoop × Iotakt.Model.ReadResult)) := do
+  match loop.resolveEffect key [.stream] with
+  | .error e => return .error e
+  | .ok _ =>
+      let r ← Io.recv key.raw maxBytes
+      return .ok (loop.ackReady key .readable, r)
 
 /-- Send on a connection **and acknowledge** its writable readiness in one
 step (the write-side companion to `recvAck`). After a full write the caller
@@ -392,9 +460,12 @@ typically also `disableWrite`s; after a partial write it keeps write interest
 and the next writable readiness will be delivered (the ack cleared the
 previous one). -/
 def sendAck (loop : EventLoop) (key : FdKey) (ba : ByteArray) (offset len : Nat) :
-    IO (EventLoop × Iotakt.Model.WriteResult) := do
-  let w ← Io.send key.raw ba offset len
-  return (loop.ackReady key .writable, w)
+    IO (Except EffectError (EventLoop × Iotakt.Model.WriteResult)) := do
+  match loop.resolveEffect key [.stream] with
+  | .error e => return .error e
+  | .ok _ =>
+      let w ← Io.send key.raw ba offset len
+      return .ok (loop.ackReady key .writable, w)
 
 /-- Result of initiating an outbound connect. -/
 inductive ConnectOutcome where

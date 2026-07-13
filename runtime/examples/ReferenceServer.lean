@@ -103,7 +103,7 @@ def main : IO Unit := do
       match ev with
       | .newConnection key _ =>
           total := total + (← serveConnection key.raw)
-          loop ← loop.closeConnection key
+          loop ← EffectError.orThrow (← loop.closeConnection key)
       | _ => pure ()
   loop.destroy
 

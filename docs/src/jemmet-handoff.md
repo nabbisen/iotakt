@@ -99,8 +99,8 @@ partial def serve (loop : EventLoop) : IO Unit := do
         | .request req =>
             let resp := (router.dispatchRequest req).toBytes
             let _ ← Io.send key.raw resp 0 resp.size
-            let _ ← loop.closeConnection key
-        | _ => let _ ← loop.closeConnection key
+            let _ ← EffectError.orThrow (← loop.closeConnection key)
+        | _ => let _ ← EffectError.orThrow (← loop.closeConnection key)
     | _ => pure ()
   serve loop
 

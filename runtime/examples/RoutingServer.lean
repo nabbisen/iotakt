@@ -65,14 +65,14 @@ def handleConn (loop : EventLoop) (key : FdKey) : IO EventLoop := do
   let fd := key.raw
   match ← readRequest fd with
   | none =>
-      loop.closeConnection key
+      EffectError.orThrow (← loop.closeConnection key)
   | some raw =>
       let resp := match HttpRequest.parse raw with
         | some req => appRouter.dispatchRequest req
         | none     => HttpResponse.notFound "(unparseable)"
       let wb := WriteBuffer.empty.push resp.toBytes
       let (_, _) ← wb.flushAll fd
-      loop.closeConnection key
+      EffectError.orThrow (← loop.closeConnection key)
 
 def main : IO Unit := do
   IO.println "iotakt HTTP/1.1 routing server"

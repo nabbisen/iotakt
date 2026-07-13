@@ -179,8 +179,8 @@ def runStep
             let action ← actor.dispatch event
             match action with
             | .continue     => pure ()
-            | .enableWrite  => loop := ← loop.enableWrite key
-            | .disableWrite => loop := ← loop.disableWrite key
+            | .enableWrite  => loop := ← Loop.EffectError.orThrow (← loop.enableWrite key)
+            | .disableWrite => loop := ← Loop.EffectError.orThrow (← loop.disableWrite key)
             | .close        =>
                 toClose := toClose ++ [key]
                 reg := reg.remove key

@@ -83,18 +83,18 @@ def main : IO Unit := do
                     else cs
               | .eof =>
                   IO.println s!"  [-] EOF on fd={key.raw}"
-                  loop := ← loop.closeConnection key
+                  loop := ← EffectError.orThrow (← loop.closeConnection key)
                   conns := conns.filter (·.key != key)
               | .wouldBlock => pure ()
               | _ =>
-                  loop := ← loop.closeConnection key
+                  loop := ← EffectError.orThrow (← loop.closeConnection key)
                   conns := conns.filter (·.key != key)
           | .eof =>
               IO.println s!"  [-] EOF event on fd={key.raw}"
-              loop := ← loop.closeConnection key
+              loop := ← EffectError.orThrow (← loop.closeConnection key)
               conns := conns.filter (·.key != key)
           | _ =>
-              loop := ← loop.closeConnection key
+              loop := ← EffectError.orThrow (← loop.closeConnection key)
               conns := conns.filter (·.key != key)
 
       | .tick _ => pure ()
@@ -103,7 +103,7 @@ def main : IO Unit := do
 
   -- ── 3. Close remaining connections ────────────────────────────────
   for cs in conns do
-    loop := ← loop.closeConnection cs.key
+    loop := ← EffectError.orThrow (← loop.closeConnection cs.key)
   loop.destroy
 
   -- ── 4. Report ─────────────────────────────────────────────────────

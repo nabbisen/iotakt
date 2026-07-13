@@ -73,7 +73,7 @@ def runStandupListener (port : UInt16) (seam : ConsumerSeam)
           -- iotakt's job ends at handoff: the consumer owns the fd and drives
           -- the byte stream. Standalone we close after handoff so the demo is
           -- self-contained; the harness leaves the fd to the consumer.
-          loop := ← loop.closeConnection key
+          loop := ← EffectError.orThrow (← loop.closeConnection key)
       | .dataReady _ _ => pure ()   -- consumer-owned in the harness
       | .tick _        => pure ()
   loop.destroy
