@@ -1,8 +1,8 @@
 # RFC 032: Documentation, Examples, and Guided Tour
 
-**Status:** Proposed / Developer Experience  
-**Milestone:** M7  
-**Priority:** High before first public release  
+**Status:** Proposed — scheduled after architecture rebaseline
+**Milestone:** R4 — baseline and documentation integrity
+**Priority:** High after RFC 069
 **Primary layer:** Docs / Examples  
 **Project:** iotakt  
 **Stack position:** `jemmet → iotakt → henret`  

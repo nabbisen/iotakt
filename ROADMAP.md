@@ -1,215 +1,274 @@
-# Roadmap
+# iotakt roadmap
 
-See `rfcs/README.md` for the full RFC index.
+This roadmap is the current project schedule. Release history belongs in
+[`CHANGELOG.md`](./CHANGELOG.md); design history and decisions belong in
+[`rfcs/`](./rfcs/README.md).
 
-## Released: v0.1.0-dev — Pure model + Henret bridge + Linux epoll
-All v0.1 RFCs (001–015, 018, 019) implemented. CI gate: 8 steps, 52+ checks.
+## Current decision
 
-## Released: v0.2.0-dev — Public API + Multi-connection EventLoop
-RFC 017 stable API, `Iotakt.Loop` EventLoop, multi-connection echo server, GitHub Actions CI. 9 steps.
+**No-Go as of 2026-07-13.** Release publication, v1.0 promotion, and downstream
+recommendation of the runtime/native surface are frozen pending remediation and an
+independent follow-up architecture/security review.
 
-## Released: v0.3.0-dev — UDP + Outbound connect + kqueue analysis
-RFC 036 UDP, RFC 039 outbound connect, RFC 016 kqueue analysis, persistent connections. 10 steps.
+The pure model and the RFC 061 package split remain useful foundations. The release
+freeze applies because effectful fd authority, native buffer bounds, public event
+delivery, CI/sanitizer evidence, release packaging, and durable documentation do not
+yet meet the project's claimed boundary.
 
-## Released: v0.4.0-dev — WriteBuffer + HTTP/1.0 + FFI hardening
-`WriteBuffer`, `Iotakt.Http`, HTTP server+client, RFC 028 FFI contract, RFC 026 conformance. 12 steps, 22 RFCs done.
+## Scheduling assumptions
 
-## Released: v0.5.0-dev — ConnectionActor + Stats + Throughput baseline
-`ConnectionActor` + `ActorRegistry`, `ConnStats`/`GlobalStats`, HTTP/1.1 keep-alive, RFC 025 benchmark (~330k req/s baseline), Gap 004 resolved. 14-step CI, 23 RFCs done.
+- Dates below are planning targets starting 2026-07-13 for one primary maintainer.
+- Milestone exit criteria, not dates, authorize progression.
+- Security-sensitive changes stay small and reviewable; no release tag is cut during
+  R0–R4.
+- RFCs 064 and 065 may proceed in parallel because they touch distinct primary
+  concerns, but their shared native/API edits must be integrated deliberately.
+- The complete 28-step gate is not accepted as release evidence until RFC 067 makes
+  it fail closed and a clean-checkout run passes.
 
-## Released: v0.6.0-dev — henret v0.11.0 + Router + Gap 006 cancel-on-close
-Dependency bumped to henret v0.11.0 (RFCs 033–040). `inject_ok_of_mailbox` updated for timed-waiter queue. `Iotakt.Router` with path params. `EventLoop.closeConnection` issues `cancel` to free Henret runtime state. TLS boundary doc (RFC 041). 16-step CI, 24 RFCs done.
+Work items use three distinct states:
 
-## Released: v0.7.0-dev — henret v0.12.1 + adaptive poll timeout + idle reaping
-Dependency to henret v0.12.1 (non-breaking through v0.11.1/v0.12.0/v0.12.1). `pollTimeoutMs`/`runStepAuto` park/wake driver (idle server = 0% CPU). Idle connection reaping. `receiveUntil` timer infrastructure verified. 17-step CI.
+- **Code complete:** implementation and ordinary tests are complete, but dependent
+  release evidence may still be outstanding.
+- **Evidence pending:** the implementation is available for dependent work, but a
+  required cross-milestone gate has not yet produced retained evidence.
+- **Accepted:** every RFC acceptance criterion and required evidence item is complete
+  and reviewed. A remediation RFC remains Proposed until this state, then moves to
+  Done; code completion alone does not change its lifecycle status.
 
-## Released: v0.8.0-dev — chunked encoding + scheduled connection actors
-HTTP/1.1 chunked transfer encoding (`Iotakt.Chunked`, RFC 7230 §4.1). Scheduled connection-actor lifecycle model (`Iotakt.SchedConn`) — genuine Henret-running task via receiveUntil, verified against real semantics. Chunked streaming server using runStepAuto + idle reaping. 19-step CI.
+## Remediation release train
 
-## Released: v0.9.1-dev — henret v0.15.2 + jemmet rename + supervised restart
-Dependency to henret v0.15.2 (non-breaking through v0.13.x–v0.15.2). Adopted RFC 049 supervision restart in `Iotakt.SchedConn` (`fail`/`restart`/`ConnPhase.failed`). Project rename henejt → jemmet across code/docs/RFCs. 21-step CI.
+| Milestone | Target window | Theme | Required RFCs | Exit decision |
+|---|---|---|---|---|
+| R0 | Jul 13–15 | Freeze and approved work plan | 064–069 proposed; roadmap/index repaired | Scope ready for implementation; release remains frozen |
+| R1 | Jul 16–24 | Authority and native memory safety | 064, 065 | RFC 064 accepted; RFC 065 code complete with sanitizer evidence explicitly pending R3 |
+| R2 | Jul 25–Aug 2 | Event and state integrity | 066, 029 | One delivery path; faulted native transitions remain state-safe |
+| R3 | Aug 3–9 | Evidence and supply-chain integrity | 067, 068 | Fail-closed clean gate; real sanitizers; tracked reproducible candidate archive |
+| R4 | Aug 10–16 | Architecture and documentation rebaseline | 069, then 032 and 046 review work | Approved scope; current docs/RFC truth; downstream probes pass |
+| R5 | Aug 17–23 | Release requalification | 033 | Independent Go/No-Go recorded from complete evidence |
 
-## Released: v0.9.0-dev — body-aware request reading + jemmet handoff surface
-`Iotakt.RequestBody.readFull` reassembles Content-Length and chunked request bodies off a live socket (RFC 7230 §3.3.3). `Iotakt.Server` consolidated handoff surface for jemmet. Upload server verified with both framings. jemmet-handoff.md consumer contract. 21-step CI.
+These windows are intentionally short but conditional. A missed exit criterion moves
+the following milestone; it does not get waived to preserve a date.
 
-## Released: v0.10.0-dev — keep-alive building blocks + request-size limits
-`readFromBuffer` for pipelining-correct request reading (consumer keep-alive loses no data); `maxBytes` request-size limits (`ReadResult.tooLarge` → consumer 413). Reference consumer *example* (not a library module) proving the handoff surface is sufficient. jemmet itself remains a separate future project. 23-step CI.
+## R0 — Freeze and approved work plan
 
-## Released: v0.11.0-dev — graceful shutdown + connection limits (iotakt stabilization)
-`EventLoop.shutdown` (RFC 037): stop accepting, drain/close active connections + listeners cleanly. Connection cap (RFC 030): `withMaxConnections`/`connectionCount`/`atCapacity`; `runStep` sheds accepts past the cap. Verified live (cap=1 admits ≤1 of 3 clients; shutdown drains all). 24-step CI. 26 RFCs done.
+### Objective
 
-## Released: v0.12.0-dev — proof/trust/test-matrix refresh + API stability review
-Matrix doc refreshed to current state (77 theorems, 0 sorry/axiom, 321 checks, native implemented); matrix-honesty CI guard added (count can't drift). API stability audit (`docs/src/api-stability.md`, applies RFC 031) classifies the public surface Stable/Provisional/Internal toward v1.0. jemmet prototype preserved as handoff seed in `rfcs/handoff/jemmet/prototype/`. CI renumbered to 25 sequential steps.
+Convert every architecture-review finding into owned RFC work and establish a single
+current schedule.
 
-## Released: v0.14.5 — bare X.Y.Z version label + label-drift guard + source-only archive
-The canonical version label is now bare **X.Y.Z** (no `-dev`); `package-release.sh` strips any leading `v` from the tag, and `RELEASES.md`/`release.yml`/CHANGELOG describe the bare convention (0.14.0–0.14.3 carried `-dev`; 0.14.4 onward are bare). Added a label-drift guard: `package-release.sh` aborts unless the release version equals the latest CHANGELOG heading, and `check-provenance.sh` asserts that heading is canonical bare `X.Y.Z` every CI build — so tag, manifest `version`, and CHANGELOG can't disagree (the 0.14.4 drift jemmet flagged). The canonical release archive **retains `handoff/` correspondence for traceability**, guarded by a discipline check: a release's own announcement quotes the hash of the archive it would sit in, so `package-release.sh` refuses to cut version V while an `rfcs/handoff/` doc named for V is staged. Cross-team correspondence is organised under `rfcs/handoff/<counterparty>/` (jemmet/kroopt/henret/self). Such announcements are committed after the cut, landing in the next release's archive. No model/proof/henret-pin change (henret 0.34.4, `ad0ceab4`). 28-step gate green, 77 theorems, 0 sorry/axiom.
+### Work
 
-## Released: v0.14.4-dev — release-CI publishes the canonical archive as an asset + reproducible packaging
-The canonical files-at-root release archive and its provenance sidecar are now published as downloadable GitHub release **assets from CI on tag** (`.github/workflows/release.yml`), mirroring henret — closing the gap where the manifest named a files-at-root archive that wasn't downloadable (only GitHub's parent-dir-wrapped auto-tarball was). `scripts/package-release.sh` builds the archive **byte-reproducibly** (`--sort=name`, fixed mtime/owner, `gzip -n`), so `source_archive.sha256` is auditable. Also repaired the stale `.github/workflows/ci.yml` (pre-Option-B; now delegates to `scripts/ci.sh`) and documented the `vX.Y.Z-dev` tag convention in `RELEASES.md`. No model/proof/henret-pin change (henret 0.34.4, `ad0ceab4`). 28-step gate green, 77 theorems, 0 sorry/axiom.
+- Keep release/v1.0/downstream-runtime promotion frozen.
+- Review and accept the six focused remediation RFCs:
+  - [RFC 064 — Generation-safe effectful fd authority](./rfcs/proposed/064-generation-safe-effectful-fd-authority.md)
+  - [RFC 065 — Native buffer bounds and runtime I/O limits](./rfcs/proposed/065-native-buffer-bounds-and-runtime-io-limits.md)
+  - [RFC 066 — Authoritative event delivery and state-safe native transitions](./rfcs/proposed/066-authoritative-event-delivery-and-state-safe-native-transitions.md)
+  - [RFC 067 — Fail-closed CI, sanitizer, and clean-checkout evidence](./rfcs/proposed/067-fail-closed-ci-sanitizer-and-clean-checkout-evidence.md)
+  - [RFC 068 — Tracked-source release packaging and complete provenance](./rfcs/proposed/068-tracked-source-release-packaging-and-complete-provenance.md)
+  - [RFC 069 — Architecture baseline, scope, and documentation integrity](./rfcs/proposed/069-architecture-baseline-scope-and-documentation-integrity.md)
+- Mark supporting RFCs 029, 032, 033, 043, and 046 with their remediation role.
+- Rebuild the RFC index from actual folder state.
+- Approve RFC 064's stable `EffectError` result shape and RFC 065's reject-without-I/O
+  slice/receive-limit policy before R1 implementation starts.
+- Start the HTTP/framing module-boundary inventory and ownership analysis; record the
+  ownership decision by the R2 exit for publication in the R4 baseline.
 
-## Released: v0.14.3-dev — stack-verifier `package` field + release-immutability policy
-Added a top-level `"package": "iotakt"` to `iotakt.provenance/v1` (alongside `project`, additive) so henret's shared `verify_stack_release.py` — which asserts `manifest["package"] == name` — accepts the iotakt node; `check-provenance.sh` asserts it. Documented the release-immutability policy in `RELEASES.md`: a published tag (incl. `-dev`) is frozen, never re-published in place; any change ships as a new version, so `source_archive.sha256` is a durable anchor. Per that policy, this shipped as a new version rather than re-cutting the already-published v0.14.2-dev. No model/proof/build/henret-pin change. 28-step CI green, 77 theorems, 0 sorry/axiom.
+### Exit criteria
 
-## Released: v0.14.2-dev — henret v0.34.4 + RFC 063 stack-contract dependency edge
-Bumped henret 0.34.3 → 0.34.4 (commit `ad0ceab4`), the first henret release to publish its RFC 095 release-verification sidecar from CI (henret RFC 097 repaired the release gate). Henret's Lean source is byte-identical 0.34.0–0.34.4 — pin-only bump, no model/proof change. RFC 063: added an additive `dependencies[]` array to `iotakt.provenance/v1` declaring the iotakt→henret edge (`manifest_sha256` + `tarball_sha256` + `surface`, RFC 096 shape), so jemmet's stack manifest verifies under henret's stack contract. Hashes are derived from henret's published sidecar and admitted only after its `git_commit` binds to our pin — never transcribed; the verified sidecar is vendored under `provenance/` and re-checked offline every CI run. Edge anchored at sidecar `21d6e9d0…`, commit `ad0ceab4…`. 28-step CI green, 77 theorems, 0 sorry/axiom.
+- Each blocking finding B1–B6 maps to one primary RFC.
+- Each missing Go evidence item maps to an acceptance criterion.
+- Dependencies and final sign-off authority are explicit.
+- Security-sensitive API policies needed by R1 are decisions, not open questions.
+- The HTTP/framing analysis has an owner, inventory, and R2 decision deadline.
 
-## Released: v0.14.1-dev — henret v0.34.3 adoption (docs-only dep bump)
-Bumped the henret dependency 0.34.0 → 0.34.3 (commit `63f10f48` → `a5f3f116`). Henret's `Henret/` Lean source is byte-identical across 0.34.0–0.34.3; the 0.34.1/0.34.2/0.34.3 releases are docs + release-process tooling only (consumer-doc/archive hygiene, RFC 095 release-verification manifest, RFC 096 stack release contract). No compiler-caught break, no proof-hypothesis change (`inject_ok_of_mailbox` untouched). Continued commit-pinning (upstream tags are annotated). Pin lives only in the runtime package; model package stays dependency-free. 28-step CI green, 77 theorems, 0 sorry/axiom.
+## R1 — Authority and native memory safety
 
-## Released: v0.14.0-dev — model/runtime package split for Henret-free model resolution (RFC 061, Option B)
-RFC 061 resolved. iotakt is now two Lake packages: the Henret-free **`iotakt` model package** at the repo root (`Iotakt.*` — model, fake poller, API, proofs; zero dependencies) and the **`«iotakt-runtime»` package** in `runtime/` (`IotaktRuntime.*` — Henret bridge, native epoll, driver/loop/server/HTTP stand-ins) depending on the model + Henret. A verified model-only consumer (jemmet's core) now resolves with **Henret absent** from its manifest and no C toolchain. The original RFC 061 design (two packages under a shared `Iotakt.*` root) was found unbuildable in Lean 4.15.0/Lake 5.0.0 — a dependent package cannot extend a dependency-owned module root; architecture review selected Option B (rename the runtime namespace, keep the model surface stable). Consumer-visible build change (MINOR bump): full-stack consumers migrate `require iotakt` → `require «iotakt-runtime» from …/runtime` and runtime imports `Iotakt.{Bridge,Native,Driver,…}` → `IotaktRuntime.{…}` (19 modules); model imports (`Iotakt.Api`/`Model`/`Fake`/`Proofs`) unchanged. Migration table in `docs/src/rfc-061-migration.md`. 28-step CI (added model-only resolution gate), 77 theorems (68 model + 9 runtime), 0 sorry/axiom; henret pin unchanged (commit `63f10f48`).
+### Objective
 
-## Released: v0.13.4-dev — release-provenance tooling (RFC 062)
-Added a release-provenance manifest (`iotakt.provenance/v1`, aligned with henret RFC 080) published alongside each tarball, with generate/verify/CI-check scripts; CI is now 27 steps (provenance-consistency gate). Filed RFC 061 (model/bridge package split for henret-free model resolution) and RFC 062 (provenance) from the jemmet integration review; 062 resolved here, 061 proposed pending design review. Additive release-process change only — no library API/proof/behavior change; henret pin unchanged. 77 theorems, 0 sorry/axiom.
+Close the two critical direct security paths before broader refactoring.
 
-## Released: v0.13.3-dev — henret v0.34.0 adoption (RFC 056/057/091)
-Bumped the henret dependency v0.17.7 → v0.34.0 (17 minor versions; v0.33→v0.34 is henret mdbook-docs only, `Henret/` source byte-identical). Additive model growth (RuntimeOp 21→29, StepResult 8→10, WellFormed 28→33); one leaf proof (`inject_ok_of_mailbox`) gained a `mailboxFull = false` hypothesis for RFC 056's backpressure guard — discharged because iotakt never bounds mailboxes (unbounded policy from `RuntimeState.init`). No compiler-caught break (no exhaustive RuntimeOp/StepResult match; `.init` construction; no renamed-name or ResourceState-clash issues). Resource ledger (RFC 057/091) unused. 26-step CI / 333 checks, 77 theorems, 0 sorry/axiom.
+### RFC 064 workstream
 
-## Released: v0.13.2-dev — henret v0.17.7 adoption (RFC 055 structured shutdown)
-Bumped the henret dependency v0.15.2 → v0.17.7. RFC 055 admission control is additive/safety-only; one leaf proof (`inject_ok_of_mailbox`) strengthened with the runtime-running / actor-not-closed hypotheses to discharge the new `inject` guard. No compiler-caught break (uses `RuntimeState.init`; no exhaustive `RuntimeOp`/`TraceEvent` match); iotakt never issues the shutdown ops so guards never fire. Declares dependence on henret's `actor` profile (RFC 054). 26-step CI / 333 checks, 77 theorems, 0 sorry/axiom.
+- Add a shared checked resolver for all effectful `FdKey` operations.
+- Make stale/forged/invalid keys typed no-effect failures.
+- Repair `Registry.close` generation preservation and settle visible double-close
+  semantics.
+- Add proofs and live raw-fd-reuse tests for close, recv/send, and interest changes.
 
-## Released: v0.13.1-dev — documentation-fitness audit
-Audited all docs against the codebase; fixed six mismatches (stale Router-in-surface claims, non-compiling prototype seed, wrong proof build command, stale check count, broken mdbook SUMMARY with 11 dangling links + 3 orphans). Prototype seed compile-verified. No code changes except comments.
+### RFC 065 workstream
 
-## Released: v0.13.0-dev — v1.0 surface decisions settled (v1.0 candidate)
-Coalesce ack pinned to explicit acknowledgement (`recvAck`/`sendAck` added; `CoalesceState` → Stable). Routing removed from the stable `Iotakt.Server` surface (`Iotakt.Router` is now an optional non-stable module). Gap-006 task-tracking reclassified Internal. The core consumer surface is a **v1.0 candidate**; only kqueue (RFC 021) and `recvInto` (RFC 022) remain, neither a surface blocker. 26-step CI.
+- Replace overflow-prone native slice checks with subtraction-safe validation.
+- Validate TCP/UDP slices in Lean and C; bound syscall lengths.
+- Enforce `DriverConfig.maxReadBytes` in stable runtime receive operations.
+- Add boundary tests ready to run under the R3 sanitizer path.
+- Generate and review inventories covering every stable native-effect path and every
+  receive allocation path; bind each inventory row to its enforcement test.
 
-## Next: toward a v1.0 candidate release — **requires explicit maintainer sign-off**
+### Exit criteria
 
-The surface is ready; cutting v1.0 is a deliberate decision, not an automatic next step. Remaining optional/non-blocking work:
-- **RFC 021 — kqueue native backend** (blocked on a macOS CI runner; model already kqueue-aware, so it is not a v1.0 surface blocker).
-- **RFC 022 — `recvInto`** reusable-buffer optimization (deferred; additive when it lands).
-- Final proof/trust/test matrix + API stability sign-off, then tag v1.0 **only on maintainer confirmation**.
+- RFC 064 is accepted: no stable native operation can be reached through a stale,
+  forged, negative, or out-of-range key, and its effect-path inventory is complete.
+- Stale close cannot alter a newer generation's model/native resource.
+- No send/sendto slice can overflow validation.
+- RFC 065 is code complete: configured receive bounds are enforced by library code
+  and its receive-allocation inventory is complete. Its status remains Proposed with
+  sanitizer evidence pending until RFC 067 supplies the R3 instrumented run.
+- New proof declarations contain no `sorry`, `admit`, or project `axiom`.
 
-## After v1.0
-- jemmet (the HTTP server) is built **separately** on the stable iotakt surface, seeded from `rfcs/handoff/jemmet/prototype/`.
+## R2 — Event and state integrity
 
-Priority items:
-- **Keep-alive in the read path** — `readFull` currently reads one request then the server closes; extend the driver/example to keep the connection open and read successive requests on the same fd (HTTP/1.1 default), reusing the idle-timeout machinery for connection lifetime.
-- **jemmet prototype** — a separate small crate/example that builds a real HTTP service on `Iotakt.Server` (multiple routes, JSON-ish responses, request bodies), proving the handoff surface is sufficient. This is the first genuine downstream consumer.
-- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if the jemmet prototype needs them.
-- **RFC 021** — BSD/macOS kqueue native backend (still blocked on a macOS CI runner).
-- **Request size limits** — enforce `maxRequestBytes` in `readFull` to bound memory (slow-loris / oversized-body protection); surface a 413-style `.error`.
+### Objective
 
-Priority items:
-- **Chunked request decoding in the live read path** — wire `Chunked.decode` into the server read loop so request bodies with `Transfer-Encoding: chunked` are reassembled before dispatch (currently decode is tested standalone).
-- **jemmet handoff surface** — package the Router + Http + Chunked + SchedConn as the stable API that jemmet builds its HTTP layer on; document the consumer contract (mirrors what `henret-integration.md` does for the Henret side).
-- **RFC 021** — BSD/macOS kqueue native backend (needs a macOS CI runner; model compatibility already documented in RFC 016).
-- **Trailers** — chunked trailer headers (RFC 7230 §4.1.2), if jemmet needs them.
-- **Scheduled driver prototype** — an optional `runStepScheduled` that actually drives connection actors through the `SchedConn` lifecycle, as an alternative to the inject path, for multi-worker futures.
+Make the verified decision the only public decision and keep model/kernel state
+aligned across failures.
 
-Priority items:
-- **Scheduled connection actors** — restructure so connection actors are genuine Henret-running tasks that can call `receiveUntil` directly, unifying iotakt's wall-clock park/wake with Henret's logical timer model. This is the deferred deep change from v0.7.
-- **HTTP/1.1 chunked transfer encoding** — `Transfer-Encoding: chunked` in `Iotakt.Http` for streaming responses.
-- **RFC 021** — BSD/macOS kqueue native backend (macOS CI runner).
-- **runStepAuto adoption in examples** — migrate the routing/bench servers to `runStepAuto` with idle timeouts to demonstrate the zero-CPU-idle property end-to-end.
+### Work
 
-Priority items:
-- **`receiveUntil` driver** — replace the 100ms `epoll_wait` poll loop with a park/wake pattern using Henret's `receiveUntil`; the driver blocks indefinitely in `epoll_wait` and wakes only on real I/O or timer expiry. Estimated ≥10× idle CPU reduction.
-- **RFC 044 tracking** — Henret's integration contract targets v0.12.0; once it ships, iotakt's `docs/src/henret-integration.md` can reference stable import tiers explicitly.
-- **RFC 021** — BSD/macOS kqueue native backend (requires macOS CI runner).
-- **HTTP/1.1 chunked encoding** — `Transfer-Encoding: chunked` support in `Iotakt.Http`; needed for streaming responses in jemmet.
-- **RFC 044 external review prep** — iotakt is now a real downstream consumer of Henret; could serve as the motivating example for RFC 044.
+- Implement RFC 066's authoritative delivered-event result.
+- Derive Henret injection and public `.dataReady` only from that result.
+- Surface fatal poll errors; prevent pending-state leaks on failed delivery.
+- Return structured errors from register/modify/deregister/accept/connect/close and
+  commit model transitions only after native success.
+- Execute [RFC 029](./rfcs/proposed/029-fault-injection-and-failure-scenario-testing.md)
+  scenarios over the new transition seam.
+- Split polling/delivery and lifecycle responsibilities out of the oversized loop
+  module where needed for reviewability.
+- Complete the HTTP/framing ownership analysis begun in R0 and record the selected
+  owner/scope option before R2 exits; R4 publishes that decision in the baseline.
 
-Priority items:
-- **RFC 035** — Henret wait-queue parking: when the Henret maintainer ships it, replace 100ms poll loops with park/wake for ≥10× idle CPU reduction.
-- **Gap 006** — Actor lifecycle: call `Henret.terminate actorId` when closing a connection to free the mailbox.
-- **jemmet prototype** — First real HTTP/1.1 GET/POST request handling using `Iotakt.Actor` in the jemmet layer.
-- **RFC 021** — BSD/macOS kqueue native backend (macOS CI runner).
-- **RFC 041** — TLS boundary document: where TLS sits relative to iotakt (iotakt hands off raw fd after accept; TLS layer wraps it).
+### Exit criteria
 
-Priority items:
-- **`Iotakt.Actor`** — `ConnectionActor` abstraction: state machine (connecting / reading / writing / closing), integrates with Henret task model (RFC 035 prep).
-- **RFC 035** — Henret wait-queue parking: when the Henret maintainer ships it, replace the poll loop with park/wake.
-- **RFC 025** — Formal throughput benchmark: connection reuse, concurrent clients, bytes/sec, latency histogram.
-- **Gap 004 resolution** — Document `nextActorId` counter as the official ActorId allocation pattern.
-- **jemmet prototype** — First HTTP/1.1 GET using iotakt outbound connect in the jemmet layer.
+- Duplicate readiness without acknowledgement produces one public delivery.
+- No-interest, stale, unknown, closed, and coalesced events produce none.
+- Fatal poll and native-transition failures are observable and state-safe.
+- Missing-mailbox/injection failure cannot permanently suppress future delivery.
+- Fault-injection matrix covers every state-changing native operation.
+- Every RFC 029 matrix row records typed outcome, model state, kernel-resource
+  disposition, classification, and a passing test/evidence identifier.
+- HTTP/framing module ownership is decided, with any implementation/documentation
+  rebaseline work scheduled for R4.
 
-## v0.6.0+ — Future
+## R3 — Evidence and supply-chain integrity
 
-- RFC 021: BSD/macOS kqueue native backend (macOS CI runner).
-- RFC 041: TLS boundary document (iotakt hands off the fd after handshake).
-- RFC 056: io_uring backend research.
-- RFC 059: post-v1 formal verification expansion (connection-level liveness proofs).
+### Objective
 
+Restore trust in the commands and artifacts used to make release claims.
 
-All v0.1 RFCs (001–015, 018, 019) implemented. Highlights:
-- Pure model with 28+ machine-checked theorems.
-- `inject_ok_of_mailbox` theorem (formal proof of Henret discrepancy mitigation).
-- Linux epoll native backend (Option A recv, MSG_NOSIGNAL send).
-- `iotakt-echo-server`: RFC §21.4 acceptance criterion ✓.
-- CI gate: 8 steps, 52+ checks.
+### RFC 067 workstream
 
-## Released: v0.2.0-dev — Public API + Multi-connection event loop
+- Make any required step failure exit nonzero.
+- Add an injected-failure self-test for the gate.
+- Build smoke-test targets explicitly and retain failure logs.
+- Repair sanitizer paths/linkage and remove masked failures.
+- Run the exact RFC 065 boundary suite against instrumented objects.
 
-- RFC 017: `Iotakt.Api` stable public API module.
-- `Iotakt.Loop` `EventLoop`: multi-connection accept/dispatch.
-- `iotakt-multi-echo`: N concurrent connections.
-- GitHub Actions CI (3 jobs: lean-model, native-linux, sanitizer).
-- 19 RFCs in done/, CI gate 9 steps.
+### RFC 068 workstream
 
-## Next: v0.2.1 — kqueue compatibility + performance baseline
+- Package from the exact tracked tag/tree file set.
+- Reject dirty publish inputs and audit archive contents.
+- Exclude `.git-exclude/`, build outputs, and all untracked/ignored files by
+  construction.
+- Make the declared source-tree/provenance hash cover its security-relevant scope.
+- Reproduce identical artifacts in two independent clean worktrees.
+- Treat RFC 068 implementation as code complete until RFC 067's clean gate produces
+  the final candidate manifest/archive/provenance evidence.
 
-Remaining for v0.2 milestone:
-- RFC 016: kqueue model compatibility analysis (model constraints, no native impl yet).
-- RFC 025: formal throughput benchmark (not just the baseline script).
-- RFC 036: UDP socket support (small, high-value addition).
-- Henret open questions resolved (ActorId allocation, RFC 033, drain policy).
-- Gap 004 resolution: document the `nextActorId` counter pattern as the official approach.
+### Exit criteria
 
-## v0.3.0 — API stabilization and jemmet integration
+- Gate self-test exits nonzero under an intentional failure.
+- A clean checkout with empty caches passes every required gate.
+- ASan/UBSan compile, link, and run the intended native objects.
+- Canonical archive contents equal the reviewed tracked-file manifest.
+- The tracked manifest contains the approved canonical requirements and external
+  design at `docs/src/requirements.md` and `docs/src/external-design.md`.
+- Two clean worktrees produce identical canonical archive bytes and matching
+  provenance.
 
-- RFC 028: Lean FFI hardening (ByteArray ownership formal contract).
-- RFC 035: Henret wait-queue parking integration (when available from Henret maintainer).
-- Stable API review based on jemmet feedback.
-- RFC 026: native conformance test suite.
+## R4 — Architecture and documentation rebaseline
 
-## Future (v0.3+ → long-term)
+### Objective
 
-- RFC 021: BSD/macOS kqueue native backend.
-- RFC 041: TLS boundary.
-- RFC 056: io_uring backend research.
-- RFC 059: post-v1 formal verification expansion.
+Make durable project truth match the corrected implementation and explicitly settle
+scope.
 
+### Work
 
-**Status:** In progress.
+- Approve RFC 069's current requirements and external-design baseline for the
+  `Iotakt.*` model / `IotaktRuntime.*` runtime split.
+- Migrate the approved candidate baseline into tracked canonical files at
+  `docs/src/requirements.md` and `docs/src/external-design.md`; thereafter,
+  `.git-exclude/specs/` is historical review input rather than release truth.
+- Decide whether HTTP/router/request-body/server stand-ins move to examples or a
+  consumer package, or become formally supported scope.
+- Repair README, mdbook, API stability, proof/trust/test matrix, and build/import
+  instructions.
+- Strengthen RFC checks across all lifecycle folders, status fields, index entries,
+  numbers, and Markdown links.
+- Continue [RFC 032](./rfcs/proposed/032-documentation-examples-and-guided-tour.md)
+  after the baseline is approved.
+- Apply [RFC 046](./rfcs/proposed/046-security-review-playbook-and-native-audit-checklist.md)
+  to the remediated native/model boundary.
 
-Completed:
-- Pure model (RFCs 002–006): `FdKey`, registry, lifecycle, events,
-  translation, coalescing — all with machine-checked theorems.
-- Henret bridge (RFC 007): deterministic driver, guarded inject,
-  `inject_ok_of_mailbox` theorem.
-- Fake poller (RFC 008): deterministic scripted backend, replay lemmas.
-- Demo: 7 canonical scenarios, 19 checks, all PASS.
-- Proof/trust/test matrix, henret integration notes.
+### Exit criteria
 
-Remaining for v0.1.0:
-- RFC 009–012: native C FFI, buffer ownership, Linux epoll, socket API.
-- RFC 013: security, operational limits, graceful shutdown.
-- RFC 014: full proof matrix review and final CI.
-- RFC 015: observability/trace.
-- RFC 017: public API review.
-- RFC 018: CI, Lake packaging, release gates.
-- RFC 016: kqueue model compatibility analysis (implementation deferred).
-- RFC 019: architecture gap register.
+- Requirements/external design have a current approved status and topology in the
+  two tracked canonical paths, are linked from the documentation, and are included
+  in RFC 068's reviewed release manifest.
+- The canonical tracked files are content-identical to the approved candidate
+  baseline, as demonstrated by retained digest/comparison evidence.
+- Protocol convenience-module ownership and support cost are explicit.
+- All documented commands and model/runtime downstream probes pass from clean
+  checkouts.
+- RFC index and checker agree with every RFC folder/file.
+- Proof/trust/test claims cite current names, versions, and observed evidence.
 
-## v0.2.0 — kqueue backend
+## R5 — Release requalification
 
-- RFC 021: BSD/macOS kqueue native backend.
-- RFC 023: echo-server example.
-- Additional conformance tests.
+### Objective
 
-## v0.3.0 — API stabilization and jemmet integration
+Decide Go/No-Go from evidence rather than schedule pressure.
 
-- RFC 025: performance benchmarks.
-- RFC 017 rev: stable public API based on jemmet feedback.
-- RFC 020 / RFC 026: native conformance suite.
+### Work
 
-## Future (v0.2+ → long-term)
+- Execute [RFC 033](./rfcs/proposed/033-release-candidate-evaluation-and-go-no-go-gate.md).
+- Assemble the evidence matrix below from clean, retained logs.
+- Commission a focused independent architecture/security follow-up review.
+- Only after a written Go: choose the next version, prepare release notes, and cut a
+  candidate using RFC 068's tracked-source path.
 
-- RFC 028: Lean FFI hardening.
-- RFC 035: Henret wait-queue parking integration (when available).
-- RFC 036: UDP sockets.
-- RFC 041: TLS boundary.
-- RFC 056: io_uring backend research.
-- RFC 059: post-v1 formal verification expansion.
+### Required Go evidence
+
+| Evidence | Primary owner RFC |
+|---|---|
+| Stale/forged keys cause no native effect or cross-generation mutation | 064 |
+| Overflow boundaries and receive limits pass under real ASan/UBSan | 065, 067 |
+| Clean full gate passes and injected failure exits nonzero | 067 |
+| Public delivery respects interest/coalescing/lifecycle and surfaces fatal errors | 066 |
+| Native transition fault injection preserves model/kernel correspondence | 066, 029 |
+| Tracked manifest excludes ignored/untracked material and reproduces | 068 |
+| Approved requirements/design are tracked, linked, baseline-identical, and in the release manifest | 068, 069 |
+| Current downstream model/runtime compile probes pass | 069 |
+| Approved baseline settles package topology, scope, and public surface | 069 |
+
+### Exit criteria
+
+- RFCs 064–069 satisfy acceptance criteria and have observed evidence.
+- RFC 033 checklist is complete.
+- Independent review verdict is Go or Accept with no release-blocking findings.
+- Maintainer explicitly authorizes the release/version decision.
+
+## Post-Go work
+
+These items do not enter the remediation critical path unless a fixing RFC discovers
+that they are required for safety:
+
+- [RFC 043](./rfcs/proposed/043-capability-oriented-fd-handle-api-and-authority-minimization.md): opaque/restricted capabilities after checked `FdKey` effects.
+- RFC 021: kqueue native backend.
+- RFC 022: `recvInto` optimization.
+- RFC 045: broader model-based trace fuzzing/differential replay.
+- Full kroopt + jemmet + iotakt TLS standup after the runtime boundary regains Go
+  status, unless downstream teams promote it into the release gate.
+
+No post-Go feature work may weaken the authority, buffer, delivery, gate, packaging,
+or scope controls established by RFCs 064–069.

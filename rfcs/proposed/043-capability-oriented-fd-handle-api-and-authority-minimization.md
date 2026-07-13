@@ -1,13 +1,17 @@
 # RFC 043: Capability-Oriented Fd Handle API and Authority Minimization
 
-- **Status:** Proposed
-- **Intended phase:** v0.2+ security hardening
+- **Status:** Proposed — post-remediation authority hardening
+- **Intended phase:** After RFC 064 restores checked `FdKey` effects
 - **Package:** iotakt RFC v3 continuation
 - **Audience:** Lean 4 library maintainers, Henret integrators, native-boundary reviewers, low-level networking implementers
 
 ## 1. Summary
 
 This RFC replaces casual raw fd usage in high-level iotakt APIs with an authority-minimized `FdHandle` concept.
+
+RFC 064 is the release-blocking repair for stale/forged authority on the existing
+stable API. This RFC must not delay that fix. After RFC 064, this RFC may make valid
+handles opaque and add monotone delegation as defense in depth.
 
 ## 2. Motivation
 

@@ -1,7 +1,7 @@
 # RFC 046: Security Review Playbook and Native Audit Checklist
 
-- **Status:** Proposed
-- **Intended phase:** continuous
+- **Status:** Proposed — scheduled remediation review support
+- **Intended phase:** R4 baseline audit and R5 independent requalification
 - **Package:** iotakt RFC v3 continuation
 - **Audience:** Lean 4 library maintainers, Henret integrators, native-boundary reviewers, low-level networking implementers
 
@@ -91,9 +91,26 @@ Each release candidate should include:
 - public API review result
 ```
 
+The remediation requalification artifact must additionally contain this control
+matrix. Every row cites the exact RFC acceptance criterion and a retained proof,
+test, or gate log; an unchecked box or missing citation is release-blocking.
+
+| Control | Required review question | Minimum evidence |
+|---|---|---|
+| Stable native-effect authority | Do stale and forged keys fail before every stable native fd effect, including close, recv/send, interest, and lifecycle operations? | RFC 064 complete effect-path inventory plus per-row stale/forged tests and cited proofs |
+| Native buffer/resource bounds | Is all buffer arithmetic subtraction-safe, and does every stable receive-allocation path enforce configured limits before allocation/FFI? | RFC 065 receive-path inventory, ordinary boundary log, and RFC 067 ASan/UBSan log |
+| Authoritative delivery | Is there exactly one authoritative delivered-event result from which injection and public readiness are derived? | RFC 066 delivery/coalescing/lifecycle tests and result-flow review |
+| Failure-atomic transitions | Do register/modify/deregister/accept/connect/close and delivery failures preserve model/native correspondence with bounded orphan cleanup? | RFC 029 complete matrix, state/resource snapshots, and RFC 066 transition tests |
+| Fail-closed evidence | Does every mandatory gate fail closed, and do sanitizer claims identify the instrumented objects, command, revision, and retained log? | RFC 067 injected-failure self-test and clean-checkout/sanitizer provenance |
+| Tracked-source integrity | Does the archive equal its tracked manifest, exclude ignored/untracked inputs, reproduce, and bind provenance to the same revision/input set? | RFC 068 manifest/archive audit, canonical-baseline checks, and two-worktree reproduction logs |
+
 ## 8. Acceptance criteria
 
 - Security checklist is part of the repository.
 - Any RFC touching native code must include a security section.
 - CI includes at least basic sanitizer/native warning gates where available.
 - Release notes explicitly state native-boundary assumptions.
+- The final review artifact contains all six remediation controls above, with an
+  explicit pass/fail disposition and a resolvable proof/test/log citation per row.
+- Missing, stale, or non-reproducible evidence is a failed control rather than a
+  reviewer warning.
