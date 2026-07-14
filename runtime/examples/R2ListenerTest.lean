@@ -8,7 +8,8 @@ Exercises typed IPv4 construction, structured validation, duplicate rejection,
 generation-safe listener publication, compatibility, and bind-again cleanup.
 -/
 
-open Iotakt.Model IotaktRuntime.Listener IotaktRuntime.Loop IotaktRuntime.Native
+open Iotakt.Model IotaktRuntime.Driver IotaktRuntime.Listener IotaktRuntime.Loop
+  IotaktRuntime.Native
 
 private inductive ListenerMode where
   | plaintext
@@ -67,6 +68,32 @@ def main : IO Unit := do
     (isCurrentListener loop1 key1)
   ensure "loopback endpoint metadata is keyed by ListenerKey"
     (loop1.listenerEndpoints.contains (key1, endpoint1))
+
+  -- FI-ACC-001: accepted-fd registration is the native commit point. Force it
+  -- to fail and verify that the candidate is closed once without publishing
+  -- tentative generation, actor-id, registry, runtime, or consumer authority.
+  let closeCount ← IO.mkRef 0
+  let failedRegisterOps : AcceptOps := {
+    accept := fun _ => pure (.accepted 123456 ByteArray.empty)
+    register := fun _ _ _ => pure (-5)
+    close := fun _ => closeCount.modify (· + 1)
+  }
+  let (failedNds, failedRt, failedAccept) ←
+    acceptOneWith failedRegisterOps loop1.nds loop1.rt loop1.ph key1.raw
+  ensure "FI-ACC-001 returns typed accepted-register failure"
+    (match failedAccept with
+      | .error (.registerFailed (.other 5)) => true
+      | _ => false)
+  ensure "FI-ACC-001 closes the unregistered candidate exactly once"
+    ((← closeCount.get) == 1)
+  ensure "FI-ACC-001 publishes no registry, generation, or actor authority"
+    (failedNds.ds.registry.nextGen == loop1.nds.ds.registry.nextGen &&
+      failedNds.ds.registry.resolveCurrent 123456 == none &&
+      failedNds.nextActorId == loop1.nds.nextActorId)
+  ensure "FI-ACC-001 leaves Henret runtime and consumer bookkeeping unchanged"
+    (failedRt.nextId == loop1.rt.nextId &&
+      failedRt.mailboxes loop1.nds.nextActorId == loop1.rt.mailboxes loop1.nds.nextActorId &&
+      loop1.taskByKey.isEmpty)
 
   let genBeforeDuplicate := loop1.nds.ds.registry.nextGen
   let duplicate ← loop1.addListenerAt endpoint1

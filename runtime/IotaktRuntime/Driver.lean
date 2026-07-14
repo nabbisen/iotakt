@@ -175,33 +175,59 @@ def setupListener
 
 /-! ## Accept loop -/
 
+/-- Typed failure phase for one accepted-connection transition. -/
+inductive AcceptError where
+  | acceptFailed (errno : IoErrno)
+  | registerFailed (errno : IoErrno)
+  deriving DecidableEq, Repr, Inhabited
+
 /-- Result of one accept4 call plus the FdKey if accepted. -/
 inductive AcceptOneResult where
   | accepted (streamKey : FdKey) (streamFd : Int) (task : Nat)
   | wouldBlock
-  | error (e : IoErrno)
+  | error (e : AcceptError)
   deriving Repr
 
-/-- Accept one connection: set up registry entry and Henret actor.
-The stream actor gets its own fresh ActorId and is spawned in Henret. -/
-def acceptOne
+/-- Native operations used by the accepted-connection transition. Keeping the
+fallible boundary explicit permits deterministic RFC 029 failure testing without
+changing the production path. -/
+structure AcceptOps where
+  accept : Int → IO Socket.AcceptResult
+  register : Int32 → Int32 → UInt32 → IO Int
+  close : Int32 → IO Unit
+
+/-- Production accepted-connection operations. -/
+def nativeAcceptOps : AcceptOps where
+  accept := Socket.accept
+  register := Epoll.register
+  close := Socket.closeFdRaw
+
+/-- Accept one connection and commit its registry/runtime authority only after
+poller registration succeeds. A failed registration closes the candidate exactly
+once and returns the original model/runtime state. -/
+def acceptOneWith
+    (ops : AcceptOps)
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (listenerFd : Int)
     : IO (NativeDriverState × RuntimeState × AcceptOneResult) := do
-  let acc ← Socket.accept listenerFd
+  let acc ← ops.accept listenerFd
   match acc with
   | .wouldBlock  => return (nds, rt, .wouldBlock)
   | .interrupted => return (nds, rt, .wouldBlock)  -- treat EINTR same as wouldBlock
-  | .error e     => return (nds, rt, .error e)
+  | .error e     => return (nds, rt, .error (.acceptFailed e))
   | .accepted streamFd _ =>
-      -- Allocate FdKey and fresh ActorId for the stream
+      -- Prepare model authority without publishing it yet.
       let (nds1, actorId) := nds.freshActorId
       let (reg1, key) := nds1.ds.registry.allocate streamFd actorId .stream
       let reg2 := reg1.setInterests key InterestSet.readOnly |>.markActive key
 
-      -- Register with epoll
-      let _ ← Epoll.register (fd32 ph.epfd) (fd32 streamFd)
+      -- Native registration is the commit prerequisite. On failure, the
+      -- candidate is closed exactly once and no tentative state is returned.
+      let registerResult ← ops.register (fd32 ph.epfd) (fd32 streamFd)
         (Epoll.interestFlags InterestSet.readOnly)
+      if registerResult < 0 then do
+        ops.close (fd32 streamFd)
+        return (nds, rt, .error (.registerFailed (classifyErrno (-registerResult))))
 
       -- Spawn connection actor in Henret (creates its mailbox).
       -- Capture the spawned task id for later cancel-on-close (Gap 006).
@@ -212,6 +238,13 @@ def acceptOne
       return ({ nds1 with ds := ds2 }, rt1, .accepted key streamFd task)
 
 where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
+
+/-- Production wrapper for the failure-atomic accepted-connection transition. -/
+def acceptOne
+    (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
+    (listenerFd : Int)
+    : IO (NativeDriverState × RuntimeState × AcceptOneResult) :=
+  acceptOneWith nativeAcceptOps nds rt ph listenerFd
 
 /-- Accept up to `maxBurst` connections in a loop.
 Returns the list of accepted (streamKey, streamFd) pairs. -/
