@@ -1,5 +1,6 @@
 import Henret.Model
 import IotaktRuntime.Bridge
+import IotaktRuntime.Listener
 import IotaktRuntime.Native
 
 /-!
@@ -38,7 +39,7 @@ combining iotakt-managed and application-managed actors.
 
 namespace IotaktRuntime.Driver
 
-open Iotakt.Model IotaktRuntime.Bridge IotaktRuntime.Native Henret
+open Iotakt.Model IotaktRuntime.Bridge IotaktRuntime.Listener IotaktRuntime.Native Henret
 
 /-- Handle for the epoll instance used by the driver. -/
 structure PollerHandle where
@@ -113,6 +114,49 @@ where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 
 /-! ## Listener setup -/
 
+/-- Failure-atomic typed listener setup. Registry state and the Henret runtime are
+published only after socket configuration, bind, listen, and poller registration
+all succeed. Every earlier failure closes the candidate fd exactly once. -/
+def setupListenerAt
+    (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
+    (endpoint : BindEndpoint) (ownerActorId : Nat) :
+    IO (Except ListenerError (NativeDriverState × RuntimeState × ListenerKey × Int)) := do
+  if endpoint.port == 0 then return .error .invalidEndpoint
+
+  let lfdResult ← Socket.socketTcpRaw 1
+  if lfdResult < 0 then
+    return .error (.transitionError (.socketFailed (classifyErrno (-lfdResult))))
+  let lfd := lfdResult
+
+  let configureResult ← Socket.setReuseAddrRaw (fd32 lfd)
+  if configureResult < 0 then do
+    Socket.closeFdRaw (fd32 lfd)
+    return .error (.transitionError (.configureFailed (classifyErrno (-configureResult))))
+
+  let bindResult ← Socket.bindIPv4Raw (fd32 lfd) endpoint.address.value endpoint.port
+  if bindResult < 0 then do
+    Socket.closeFdRaw (fd32 lfd)
+    return .error (.transitionError (.bindFailed (classifyErrno (-bindResult))))
+
+  let listenResult ← Socket.listenRaw (fd32 lfd) nds.ds.config.maxAcceptBurst.toInt32
+  if listenResult < 0 then do
+    Socket.closeFdRaw (fd32 lfd)
+    return .error (.transitionError (.listenFailed (classifyErrno (-listenResult))))
+
+  let registerResult ← Epoll.register (fd32 ph.epfd) (fd32 lfd)
+    (Epoll.interestFlags InterestSet.readOnly)
+  if registerResult < 0 then do
+    Socket.closeFdRaw (fd32 lfd)
+    return .error (.transitionError (.registerFailed (classifyErrno (-registerResult))))
+
+  let (registry, key) := nds.ds.registry.allocate lfd ownerActorId .listener
+  let registry := registry.setInterests key InterestSet.readOnly |>.markRegistered key
+  let runtime := (Henret.step rt (.spawn ownerActorId)).1
+  let nds := { nds with ds := { nds.ds with registry } }
+  return .ok (nds, runtime, key, lfd)
+
+where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
+
 /-- Result of setting up a TCP listener. -/
 inductive ListenerSetupResult where
   | ok   (key : FdKey) (lfd : Int)
@@ -125,40 +169,9 @@ def setupListener
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (port : UInt16) (ownerActorId : Nat)
     : IO (NativeDriverState × RuntimeState × ListenerSetupResult) := do
-  let lfd_r ← Socket.socketTcpRaw 1  -- AF_INET
-  if lfd_r < 0 then return (nds, rt, .fail s!"socket() failed errno={-lfd_r}")
-  let lfd := lfd_r
-
-  let _ ← Socket.setReuseAddrRaw (fd32 lfd)
-  let LOOPBACK : UInt32 := 0x7f000001  -- 127.0.0.1
-  let bind_r ← Socket.bindIPv4Raw (fd32 lfd) LOOPBACK port
-  if bind_r != 0 then do
-    Socket.closeFdRaw (fd32 lfd)
-    return (nds, rt, .fail s!"bind() failed errno={-bind_r}")
-
-  let listen_r ← Socket.listenRaw (fd32 lfd) nds.ds.config.maxAcceptBurst.toInt32
-  if listen_r != 0 then do
-    Socket.closeFdRaw (fd32 lfd)
-    return (nds, rt, .fail s!"listen() failed errno={-listen_r}")
-
-  -- Allocate FdKey and register in the iotakt registry
-  let (reg1, key) := nds.ds.registry.allocate lfd ownerActorId .listener
-  let reg2 := reg1.setInterests key InterestSet.readOnly |>.markRegistered key
-
-  -- Register with epoll
-  let reg_r ← Epoll.register (fd32 ph.epfd) (fd32 lfd)
-    (Epoll.interestFlags InterestSet.readOnly)
-  if reg_r != 0 then do
-    Socket.closeFdRaw (fd32 lfd)
-    return (nds, rt, .fail s!"epoll register failed errno={-reg_r}")
-
-  -- Spawn the listener actor in Henret (creates its mailbox)
-  let rt1 := (Henret.step rt (.spawn ownerActorId)).1
-
-  let ds1 := { nds.ds with registry := reg2 }
-  return ({ nds with ds := ds1 }, rt1, .ok key lfd)
-
-where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
+  match ← setupListenerAt nds rt ph (.loopback port) ownerActorId with
+  | .error e => return (nds, rt, .fail s!"{repr e}")
+  | .ok (nds, rt, key, lfd) => return (nds, rt, .ok key lfd)
 
 /-! ## Accept loop -/
 

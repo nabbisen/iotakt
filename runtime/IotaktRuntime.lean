@@ -1,5 +1,6 @@
 import IotaktRuntime.Bridge
 import IotaktRuntime.Driver
+import IotaktRuntime.Listener
 import IotaktRuntime.Loop
 import IotaktRuntime.Server
 

@@ -324,6 +324,21 @@ else
   fail "R2 delivery: build or executable failed"
 fi
 
+step "23b. R2 address-aware listener regression (RFC 070)"
+if lake --dir runtime build iotakt-r2-listener-test 2>/dev/null && \
+    timeout 20 runtime/.lake/build/bin/iotakt-r2-listener-test > /tmp/r2_listener_ci.txt 2>&1; then
+  R2_LISTENER_PASS=$(grep -c "\[PASS\]" /tmp/r2_listener_ci.txt || true)
+  if [ "$R2_LISTENER_PASS" -eq 15 ]; then
+    pass "R2 listener: $R2_LISTENER_PASS checks all PASS"
+  else
+    cat /tmp/r2_listener_ci.txt
+    fail "R2 listener: expected 15 passing checks, observed $R2_LISTENER_PASS"
+  fi
+else
+  cat /tmp/r2_listener_ci.txt 2>/dev/null || true
+  fail "R2 listener: build or executable failed"
+fi
+
 step "24. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake --dir runtime build iotakt-v4-test 2>/dev/null && \
   runtime/.lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1

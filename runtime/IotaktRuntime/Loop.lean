@@ -42,7 +42,8 @@ registry. A closed key's events are dropped at the model boundary.
 
 namespace IotaktRuntime.Loop
 
-open Iotakt.Model IotaktRuntime.Bridge IotaktRuntime.Driver IotaktRuntime.Native Henret
+open Iotakt.Model IotaktRuntime.Bridge IotaktRuntime.Driver IotaktRuntime.Listener
+  IotaktRuntime.Native Henret
 
 private def fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 
@@ -102,6 +103,9 @@ structure EventLoop where
   rt        : RuntimeState
   ph        : PollerHandle
   listeners : List (FdKey × Int)   -- (key, raw fd) for each active listener
+  /-- Typed endpoint metadata for active listeners. Kept separate from the legacy
+  raw-fd list until RFC 070's checked listener lifecycle replaces it. -/
+  listenerEndpoints : List (ListenerKey × BindEndpoint) := []
   /-- Maps each connection's FdKey to the Henret task id that owns it.
   Populated at spawn time; used by `closeConnection` to `cancel` the task
   and free its runtime state (Gap 006 cleanup, henret ≥ v0.11.0). -/
@@ -234,19 +238,28 @@ def destroy (loop : EventLoop) : IO Unit := do
     Socket.closeFdRaw (fd32 lfd)
   Epoll.close (fd32 loop.ph.epfd)
 
-/-- Add a TCP listener on the given port (bound to 127.0.0.1).
-The listener actor ID is allocated from the next available slot. -/
+/-- Add an address-aware IPv4 listener and return its generation-safe identity. -/
+def addListenerAt (loop : EventLoop) (endpoint : BindEndpoint) :
+    IO (Except ListenerError (EventLoop × ListenerKey)) := do
+  if endpoint.port == 0 then return .error .invalidEndpoint
+  if loop.listenerEndpoints.any (fun item => item.2 == endpoint) then
+    return .error .duplicateEndpoint
+  match ← setupListenerAt loop.nds loop.rt loop.ph endpoint loop.nds.nextActorId with
+  | .error e => return .error e
+  | .ok (nds, rt, key, lfd) =>
+      let (nds, _) := nds.freshActorId
+      return .ok ({ loop with
+        nds
+        rt
+        listeners := (key, lfd) :: loop.listeners
+        listenerEndpoints := (key, endpoint) :: loop.listenerEndpoints }, key)
+
+/-- Compatibility wrapper: add a loopback listener and report success as `Bool`.
+New consumers use `addListenerAt` and retain the returned `ListenerKey`. -/
 def addListener (loop : EventLoop) (port : UInt16) : IO (EventLoop × Bool) := do
-  let (nds1, rt1, setupR) ← setupListener loop.nds loop.rt loop.ph port loop.nds.nextActorId
-  -- Consume the actorId by incrementing
-  let (nds2, _) := nds1.freshActorId
-  match setupR with
-  | .fail _ => return (loop, false)
-  | .ok key lfd =>
-      return ({ loop with
-        nds       := nds2
-        rt        := rt1
-        listeners := (key, lfd) :: loop.listeners }, true)
+  match ← loop.addListenerAt (.loopback port) with
+  | .error _ => return (loop, false)
+  | .ok (loop, _) => return (loop, true)
 
 /-- Run one driver step: poll for events, accept new connections, deliver
 readiness messages. Returns the updated loop and the list of events that
@@ -424,7 +437,7 @@ def shutdown (loop : EventLoop) : IO EventLoop := do
     let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 lfd)
     Socket.closeFdRaw (fd32 lfd)
   -- 2. Drain active stream connections.
-  let mut l := { loop with listeners := [] }
+  let mut l := { loop with listeners := [], listenerEndpoints := [] }
   let activeKeys := loop.taskByKey.map (·.1)
   for key in activeKeys do
     l ← EffectError.orThrow (← l.closeConnection key)

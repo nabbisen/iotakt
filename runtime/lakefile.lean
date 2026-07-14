@@ -65,6 +65,10 @@ lean_lib IotaktNative where
   globs := #[.one `IotaktRuntime.Native, .andSubmodules `IotaktRuntime.Native]
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- Typed listener endpoint and error vocabulary (RFC 070). -/
+lean_lib IotaktListener where
+  globs := #[.one `IotaktRuntime.Listener]
+
 /-- Deterministic, Lean-only demo: drives the fake poller through the
     bridge and prints/asserts the resulting Henret operation trace. -/
 @[default_target]
@@ -247,6 +251,11 @@ lean_exe «iotakt-v13-test» where
 /-- R2 regression: returned events are authoritative and mailbox-independent. -/
 lean_exe «iotakt-r2-delivery-test» where
   root := `examples.R2DeliveryTest
+  extraDepTargets := #[`iotaktNativeLib.static]
+
+/-- R2 regression: typed address-aware listener creation and publication. -/
+lean_exe «iotakt-r2-listener-test» where
+  root := `examples.R2ListenerTest
   extraDepTargets := #[`iotaktNativeLib.static]
 
 /-- RFC 015 standup: iotakt's listener half — accept TCP, emit `newConnection`,
