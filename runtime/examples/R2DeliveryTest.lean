@@ -41,6 +41,21 @@ def main : IO Unit := do
   let readable : NormalizedRawEvent := { rawFd := 42, event := .readable }
   let unknown : NormalizedRawEvent := { rawFd := 999, event := .readable }
 
+  let translated := ds0.registry.translateOne readable
+  let (decided, decision) := decideResult ds0 translated
+  ensure "translation and coalescing produce one sink-neutral decision"
+    (match decision with | .deliver delivered => delivered.key == key | _ => false)
+  let (returnedState, returnedDecision, _) := applyReturnedDecision decided decision
+  let (mailboxRt, _) := Henret.step RuntimeState.init (.spawn 7)
+  let (mailboxState, _, mailboxTrace) :=
+    applyMailboxDecision ds0 decided mailboxRt decision
+  ensure "returned and mailbox sinks preserve the same pending decision"
+    (returnedState.coalesce.pending { fd := key, kind := .readable } &&
+      mailboxState.coalesce.pending { fd := key, kind := .readable })
+  ensure "one decision can select returned or mailbox authority without duplication"
+    (isSingleReadable key returnedDecision &&
+      mailboxTrace.any (fun trace => match trace with | .injected 7 _ => true | _ => false))
+
   let (ds1, delivered1, traces1) :=
     processEventsReturned ds0 [readable, unknown, readable]
   ensure "only the translated first readiness is returned"

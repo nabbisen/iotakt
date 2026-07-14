@@ -102,13 +102,16 @@ structure EventLoop where
   nds       : NativeDriverState
   rt        : RuntimeState
   ph        : PollerHandle
+  /-- Exactly one readiness sink is authoritative for this loop. -/
+  deliveryMode : DeliveryMode := .returned
   listeners : List (FdKey × Int)   -- (key, raw fd) for each active listener
   /-- Typed endpoint metadata for active listeners. Kept separate from the legacy
   raw-fd list until RFC 070's checked listener lifecycle replaces it. -/
   listenerEndpoints : List (ListenerKey × BindEndpoint) := []
-  /-- Maps each connection's FdKey to the Henret task id that owns it.
-  Populated at spawn time; used by `closeConnection` to `cancel` the task
-  and free its runtime state (Gap 006 cleanup, henret ≥ v0.11.0). -/
+  /-- Active connection authority, independent of an optional mailbox task. -/
+  connections : List FdKey := []
+  /-- Mailbox-mode connection task ownership. Empty in returned mode; used by
+  `closeConnection` to cancel explicitly selected mailbox actors. -/
   taskByKey : List (FdKey × Nat) := []
   /-- Optional idle timeout in milliseconds. When set, connections with no
   activity for longer than this are reaped by `reapIdle` / `runStepAuto`
@@ -131,29 +134,36 @@ private def resolveEffect (loop : EventLoop) (key : FdKey)
   let entry ← (loop.nds.ds.registry.resolveEffectKey key allowedKinds).mapError ofKeyError
   return (entry, nativeFd)
 
-/-! ### Internal: Gap-006 task tracking
+/-! ### Internal connection and optional task tracking
 
-The connection→task bookkeeping below backs `closeConnection`'s cancel-on-close
-(Gap 006). The cancel-on-close path is **final** as of v0.13. These helpers are
-**internal** — they carry no v1.0 stability promise and may change shape. They
-remain non-`private` only so the integration tests can inspect them. Consumers
-should use `closeConnection` / `connectionCount` / `shutdown`, not these. -/
+Connection authority is tracked independently of Henret. Mailbox mode additionally
+records a connection→task mapping for cancel-on-close (Gap 006). These helpers are
+internal and remain non-`private` only for integration tests. Consumers should use
+`closeConnection` / `connectionCount` / `shutdown`, not these. -/
 
 /-- (Internal) Record the Henret task id that owns a connection key. -/
 def recordTask (loop : EventLoop) (key : FdKey) (task : Nat) : EventLoop :=
-  { loop with taskByKey := (key, task) :: loop.taskByKey }
+  { loop with
+    connections := key :: loop.connections.filter (· != key)
+    taskByKey := (key, task) :: loop.taskByKey.filter (·.1 != key) }
+
+/-- (Internal) Record returned-mode connection authority without a task/mailbox. -/
+def recordConnection (loop : EventLoop) (key : FdKey) : EventLoop :=
+  { loop with connections := key :: loop.connections.filter (· != key) }
 
 /-- (Internal) Look up the Henret task id owning a connection key. -/
 def taskOf (loop : EventLoop) (key : FdKey) : Option Nat :=
   loop.taskByKey.find? (·.1 == key) |>.map (·.2)
 
-/-- (Internal) Forget a connection's task mapping. -/
+/-- (Internal) Forget connection authority and any mailbox task mapping. -/
 def forgetTask (loop : EventLoop) (key : FdKey) : EventLoop :=
-  { loop with taskByKey := loop.taskByKey.filter (·.1 != key) }
+  { loop with
+    connections := loop.connections.filter (· != key)
+    taskByKey := loop.taskByKey.filter (·.1 != key) }
 
-/-- Number of currently-tracked connections (each accepted/connected stream
-records a task; `closeConnection` removes it). -/
-def connectionCount (loop : EventLoop) : Nat := loop.taskByKey.length
+/-- Number of currently-tracked connections. Returned mode does not require a
+Henret task/mailbox for this bookkeeping. -/
+def connectionCount (loop : EventLoop) : Nat := loop.connections.length
 
 /-- Configure a maximum number of concurrent connections (RFC 030). -/
 def withMaxConnections (loop : EventLoop) (n : Nat) : EventLoop :=
@@ -213,9 +223,9 @@ def idleExpired (loop : EventLoop) (nowNs : Nat) : List FdKey :=
       loop.lastActivityNs.filterMap fun (key, t) =>
         if t + idleNs <= nowNs then some key else none
 
-/-- Create a new event loop with a fresh epoll instance.
-Returns `none` if epoll creation fails. -/
-def create (config : DriverConfig := {}) : IO (Option EventLoop) := do
+/-- Create a new event loop with an explicitly selected authoritative sink. -/
+def createWithMode (mode : DeliveryMode) (config : DriverConfig := {}) :
+    IO (Option EventLoop) := do
   let epfd ← Epoll.create
   if epfd < 0 then return none
   let ds : DriverState := {
@@ -228,8 +238,18 @@ def create (config : DriverConfig := {}) : IO (Option EventLoop) := do
     nds       := { ds := ds }
     rt        := RuntimeState.init
     ph        := { epfd := epfd }
+    deliveryMode := mode
     listeners := []
   }
+
+/-- Create the stable external-consumer loop. Returned events are authoritative
+and accepted connections do not allocate Henret tasks/mailboxes. -/
+def create (config : DriverConfig := {}) : IO (Option EventLoop) :=
+  createWithMode .returned config
+
+/-- Create the explicitly selected legacy/internal mailbox-authority loop. -/
+def createMailbox (config : DriverConfig := {}) : IO (Option EventLoop) :=
+  createWithMode .mailbox config
 
 /-- Close the epoll handle and free all resources. -/
 def destroy (loop : EventLoop) : IO Unit := do
@@ -279,19 +299,31 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
 
   if waitStatus > 0 then do
     let rawEvts := Epoll.parseEvents evtBytes
-    let (ds1, delivered, _) := processEventsReturned nds.ds rawEvts
-    nds := { nds with ds := ds1 }
-    -- The bridge result is authoritative. Never replay raw epoll events here:
-    -- doing so would bypass translation and coalescing and duplicate mailbox
-    -- delivery. Listener readiness is consumed by accept below.
-    for ev in delivered do
-      match nds.ds.registry.lookup ev.key with
-      | none => pure ()
-      | some entry =>
-          match entry.kind with
-          | .stream   => loopEvents := loopEvents ++ [.dataReady ev.key ev.event]
-          | .listener => pure ()
-          | .datagram => loopEvents := loopEvents ++ [.dataReady ev.key ev.event]
+    -- Listener readiness drives accept below and never occupies a connection
+    -- coalescing slot or mailbox entry.
+    let connectionEvts := rawEvts.filter fun raw =>
+      match nds.ds.registry.resolveCurrent raw.rawFd with
+      | some key => match nds.ds.registry.lookup key with
+        | some entry => entry.kind != .listener
+        | none => true
+      | none => true
+    match loop.deliveryMode with
+    | .returned =>
+        let (ds1, delivered, _) := processEventsReturned nds.ds connectionEvts
+        nds := { nds with ds := ds1 }
+        -- The bridge result is authoritative. Never replay raw epoll events.
+        for ev in delivered do
+          match nds.ds.registry.lookup ev.key with
+          | none => pure ()
+          | some entry =>
+              match entry.kind with
+              | .stream   => loopEvents := loopEvents ++ [.dataReady ev.key ev.event]
+              | .listener => pure ()
+              | .datagram => loopEvents := loopEvents ++ [.dataReady ev.key ev.event]
+    | .mailbox =>
+        let (ds1, rt1, _) := processEvents nds.ds rt connectionEvts
+        nds := { nds with ds := ds1 }
+        rt := rt1
   else if waitStatus == 0 then do
     -- Timeout: advance clock
     let now := nds.ds.clock + 1
@@ -303,11 +335,12 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
   -- ── 3. Accept new connections from all listeners ────────────────────
   let mut newConns : List LoopEvent := []
   let mut newTasks : List (FdKey × Nat) := []
+  let mut newKeys : List FdKey := []
   -- Track the running connection count so the cap is enforced across this
   -- step's accept burst, not just against the count at step entry.
   let mut liveCount := loop.connectionCount
   for (listener, lfd) in loop.listeners do
-    let (nds1, rt1, accepted) ← acceptBurst nds rt loop.ph lfd
+    let (nds1, rt1, accepted) ← acceptBurst nds rt loop.ph lfd loop.deliveryMode
     nds := nds1; rt := rt1
     for (key, _, task) in accepted do
       let overCap := match loop.maxConnections with
@@ -319,15 +352,21 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
         let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 key.raw)
         Socket.closeFdRaw (fd32 key.raw)
         nds := { nds with ds := { nds.ds with registry := nds.ds.registry.close key } }
-        rt  := (Henret.step rt (.cancel task)).1
+        match task with
+        | some task => rt := (Henret.step rt (.cancel task)).1
+        | none => pure ()
       else
         newConns := newConns ++ [.newConnection listener key]
-        newTasks := (key, task) :: newTasks
+        newKeys := key :: newKeys
+        match task with
+        | some task => newTasks := (key, task) :: newTasks
+        | none => pure ()
         liveCount := liveCount + 1
 
   let loopOut := { loop with
     nds       := nds
     rt        := rt
+    connections := newKeys ++ loop.connections
     taskByKey := newTasks ++ loop.taskByKey }
   return (loopOut, newConns ++ loopEvents)
 
@@ -438,7 +477,7 @@ def shutdown (loop : EventLoop) : IO EventLoop := do
     Socket.closeFdRaw (fd32 lfd)
   -- 2. Drain active stream connections.
   let mut l := { loop with listeners := [], listenerEndpoints := [] }
-  let activeKeys := loop.taskByKey.map (·.1)
+  let activeKeys := loop.connections
   for key in activeKeys do
     l ← EffectError.orThrow (← l.closeConnection key)
   return l

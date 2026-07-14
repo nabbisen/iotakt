@@ -313,11 +313,11 @@ step "23a. R2 authoritative returned-event regression (RFC 066)"
 if lake --dir runtime build iotakt-r2-delivery-test 2>/dev/null && \
     timeout 20 runtime/.lake/build/bin/iotakt-r2-delivery-test > /tmp/r2_delivery_ci.txt 2>&1; then
   R2_DELIVERY_PASS=$(grep -c "\[PASS\]" /tmp/r2_delivery_ci.txt || true)
-  if [ "$R2_DELIVERY_PASS" -eq 8 ]; then
+  if [ "$R2_DELIVERY_PASS" -eq 11 ]; then
     pass "R2 delivery: $R2_DELIVERY_PASS checks all PASS"
   else
     cat /tmp/r2_delivery_ci.txt
-    fail "R2 delivery: expected 8 passing checks, observed $R2_DELIVERY_PASS"
+    fail "R2 delivery: expected 11 passing checks, observed $R2_DELIVERY_PASS"
   fi
 else
   cat /tmp/r2_delivery_ci.txt 2>/dev/null || true
@@ -328,11 +328,11 @@ step "23b. R2 address-aware listener regression (RFC 070)"
 if lake --dir runtime build iotakt-r2-listener-test 2>/dev/null && \
     timeout 20 runtime/.lake/build/bin/iotakt-r2-listener-test > /tmp/r2_listener_ci.txt 2>&1; then
   R2_LISTENER_PASS=$(grep -c "\[PASS\]" /tmp/r2_listener_ci.txt || true)
-  if [ "$R2_LISTENER_PASS" -eq 24 ]; then
+  if [ "$R2_LISTENER_PASS" -eq 34 ]; then
     pass "R2 listener: $R2_LISTENER_PASS checks all PASS"
   else
     cat /tmp/r2_listener_ci.txt
-    fail "R2 listener: expected 24 passing checks, observed $R2_LISTENER_PASS"
+    fail "R2 listener: expected 34 passing checks, observed $R2_LISTENER_PASS"
   fi
 else
   cat /tmp/r2_listener_ci.txt 2>/dev/null || true

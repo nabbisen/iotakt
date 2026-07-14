@@ -58,6 +58,12 @@ structure DriverState where
   config       : DriverConfig := {}
   shuttingDown : Bool := false
 
+/-- The single authoritative readiness sink selected for a driver/loop. -/
+inductive DeliveryMode where
+  | returned
+  | mailbox
+  deriving DecidableEq, Repr, Inhabited
+
 /-- The result of waiting on a poller (fake or native). -/
 inductive PollWaitResult where
   | events (events : List NormalizedRawEvent)
@@ -88,52 +94,78 @@ read `timers.head?`). -/
 def nextDeadline (rt : Henret.RuntimeState) : Option Nat :=
   rt.timers.head?.map (·.deadline)
 
-/-- Deliver one owner event: coalesce, then guarded-inject. Threads both
-the iotakt `DriverState` (its coalescing set) and the Henret runtime. -/
-def deliverOne (ds : DriverState) (rt : Henret.RuntimeState) (oe : OwnerEvent) :
-    DriverState × Henret.RuntimeState × List BridgeTrace :=
-  match ds.coalesce.step oe with
-  | (cs', .coalesced _) =>
-      ({ ds with coalesce := cs' }, rt, [.coalesced oe.key oe.event.pendingKind])
-  | (cs', .deliver _) =>
+/-- Sink-neutral result of translation and coalescing. This is the only decision
+point for both returned and mailbox delivery. -/
+inductive DeliveryDecision where
+  | deliver (event : OwnerEvent)
+  | noDelivery (trace : BridgeTrace)
+  deriving Repr
+
+/-- Decide one translated event without consulting or mutating a delivery sink. -/
+def decideResult (ds : DriverState) : TranslationResult → DriverState × DeliveryDecision
+  | .injectable oe =>
+      match ds.coalesce.step oe with
+      | (cs', .coalesced _) =>
+          ({ ds with coalesce := cs' },
+            .noDelivery (.coalesced oe.key oe.event.pendingKind))
+      | (cs', .deliver delivered) =>
+          ({ ds with coalesce := cs' }, .deliver delivered)
+  | .dropped raw .unknownRawFd =>
+      (ds, .noDelivery (.droppedUnknown raw))
+  | .dropped raw .staleGeneration =>
+      (ds, .noDelivery (.droppedStale raw))
+  | .dropped raw .noRegisteredInterest =>
+      (ds, .noDelivery (.droppedNoInterest raw))
+  | .dropped raw .resourceClosed =>
+      (ds, .noDelivery (.droppedClosed raw))
+
+/-- Apply a previously computed decision to the returned-event sink. -/
+def applyReturnedDecision (ds : DriverState) : DeliveryDecision →
+    DriverState × List OwnerEvent × List BridgeTrace
+  | .deliver oe => (ds, [oe], [.returned oe.key oe.event])
+  | .noDelivery trace => (ds, [], [trace])
+
+/-- Apply a previously computed decision to the mailbox sink. If the mailbox is
+missing, restore the pre-decision driver state so pending readiness remains
+deliverable after the mailbox becomes valid. -/
+def applyMailboxDecision (before decided : DriverState) (rt : Henret.RuntimeState) :
+    DeliveryDecision → DriverState × Henret.RuntimeState × List BridgeTrace
+  | .noDelivery trace => (decided, rt, [trace])
+  | .deliver oe =>
       match rt.mailboxes oe.owner with
-      | none   => (ds, rt, [.droppedNoMailbox oe.owner])
+      | none => (before, rt, [.droppedNoMailbox oe.owner])
       | some _ =>
-          let ds' := { ds with coalesce := cs' }
           let msg := encodeOwnerEvent oe
           let rt' := (Henret.step rt (.inject oe.owner msg)).1
-          (ds', rt', [.injected oe.owner msg])
+          (decided, rt', [.injected oe.owner msg])
 
-/-- Deliver one translated event to the returned-event sink. This path performs
-the same coalescing decision as mailbox delivery, but has no Henret runtime
-argument and therefore cannot inject or retain a duplicate mailbox message. -/
+/-- Deliver one owner event through the shared decision and mailbox sink. -/
+def deliverOne (ds : DriverState) (rt : Henret.RuntimeState) (oe : OwnerEvent) :
+    DriverState × Henret.RuntimeState × List BridgeTrace :=
+  let (decided, decision) := decideResult ds (.injectable oe)
+  applyMailboxDecision ds decided rt decision
+
+/-- Deliver one owner event through the shared decision and returned sink. -/
 def deliverOneReturned (ds : DriverState) (oe : OwnerEvent) :
     DriverState × List OwnerEvent × List BridgeTrace :=
-  match ds.coalesce.step oe with
-  | (cs', .coalesced _) =>
-      ({ ds with coalesce := cs' }, [], [.coalesced oe.key oe.event.pendingKind])
-  | (cs', .deliver delivered) =>
-      ({ ds with coalesce := cs' }, [delivered], [.returned oe.key oe.event])
+  let (decided, decision) := decideResult ds (.injectable oe)
+  applyReturnedDecision decided decision
 
 /-- Apply one translation result. Injectable events go through
 `deliverOne`; drops are traced and change nothing. -/
 def applyResult (ds : DriverState) (rt : Henret.RuntimeState) :
     TranslationResult → DriverState × Henret.RuntimeState × List BridgeTrace
-  | .injectable oe                     => deliverOne ds rt oe
-  | .dropped raw .unknownRawFd         => (ds, rt, [.droppedUnknown raw])
-  | .dropped raw .staleGeneration      => (ds, rt, [.droppedStale raw])
-  | .dropped raw .noRegisteredInterest => (ds, rt, [.droppedNoInterest raw])
-  | .dropped raw .resourceClosed       => (ds, rt, [.droppedClosed raw])
+  | result =>
+      let (decided, decision) := decideResult ds result
+      applyMailboxDecision ds decided rt decision
 
 /-- Apply one translation result to the returned-event sink. Drops and
 coalesced duplicates produce no caller event. -/
 def applyResultReturned (ds : DriverState) :
     TranslationResult → DriverState × List OwnerEvent × List BridgeTrace
-  | .injectable oe                     => deliverOneReturned ds oe
-  | .dropped raw .unknownRawFd         => (ds, [], [.droppedUnknown raw])
-  | .dropped raw .staleGeneration      => (ds, [], [.droppedStale raw])
-  | .dropped raw .noRegisteredInterest => (ds, [], [.droppedNoInterest raw])
-  | .dropped raw .resourceClosed       => (ds, [], [.droppedClosed raw])
+  | result =>
+      let (decided, decision) := decideResult ds result
+      applyReturnedDecision decided decision
 
 /-- Process a batch of normalized events in order. Translation reads the
 (unchanging) registry; coalescing and the Henret runtime are threaded. -/
@@ -211,8 +243,8 @@ theorem deliverOne_no_mailbox {ds : DriverState} {rt : Henret.RuntimeState}
     {oe : OwnerEvent} (hcoal : ds.coalesce.pending (CoalesceState.keyOf oe) = false)
     (hmb : rt.mailboxes oe.owner = none) :
     (deliverOne ds rt oe).2.1 = rt := by
-  unfold deliverOne CoalesceState.step
-  simp [hcoal, hmb]
+  unfold deliverOne decideResult applyMailboxDecision
+  simp [CoalesceState.step, hcoal, hmb]
 
 /-- A missing mailbox does not consume the coalescing slot. The event remains
 eligible for a later mailbox-mode delivery after the mailbox exists. -/
@@ -221,16 +253,16 @@ theorem deliverOne_no_mailbox_pending_unchanged
     (hcoal : ds.coalesce.pending (CoalesceState.keyOf oe) = false)
     (hmb : rt.mailboxes oe.owner = none) :
     (deliverOne ds rt oe).1.coalesce.pending (CoalesceState.keyOf oe) = false := by
-  unfold deliverOne CoalesceState.step
-  simp [hcoal, hmb]
+  unfold deliverOne decideResult applyMailboxDecision
+  simp [CoalesceState.step, hcoal, hmb]
 
 /-- **Coalesced delivery does not touch the runtime.** A duplicate
 readiness (already pending) injects nothing. -/
 theorem deliverOne_coalesced {ds : DriverState} {rt : Henret.RuntimeState}
     {oe : OwnerEvent} (hcoal : ds.coalesce.pending (CoalesceState.keyOf oe) = true) :
     (deliverOne ds rt oe).2.1 = rt := by
-  unfold deliverOne CoalesceState.step
-  simp [hcoal]
+  unfold deliverOne decideResult applyMailboxDecision
+  simp [CoalesceState.step, hcoal]
 
 /-- **Interrupted waits mutate nothing.** An interrupted poll wait leaves
 both the iotakt driver state and the Henret runtime untouched (RFC 008

@@ -183,7 +183,7 @@ inductive AcceptError where
 
 /-- Result of one accept4 call plus the FdKey if accepted. -/
 inductive AcceptOneResult where
-  | accepted (streamKey : FdKey) (streamFd : Int) (task : Nat)
+  | accepted (streamKey : FdKey) (streamFd : Int) (task : Option Nat)
   | wouldBlock
   | error (e : AcceptError)
   deriving Repr
@@ -208,7 +208,7 @@ once and returns the original model/runtime state. -/
 def acceptOneWith
     (ops : AcceptOps)
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
-    (listenerFd : Int)
+    (listenerFd : Int) (mode : DeliveryMode := .mailbox)
     : IO (NativeDriverState × RuntimeState × AcceptOneResult) := do
   let acc ← ops.accept listenerFd
   match acc with
@@ -229,10 +229,14 @@ def acceptOneWith
         ops.close (fd32 streamFd)
         return (nds, rt, .error (.registerFailed (classifyErrno (-registerResult))))
 
-      -- Spawn connection actor in Henret (creates its mailbox).
-      -- Capture the spawned task id for later cancel-on-close (Gap 006).
-      let (rt1, spawnRes) := Henret.step rt (.spawn actorId)
-      let task := match spawnRes with | .spawned t => t | _ => actorId
+      -- Mailbox mode owns a Henret actor; returned mode deliberately does not
+      -- allocate a task/mailbox merely to represent readiness.
+      let (rt1, task) := match mode with
+        | .returned => (rt, none)
+        | .mailbox =>
+            let (rt1, spawnRes) := Henret.step rt (.spawn actorId)
+            let task := match spawnRes with | .spawned t => t | _ => actorId
+            (rt1, some task)
 
       let ds2 := { nds1.ds with registry := reg2 }
       return ({ nds1 with ds := ds2 }, rt1, .accepted key streamFd task)
@@ -242,25 +246,25 @@ where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 /-- Production wrapper for the failure-atomic accepted-connection transition. -/
 def acceptOne
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
-    (listenerFd : Int)
+    (listenerFd : Int) (mode : DeliveryMode := .mailbox)
     : IO (NativeDriverState × RuntimeState × AcceptOneResult) :=
-  acceptOneWith nativeAcceptOps nds rt ph listenerFd
+  acceptOneWith nativeAcceptOps nds rt ph listenerFd mode
 
 /-- Accept up to `maxBurst` connections in a loop.
 Returns the list of accepted (streamKey, streamFd) pairs. -/
 def acceptBurst
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
-    (listenerFd : Int)
-    : IO (NativeDriverState × RuntimeState × List (FdKey × Int × Nat)) := do
+    (listenerFd : Int) (mode : DeliveryMode := .mailbox)
+    : IO (NativeDriverState × RuntimeState × List (FdKey × Int × Option Nat)) := do
   let maxBurst := nds.ds.config.maxAcceptBurst
   let mut nds := nds
   let mut rt  := rt
-  let mut acc : List (FdKey × Int × Nat) := []
+  let mut acc : List (FdKey × Int × Option Nat) := []
   let mut stop := false
   for _ in List.range maxBurst do
     if stop then pure ()
     else do
-      let (nds1, rt1, r) ← acceptOne nds rt ph listenerFd
+      let (nds1, rt1, r) ← acceptOne nds rt ph listenerFd mode
       nds := nds1; rt := rt1
       match r with
       | .wouldBlock  => stop := true
