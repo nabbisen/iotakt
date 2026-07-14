@@ -56,7 +56,8 @@ let actor : ConnectionActor := {
 
 namespace IotaktRuntime.Actor
 
-open IotaktRuntime.Loop Iotakt.Model IotaktRuntime.Native IotaktRuntime.WriteBuffer
+open IotaktRuntime.Listener IotaktRuntime.Loop Iotakt.Model IotaktRuntime.Native
+  IotaktRuntime.WriteBuffer
 
 /-- What a `ConnectionActor` wants to do after handling an event. -/
 inductive ActorAction where
@@ -161,17 +162,17 @@ def runStep
     (loop : EventLoop)
     (reg  : ActorRegistry)
     (timeoutMs : Int := -1) :
-    IO (EventLoop × ActorRegistry × List (FdKey × Int) × List FdKey) := do
+    IO (EventLoop × ActorRegistry × List (ListenerKey × FdKey) × List FdKey) := do
   let (loop1, events) ← loop.runStep timeoutMs
   let mut loop := loop1
   let mut reg  := reg
-  let mut newConns  : List (FdKey × Int) := []
+  let mut newConns  : List (ListenerKey × FdKey) := []
   let mut toClose   : List FdKey         := []
 
   for ev in events do
     match ev with
-    | .newConnection key rawFd =>
-        newConns := newConns ++ [(key, rawFd)]
+    | .newConnection listener connection =>
+        newConns := newConns ++ [(listener, connection)]
     | .dataReady key event =>
         match reg.lookup key with
         | none => pure ()

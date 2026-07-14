@@ -101,7 +101,7 @@ def main : IO Unit := do
     loop := l'
     for ev in events do
       match ev with
-      | .newConnection key _ =>
+      | .newConnection _ key =>
           total := total + (← serveConnection key.raw)
           loop ← EffectError.orThrow (← loop.closeConnection key)
       | _ => pure ()

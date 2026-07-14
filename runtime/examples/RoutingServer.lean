@@ -92,7 +92,7 @@ def main : IO Unit := do
     loop := loop1'
     for ev in events do
       match ev with
-      | .newConnection key _ =>
+      | .newConnection _ key =>
           loop := ← handleConn loop key
           handled := handled + 1
       | .dataReady _ _ => pure ()

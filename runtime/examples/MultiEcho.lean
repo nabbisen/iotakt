@@ -30,7 +30,6 @@ private def fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 /-- Per-connection state tracked in the server loop. -/
 structure ConnState where
   key     : FdKey
-  rawFd   : Int
   bytesSent : Nat := 0
 
 def check (label : String) (ok : Bool) : IO Unit :=
@@ -62,10 +61,10 @@ def main : IO Unit := do
     for ev in events do
       match ev with
       -- ── New connection ──────────────────────────────────────────────
-      | .newConnection key rawFd =>
-          IO.println s!"  [+] connection {totalConns} accepted (fd={rawFd} key={key.raw}/{key.gen})"
+      | .newConnection listener key =>
+          IO.println s!"  [+] connection {totalConns} accepted (listener={listener.raw}/{listener.gen} key={key.raw}/{key.gen})"
           totalConns := totalConns + 1
-          conns := conns ++ [{ key := key, rawFd := rawFd }]
+          conns := conns ++ [{ key := key }]
 
       -- ── Data ready on a stream ──────────────────────────────────────
       | .dataReady key event =>

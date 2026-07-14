@@ -1,4 +1,5 @@
 import IotaktRuntime.Loop
+import IotaktRuntime.Native
 
 /-!
 # RFC 070 address-aware listener regression
@@ -7,7 +8,12 @@ Exercises typed IPv4 construction, structured validation, duplicate rejection,
 generation-safe listener publication, compatibility, and bind-again cleanup.
 -/
 
-open Iotakt.Model IotaktRuntime.Listener IotaktRuntime.Loop
+open Iotakt.Model IotaktRuntime.Listener IotaktRuntime.Loop IotaktRuntime.Native
+
+private inductive ListenerMode where
+  | plaintext
+  | tls (configGeneration : Nat)
+  deriving DecidableEq
 
 private def ensure (label : String) (ok : Bool) : IO Unit :=
   if ok then
@@ -27,6 +33,21 @@ private def isCurrentListener (loop : EventLoop) (key : ListenerKey) : Bool :=
     match loop.nds.ds.registry.lookup key with
     | some entry => entry.kind == .listener && entry.state.isLive
     | none => false
+
+private def isCurrentStream (loop : EventLoop) (key : FdKey) : Bool :=
+  loop.nds.ds.registry.resolveCurrent key.raw == some key &&
+    match loop.nds.ds.registry.lookup key with
+    | some entry => entry.kind == .stream && entry.state.isLive
+    | none => false
+
+private def connectClient (address : Ipv4Address) (port : UInt16) : IO Int := do
+  let fd ← Socket.socketTcpRaw 1
+  if fd < 0 then throw <| IO.userError "client socket create failed"
+  match ← Socket.connectIPv4 fd address.value port with
+  | .error e =>
+      Socket.closeFdRaw (Int32.mk fd.toNat.toUInt32)
+      throw <| IO.userError s!"client connect failed: {repr e}"
+  | .connected | .inProgress => pure fd
 
 def main : IO Unit := do
   let specified := Ipv4Address.ofOctets 127 0 0 2
@@ -76,6 +97,34 @@ def main : IO Unit := do
   ensure "specified local IPv4 listener succeeds" (isCurrentListener loop3 key3)
   ensure "three distinct endpoints are tracked"
     (loop3.listeners.length == 3 && loop3.listenerEndpoints.length == 3)
+
+  let client1 ← connectClient .loopback endpoint1.port
+  let client2 ← connectClient .loopback endpoint2.port
+  let client3 ← connectClient specified endpoint3.port
+  IO.sleep 50
+  let (loop3, events) ← loop3.runStep 100
+  let accepted := events.filterMap fun event => match event with
+    | .newConnection listener connection => some (listener, connection)
+    | _ => none
+  ensure "three pending clients produce three accepted events" (accepted.length == 3)
+  ensure "each accepted event identifies its exact listener"
+    (accepted.any (fun item => item.1 == key1) &&
+      accepted.any (fun item => item.1 == key2) &&
+      accepted.any (fun item => item.1 == key3))
+  ensure "accepted connection keys carry current stream authority"
+    (accepted.all (fun item => isCurrentStream loop3 item.2))
+  ensure "listener and connection identities are distinct roles"
+    (accepted.all (fun item => item.1 != item.2))
+  let modeFor := fun listener =>
+    if listener == key1 then ListenerMode.plaintext
+    else if listener == key2 then ListenerMode.tls 1
+    else ListenerMode.tls 2
+  let modes := accepted.map (fun item => modeFor item.1)
+  ensure "listener identity selects plaintext/TLS configuration before I/O"
+    (modes.contains .plaintext && modes.contains (.tls 1) && modes.contains (.tls 2))
+  Socket.closeFdRaw (Int32.mk client1.toNat.toUInt32)
+  Socket.closeFdRaw (Int32.mk client2.toNat.toUInt32)
+  Socket.closeFdRaw (Int32.mk client3.toNat.toUInt32)
 
   let (loop4, compatibilityOk) ← loop3.addListener 49773
   ensure "port-only compatibility wrapper still binds loopback" compatibilityOk

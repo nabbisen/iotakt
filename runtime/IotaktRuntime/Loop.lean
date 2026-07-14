@@ -13,7 +13,7 @@ A multi-connection event loop for v0.2 (RFC 023).
 2. Parses events, translates through the registry, and coalesces them into
    the authoritative returned-event stream.
 3. Delivers a `LoopEvent` per ready connection so the caller can dispatch:
-   - `.newConnection key fd` — an accepted connection
+   - `.newConnection listener connection` — an attributed accepted connection
    - `.dataReady key`        — a registered stream has a readable event
    - `.tick now`             — a timeout expired
 
@@ -24,7 +24,7 @@ loop:
   (loop, events) ← EventLoop.runStep loop
   for ev in events:
     match ev with
-    | .newConnection key fd =>
+    | .newConnection listener connection =>
         register connection in app state
     | .dataReady key =>
         bytes ← Io.recv key.raw maxBytes
@@ -88,8 +88,8 @@ private def nativeStatus (status : Int) : Except EffectError Unit :=
 
 /-- An event delivered to the caller from one driver step. -/
 inductive LoopEvent where
-  /-- A new connection was accepted on the listener. -/
-  | newConnection (key : FdKey) (rawFd : Int) : LoopEvent
+  /-- A new connection and the generation-safe listener that accepted it. -/
+  | newConnection (listener : ListenerKey) (connection : FdKey) : LoopEvent
   /-- A stream fd has a readiness event (readable, writable, eof, etc.). -/
   | dataReady (key : FdKey) (event : IoEvent) : LoopEvent
   /-- A timer tick (clock advanced). -/
@@ -306,10 +306,10 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
   -- Track the running connection count so the cap is enforced across this
   -- step's accept burst, not just against the count at step entry.
   let mut liveCount := loop.connectionCount
-  for (_, lfd) in loop.listeners do
+  for (listener, lfd) in loop.listeners do
     let (nds1, rt1, accepted) ← acceptBurst nds rt loop.ph lfd
     nds := nds1; rt := rt1
-    for (key, rawFd, task) in accepted do
+    for (key, _, task) in accepted do
       let overCap := match loop.maxConnections with
         | none   => false
         | some m => liveCount >= m
@@ -321,7 +321,7 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
         nds := { nds with ds := { nds.ds with registry := nds.ds.registry.close key } }
         rt  := (Henret.step rt (.cancel task)).1
       else
-        newConns := newConns ++ [.newConnection key rawFd]
+        newConns := newConns ++ [.newConnection listener key]
         newTasks := (key, task) :: newTasks
         liveCount := liveCount + 1
 
@@ -411,7 +411,7 @@ def runStepAuto (loop : EventLoop) : IO (EventLoop × List LoopEvent) := do
   let mut l := loop1
   for ev in events do
     match ev with
-    | .newConnection key _ => l := l.touchConn key nowNs2
+    | .newConnection _ connection => l := l.touchConn connection nowNs2
     | .dataReady key _     => l := l.touchConn key nowNs2
     | .tick _              => pure ()
   -- Reap idle connections

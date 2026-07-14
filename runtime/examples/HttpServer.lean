@@ -81,7 +81,7 @@ def main : IO Unit := do
     loop := loop1'
     for ev in events do
       match ev with
-      | .newConnection key _ =>
+      | .newConnection _ key =>
           IO.println s!"  → connection from fd={key.raw}"
           loop := ← handleConn loop key
           reqCount := reqCount + 1

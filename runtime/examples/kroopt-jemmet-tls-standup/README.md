@@ -10,14 +10,15 @@ the HTTP fixture; kroopt brings the TLS engine (`TlsConn`/`Transport`) and the T
 carrying no iotakt edge.
 
 **Status.** iotakt's half is staged: `runtime/examples/StandupListener.lean`
-(exe `iotakt-standup-listener`) accepts TCP, emits `newConnection (FdKey, rawFd)`, and hands each fd to a
+(exe `iotakt-standup-listener`) accepts TCP, emits
+`newConnection (ListenerKey, connection FdKey)`, and hands both identities to a
 consumer seam. jemmet's `IotaktTransport` adapter (kroopt's `TlsConn` inside) and `PlainConn` fixture are wired into this directory
 at standup time. No window is set yet — staging does not block on it.
 
 ## Boundary / data path
 
 ```
-TCP accept ──► EventLoop.runStepAuto ──► newConnection (FdKey, rawFd)
+TCP accept ──► EventLoop.runStep ──► newConnection (ListenerKey, connection FdKey)
                                               │
                                               ▼  (consumer seam)
                               jemmet IotaktTransport (kroopt TlsConn inside) ── TLS 1.3 handshake + records
@@ -27,8 +28,10 @@ TCP accept ──► EventLoop.runStepAuto ──► newConnection (FdKey, rawFd
                                     jemmet PlainConn  ── HTTP/1.1 over the uniform conn shape
 ```
 
-iotakt exposes only the generic non-blocking transport over the generation-protected `FdKey` plus
-readiness/loop events. No TLS-aware entry point (RFC 015 §7, signed off).
+iotakt exposes only the generic non-blocking transport over generation-protected
+listener and connection keys plus readiness/loop events. The listener key selects
+TLS/plaintext configuration before byte processing; no raw fd is carried by the
+stable accepted event. No TLS-aware entry point exists in iotakt (RFC 015 §7).
 
 ## 1. Build structure — separate target only (deps point downward)
 
@@ -64,7 +67,7 @@ introduces it). Record the exact versions+hashes in an `acceptance.json` next to
 
 | Layer | Owner | Owns |
 |---|---|---|
-| Loop / readiness | **iotakt** | accept → `newConnection`; `recvAck`/`sendAck`/`enableWrite`/`disableWrite`/`closeConnection`; generation-protected `FdKey` |
+| Loop / readiness | **iotakt** | accept → attributed `newConnection`; `recvAck`/`sendAck`/`enableWrite`/`disableWrite`/`closeConnection`; generation-protected listener and connection keys |
 | TLS engine + security-negative | **kroopt** | the TLS 1.3 engine (`TlsConn` over the abstract `Transport`); bad TLS never reaches the HTTP path; plaintext to the TLS listener fails cleanly; unsupported negotiation fails at the TLS boundary; ALPN no-overlap matches kroopt policy; SNI route selection happens before any HTTP-path exposure. **Carries no iotakt edge.** |
 | iotakt adapter + HTTP fixture | **jemmet** | the `IotaktTransport` adapter — kroopt's `Transport` instantiated over `IotaktRuntime.*`, **where the jemmet→iotakt edge lives**; `PlainConn` boundary; HTTP/1.1 request/response shape; SNI route A/B observable in the response; ALPN `http/1.1` surfaced |
 
@@ -108,7 +111,7 @@ cd runtime
 lake build iotakt-standup-listener
 .lake/build/bin/iotakt-standup-listener &
 python3 -c "import socket; socket.create_connection(('127.0.0.1',49915)).close()"
-# → prints a [handoff] line per connection (fd + generation-protected FdKey), then exits
+# → prints a [handoff] line per connection (ListenerKey + connection FdKey), then exits
 ```
 
 The standalone seam logs the handoff (no TLS, no HTTP). At standup, swap the seam for jemmet's

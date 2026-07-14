@@ -61,7 +61,7 @@ def main : IO Unit := do
     loop := l'
     for ev in events do
       match ev with
-      | .newConnection key _ => loop := ← handle loop key; handled := handled + 1
+      | .newConnection _ key => loop := ← handle loop key; handled := handled + 1
       | _                    => pure ()
 
   loop.destroy

@@ -58,7 +58,7 @@ def main : IO Unit := do
     loop := loop1'
     for ev in events do
       match ev with
-      | .newConnection key _ =>
+      | .newConnection _ key =>
           conns := conns ++ [{ key := key }]
           totalConns := totalConns + 1
       | .dataReady key event =>

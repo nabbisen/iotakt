@@ -96,7 +96,7 @@ def testOutboundConnect : IO Unit := do
     loop := loop1'
     for ev in events do
       match ev with
-      | .newConnection key _ =>
+      | .newConnection _ key =>
           connKey := some key
       | .dataReady key event =>
           match event with

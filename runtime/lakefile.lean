@@ -258,8 +258,8 @@ lean_exe «iotakt-r2-listener-test» where
   root := `examples.R2ListenerTest
   extraDepTargets := #[`iotaktNativeLib.static]
 
-/-- RFC 015 standup: iotakt's listener half — accept TCP, emit `newConnection`,
-hand the fd to a consumer seam (kroopt's TLS transport in the harness). -/
+/-- RFC 015 standup: accept TCP, emit attributed `newConnection`, and hand
+generation-safe listener/connection keys to the consumer seam. -/
 lean_exe «iotakt-standup-listener» where
   root := `examples.StandupListener
   extraDepTargets := #[`iotaktNativeLib.static]

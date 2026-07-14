@@ -7,10 +7,11 @@ import IotaktRuntime.Native
 iotakt's side of the kroopt + jemmet + iotakt real-socket acceptance harness
 (RFC 015 §10). The boundary iotakt owns, and nothing more:
 
-    listener accept → runStepAuto → newConnection (FdKey, rawFd) → consumer seam
+    listener accept → runStep → newConnection (ListenerKey, FdKey) → consumer seam
 
-For each accepted TCP connection the loop surfaces `newConnection key rawFd`;
-the listener hands `(key, rawFd)` to a *consumer seam* and stops there. In the
+For each accepted TCP connection the loop surfaces
+`newConnection listener connection`; the driver hands both generation-safe keys
+to a *consumer seam* and stops there. In the
 standup harness the seam is jemmet's `IotaktTransport` adapter (kroopt's `TlsConn`
 doing TLS 1.3 inside), which then drives jemmet's HTTP/1.1 `PlainConn`. Here the
 seam is a logger, so iotakt's half builds and runs standalone — depending only on
@@ -34,23 +35,23 @@ Run it:
   ```
 -/
 
-open IotaktRuntime.Loop IotaktRuntime.Native Iotakt.Model
+open IotaktRuntime.Listener IotaktRuntime.Loop IotaktRuntime.Native Iotakt.Model
 
-/-- The fd-handoff seam. The harness swaps `onNewConnection` for jemmet's
+/-- The accepted-connection seam. The harness swaps `onNewConnection` for jemmet's
 `IotaktTransport` attach (kroopt's `TlsConn` inside); standalone it records the
-handoff. A real consumer takes ownership of `(key, rawFd)` and drives
-`recvAck`/`sendAck` keyed on the generation-protected `FdKey`. -/
+handoff. A real consumer selects configuration by `ListenerKey` and drives
+`recvAck`/`sendAck` with the connection `FdKey`. -/
 structure ConsumerSeam where
-  onNewConnection : FdKey → Int → IO Unit
+  onNewConnection : ListenerKey → FdKey → IO Unit
 
 /-- Default standalone seam: log each handoff so the listener half is runnable
 and observable on its own — no TLS, no HTTP. -/
 def loggingSeam : ConsumerSeam where
-  onNewConnection := fun key rawFd =>
-    IO.println s!"  [handoff] fd={rawFd} key={key.raw}/{key.gen} → consumer (TLS attach point)"
+  onNewConnection := fun listener connection =>
+    IO.println s!"  [handoff] listener={listener.raw}/{listener.gen} connection={connection.raw}/{connection.gen} → consumer (TLS attach point)"
 
 /-- iotakt's half of the standup: accept TCP on `port`, surface each accepted
-connection as `newConnection`, and hand `(key, rawFd)` to `seam`. Runs at most
+connection as `newConnection`, and hand `(listener, connection)` to `seam`. Runs at most
 `steps` bounded driver iterations (≈ `steps × timeoutMs` ms). Returns the
 number of connections handed off. -/
 def runStandupListener (port : UInt16) (seam : ConsumerSeam)
@@ -67,13 +68,13 @@ def runStandupListener (port : UInt16) (seam : ConsumerSeam)
     loop := loop1
     for ev in events do
       match ev with
-      | .newConnection key rawFd =>
-          seam.onNewConnection key rawFd
+      | .newConnection listener connection =>
+          seam.onNewConnection listener connection
           handed := handed + 1
           -- iotakt's job ends at handoff: the consumer owns the fd and drives
           -- the byte stream. Standalone we close after handoff so the demo is
           -- self-contained; the harness leaves the fd to the consumer.
-          loop := ← EffectError.orThrow (← loop.closeConnection key)
+          loop := ← EffectError.orThrow (← loop.closeConnection connection)
       | .dataReady _ _ => pure ()   -- consumer-owned in the harness
       | .tick _        => pure ()
   loop.destroy

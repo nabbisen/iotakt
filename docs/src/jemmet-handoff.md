@@ -94,7 +94,7 @@ partial def serve (loop : EventLoop) : IO Unit := do
   let (loop, events) ← loop.runStepAuto
   for ev in events do
     match ev with
-    | .newConnection key _ =>
+    | .newConnection _listener key =>
         match ← readRequest key.raw 65536 30 with
         | .request req =>
             let resp := (router.dispatchRequest req).toBytes

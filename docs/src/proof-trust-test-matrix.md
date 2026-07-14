@@ -18,7 +18,7 @@ scope.
 **Corpus during R2 remediation:** 83 machine-checked theorems/lemmas across `Iotakt/`,
 **no `sorry`, no `admit`, no project `axiom`**. The full proven core builds
 with `lake build Iotakt.Proofs`. The CI gate runs **333 executable checks**
-across the legacy 14 test suites, plus 8 RFC 066 returned-event checks, 15 RFC
+across the legacy 14 test suites, plus 8 RFC 066 returned-event checks, 20 RFC
 070 address-aware listener checks, and the live server smoke tests.
 
 ---
