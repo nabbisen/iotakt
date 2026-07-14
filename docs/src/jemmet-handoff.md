@@ -91,7 +91,7 @@ def router : Router :=
     |>.post "/upload"    (fun _ => HttpResponse.ok "received")
 
 partial def serve (loop : EventLoop) : IO Unit := do
-  let (loop, events) ← loop.runStepAuto
+  let (loop, events) ← LoopError.orThrow (← loop.runStepAuto)
   for ev in events do
     match ev with
     | .newConnection _listener key =>

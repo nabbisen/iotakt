@@ -55,7 +55,7 @@ def main : IO Unit := do
 
   -- Run for up to 30 steps (each step blocks up to 100ms = ~3s total)
   for step in List.range 30 do
-    let (loop1, events) ← loop.runStep 100   -- 100ms per step
+    let (loop1, events) ← LoopError.orThrow (← loop.runStep 100)   -- 100ms per step
     loop := loop1
 
     for ev in events do

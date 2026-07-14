@@ -69,7 +69,7 @@ def serve : IO Unit := do
 namespace IotaktRuntime.Server
 
 -- ── Event loop / driver ────────────────────────────────────────────────
-export IotaktRuntime.Loop (EventLoop LoopEvent)
+export IotaktRuntime.Loop (EventLoop LoopEvent LoopError)
 
 -- ── Routing: deliberately NOT exported ───────────────────────────────────
 -- Routing is an iotakt non-goal (RFC 001); a consumer (jemmet) owns dispatch.

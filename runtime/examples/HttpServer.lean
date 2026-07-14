@@ -77,7 +77,7 @@ def main : IO Unit := do
 
   -- Run for 50 steps × 100ms = ~5 seconds
   for _ in List.range 50 do
-    let (loop1', events) ← loop.runStep 100
+    let (loop1', events) ← LoopError.orThrow (← loop.runStep 100)
     loop := loop1'
     for ev in events do
       match ev with

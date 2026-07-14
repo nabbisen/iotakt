@@ -97,7 +97,7 @@ def main : IO Unit := do
   let mut loop := loop1.withIdleTimeout 3000
   let mut total := 0
   for _ in List.range 50 do
-    let (l', events) ← loop.runStepAuto
+    let (l', events) ← LoopError.orThrow (← loop.runStepAuto)
     loop := l'
     for ev in events do
       match ev with

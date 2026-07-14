@@ -84,7 +84,7 @@ def main : IO Unit := do
   let mut handled := 0
 
   for _ in List.range 50 do
-    let (l', events) ← loop.runStepAuto
+    let (l', events) ← LoopError.orThrow (← loop.runStepAuto)
     loop := l'
     for ev in events do
       match ev with

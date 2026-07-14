@@ -133,7 +133,14 @@ def main : IO Unit := do
   let client2 ← connectClient .loopback endpoint2.port
   let client3 ← connectClient specified endpoint3.port
   IO.sleep 50
-  let (loop3, events) ← loop3.runStep 100
+  let fatalWaitOps : WaitOps := { wait := fun _ _ _ => pure (-9, ByteArray.empty) }
+  let fatalWait ← EventLoop.runStepWith fatalWaitOps loop3 100
+  ensure "fatal poll failure is returned as typed LoopError"
+    (match fatalWait with | .error (.waitFailed .badFd) => true | _ => false)
+  ensure "fatal poll failure publishes no connection authority"
+    (loop3.connectionCount == 0 && loop3.taskByKey.isEmpty &&
+      loop3.nds.nextActorId == firstConnectionActor)
+  let (loop3, events) ← LoopError.orThrow (← loop3.runStep 100)
   let accepted := events.filterMap fun event => match event with
     | .newConnection listener connection => some (listener, connection)
     | _ => none
@@ -167,7 +174,7 @@ def main : IO Unit := do
   let mut busyLoop := loop3
   let mut sawBusyReadiness := false
   for _ in List.range 5 do
-    let (nextLoop, busyEvents) ← busyLoop.runStep 100
+    let (nextLoop, busyEvents) ← LoopError.orThrow (← busyLoop.runStep 100)
     busyLoop := nextLoop
     for event in busyEvents do
       match event with
@@ -207,13 +214,13 @@ def main : IO Unit := do
   ensure "explicit mailbox-mode listener binds" mailboxBound
   let mailboxClient ← connectClient .loopback 49774
   IO.sleep 50
-  let (mailboxLoop, mailboxAcceptEvents) ← mailboxLoop.runStep 100
+  let (mailboxLoop, mailboxAcceptEvents) ← LoopError.orThrow (← mailboxLoop.runStep 100)
   let some mailboxConnection := mailboxAcceptEvents.findSome? fun event =>
       match event with | .newConnection _ connection => some connection | _ => none
     | throw <| IO.userError "mailbox-mode accept missing"
   let mailboxPayload := "mailbox".toUTF8
   let _ ← Io.send mailboxClient mailboxPayload 0 mailboxPayload.size
-  let (mailboxLoop, mailboxReadyEvents) ← mailboxLoop.runStep 100
+  let (mailboxLoop, mailboxReadyEvents) ← LoopError.orThrow (← mailboxLoop.runStep 100)
   let mailboxOwner := (mailboxLoop.nds.ds.registry.lookup mailboxConnection).map (·.owner)
   let mailboxHasReadiness := match mailboxOwner with
     | some owner => (mailboxLoop.rt.mailboxes owner).any (fun mb => !mb.messages.isEmpty)

@@ -92,7 +92,7 @@ def testOutboundConnect : IO Unit := do
   let mut clientConnected := match outcome with | .connected _ => true | _ => false
 
   for _ in List.range 20 do
-    let (loop1', events) ← loop.runStep 100
+    let (loop1', events) ← LoopError.orThrow (← loop.runStep 100)
     loop := loop1'
     for ev in events do
       match ev with
@@ -117,7 +117,7 @@ def testOutboundConnect : IO Unit := do
     let data : ByteArray := ⟨#[0x48, 0x65, 0x6c, 0x6c, 0x6f]⟩  -- "Hello"
     let _ ← Io.send cKey.raw data 0 data.size
     -- Give the server side a moment then recv
-    let (loop3, _) ← loop.runStep 50
+    let (loop3, _) ← LoopError.orThrow (← loop.runStep 50)
     loop := loop3
     if let some sKey := connKey then do
       let rr ← Io.recv sKey.raw 64

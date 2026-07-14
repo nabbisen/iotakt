@@ -64,7 +64,7 @@ def runStandupListener (port : UInt16) (seam : ConsumerSeam)
   let mut loop := loop1
   let mut handed : Nat := 0
   for _ in List.range steps do
-    let (loop1, events) ← loop.runStep timeoutMs
+    let (loop1, events) ← LoopError.orThrow (← loop.runStep timeoutMs)
     loop := loop1
     for ev in events do
       match ev with

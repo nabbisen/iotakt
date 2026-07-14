@@ -21,16 +21,18 @@ A multi-connection event loop for v0.2 (RFC 023).
 
 ```text
 loop:
-  (loop, events) ← EventLoop.runStep loop
-  for ev in events:
-    match ev with
-    | .newConnection listener connection =>
-        register connection in app state
-    | .dataReady key =>
-        bytes ← Io.recv key.raw maxBytes
-        handle(bytes)
-    | .tick now =>
-        cleanup idle connections
+  match ← EventLoop.runStep loop with
+  | .error (.waitFailed errno) => apply fatal-backend policy
+  | .ok (loop, events) =>
+      for ev in events:
+        match ev with
+        | .newConnection listener connection =>
+            register connection in app state
+        | .dataReady key =>
+            bytes ← Io.recv key.raw maxBytes
+            handle(bytes)
+        | .tick now =>
+            cleanup idle connections
 ```
 
 ## Connection lifetime
@@ -56,6 +58,30 @@ inductive EffectError where
   | inactive
   | nativeError (errno : IoErrno)
   deriving DecidableEq, Repr, Inhabited
+
+/-- Fatal failure of the public event-loop step. Timeout/no-readiness is not an
+error and continues to return a normal `.tick` result. -/
+inductive LoopError where
+  | waitFailed (errno : IoErrno)
+  deriving DecidableEq, Repr, Inhabited
+
+namespace LoopError
+
+/-- Explicit exception adapter for legacy examples whose outer API predates the
+typed public loop result. Stable consumers should handle `Except` directly. -/
+def orThrow {α : Type} : Except LoopError α → IO α
+  | .ok value => pure value
+  | .error e => throw <| IO.userError s!"iotakt event loop failed: {repr e}"
+
+end LoopError
+
+/-- Injectable native wait boundary for deterministic fatal-wait testing. -/
+structure WaitOps where
+  wait : Int32 → Int32 → Int32 → IO (Int × ByteArray)
+
+/-- Production epoll wait boundary. -/
+def nativeWaitOps : WaitOps where
+  wait := Epoll.wait
 
 namespace EffectError
 
@@ -281,16 +307,17 @@ def addListener (loop : EventLoop) (port : UInt16) : IO (EventLoop × Bool) := d
   | .error _ => return (loop, false)
   | .ok (loop, _) => return (loop, true)
 
-/-- Run one driver step: poll for events, accept new connections, deliver
-readiness messages. Returns the updated loop and the list of events that
-occurred this step. `timeoutMs = -1` blocks indefinitely. -/
-def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
-    IO (EventLoop × List LoopEvent) := do
+/-- Run one driver step through an explicit wait boundary. A fatal wait returns
+before readiness processing or accept work and preserves the input loop. -/
+def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
+    IO (Except LoopError (EventLoop × List LoopEvent)) := do
   let cfg := loop.nds.ds.config
 
   -- ── 1. Poll for I/O events ──────────────────────────────────────────
   let maxEv := (min cfg.maxEventsPerPoll 1024).toInt32
-  let (waitStatus, evtBytes) ← Epoll.wait (fd32 loop.ph.epfd) maxEv timeoutMs.toInt32
+  let (waitStatus, evtBytes) ← ops.wait (fd32 loop.ph.epfd) maxEv timeoutMs.toInt32
+  if waitStatus < 0 then
+    return .error (.waitFailed (classifyErrno (-waitStatus)))
 
   -- ── 2. Process readiness events through the bridge ──────────────────
   let mut nds := loop.nds
@@ -368,7 +395,13 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
     rt        := rt
     connections := newKeys ++ loop.connections
     taskByKey := newTasks ++ loop.taskByKey }
-  return (loopOut, newConns ++ loopEvents)
+  return .ok (loopOut, newConns ++ loopEvents)
+
+/-- Run one public driver step. Fatal backend failures are typed and cannot be
+confused with timeout/no-readiness. `timeoutMs = -1` blocks indefinitely. -/
+def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
+    IO (Except LoopError (EventLoop × List LoopEvent)) :=
+  runStepWith nativeWaitOps loop timeoutMs
 
 /-- Register write interest for a connection (call when you have pending
 output; disable when the output buffer is drained). -/
@@ -441,24 +474,27 @@ touch active connections, then reap any that have gone idle (v0.7).
 This is the park/wake driver: an idle server with no I/O and no idle
 timeout blocks forever (zero CPU); a server with idle timeouts wakes just
 in time to reap expired connections. -/
-def runStepAuto (loop : EventLoop) : IO (EventLoop × List LoopEvent) := do
+def runStepAuto (loop : EventLoop) :
+    IO (Except LoopError (EventLoop × List LoopEvent)) := do
   let nowNs := (← Io.monoNs).toNat
   let timeout := loop.pollTimeoutMs nowNs
-  let (loop1, events) ← loop.runStep timeout
-  -- Touch every connection that saw activity this step
-  let nowNs2 := (← Io.monoNs).toNat
-  let mut l := loop1
-  for ev in events do
-    match ev with
-    | .newConnection _ connection => l := l.touchConn connection nowNs2
-    | .dataReady key _     => l := l.touchConn key nowNs2
-    | .tick _              => pure ()
-  -- Reap idle connections
-  let (l2, reaped) ← l.reapIdle nowNs2
-  -- Surface reaped connections as a synthetic close-ish signal is not needed;
-  -- the caller learns about them via the returned loop's state.
-  let _ := reaped
-  return (l2, events)
+  match ← loop.runStep timeout with
+  | .error e => return .error e
+  | .ok (loop1, events) =>
+      -- Touch every connection that saw activity this step
+      let nowNs2 := (← Io.monoNs).toNat
+      let mut l := loop1
+      for ev in events do
+        match ev with
+        | .newConnection _ connection => l := l.touchConn connection nowNs2
+        | .dataReady key _     => l := l.touchConn key nowNs2
+        | .tick _              => pure ()
+      -- Reap idle connections
+      let (l2, reaped) ← l.reapIdle nowNs2
+      -- Surface reaped connections as a synthetic close-ish signal is not needed;
+      -- the caller learns about them via the returned loop's state.
+      let _ := reaped
+      return .ok (l2, events)
 
 /-- Graceful shutdown (RFC 037): stop accepting and drain cleanly.
 

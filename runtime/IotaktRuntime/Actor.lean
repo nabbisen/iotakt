@@ -163,7 +163,7 @@ def runStep
     (reg  : ActorRegistry)
     (timeoutMs : Int := -1) :
     IO (EventLoop × ActorRegistry × List (ListenerKey × FdKey) × List FdKey) := do
-  let (loop1, events) ← loop.runStep timeoutMs
+  let (loop1, events) ← Loop.LoopError.orThrow (← loop.runStep timeoutMs)
   let mut loop := loop1
   let mut reg  := reg
   let mut newConns  : List (ListenerKey × FdKey) := []

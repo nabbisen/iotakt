@@ -69,7 +69,7 @@ def testCapEnforcement : IO Unit := do
   IO.sleep 50
 
   -- One runStep accept burst: at most 1 should be admitted (cap=1)
-  let (loop3, events) ← loop2.runStep 100
+  let (loop3, events) ← LoopError.orThrow (← loop2.runStep 100)
   let admitted := events.filter (fun e => match e with | .newConnection _ _ => true | _ => false)
   check "cap=1: at most 1 connection admitted in the burst" (admitted.length <= 1)
   check "loop connectionCount respects cap (<= 1)" (loop3.connectionCount <= 1)

@@ -328,11 +328,11 @@ step "23b. R2 address-aware listener regression (RFC 070)"
 if lake --dir runtime build iotakt-r2-listener-test 2>/dev/null && \
     timeout 20 runtime/.lake/build/bin/iotakt-r2-listener-test > /tmp/r2_listener_ci.txt 2>&1; then
   R2_LISTENER_PASS=$(grep -c "\[PASS\]" /tmp/r2_listener_ci.txt || true)
-  if [ "$R2_LISTENER_PASS" -eq 34 ]; then
+  if [ "$R2_LISTENER_PASS" -eq 36 ]; then
     pass "R2 listener: $R2_LISTENER_PASS checks all PASS"
   else
     cat /tmp/r2_listener_ci.txt
-    fail "R2 listener: expected 34 passing checks, observed $R2_LISTENER_PASS"
+    fail "R2 listener: expected 36 passing checks, observed $R2_LISTENER_PASS"
   fi
 else
   cat /tmp/r2_listener_ci.txt 2>/dev/null || true
