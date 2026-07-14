@@ -15,6 +15,8 @@ iotakt-owned stabilization features (RFC 037, RFC 030):
 
 open IotaktRuntime.Loop IotaktRuntime.Native Iotakt.Model
 
+private def fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
+
 def check (label : String) (ok : Bool) : IO Unit :=
   IO.println s!"  [{if ok then "PASS" else "FAIL"}] {label}"
 
@@ -47,7 +49,8 @@ def testCapEnforcement : IO Unit := do
   IO.println ""
   IO.println "=== B. Connection cap enforcement (load shedding) ==="
   let some loop ← EventLoop.create | do IO.println "epoll failed"; return
-  let (loop1, ok) ← loop.addListener 49998
+  let port : UInt16 := 49998
+  let (loop1, ok) ← loop.addListener port
   check "listener bound" ok
   if !ok then do loop.destroy; return
 
@@ -60,7 +63,7 @@ def testCapEnforcement : IO Unit := do
   for _ in List.range 3 do
     let cfd ← Socket.socketTcpRaw 1
     if cfd >= 0 then do
-      let _ ← Socket.connectIPv4 cfd LOOPBACK 49998
+      let _ ← Socket.connectIPv4 cfd LOOPBACK port
       clients := cfd :: clients
   -- Give the kernel a moment to complete the connects
   IO.sleep 50
@@ -84,9 +87,32 @@ def testShutdown : IO Unit := do
   check "listener bound for shutdown test" ok
   if !ok then do loop.destroy; return
 
-  -- Track a couple of fake connections so shutdown has something to drain
-  let k1 : FdKey := { raw := 210, gen := 1 }
-  let k2 : FdKey := { raw := 211, gen := 1 }
+  -- Register real socketpair endpoints so shutdown exercises RFC 064's checked
+  -- connection authority and native deregister/close path.
+  let (peer1, fd1) ← Socket.socketpairRaw
+  let (peer2, fd2) ← Socket.socketpairRaw
+  if peer1 < 0 || peer2 < 0 then do
+    check "socketpairs for shutdown test" false
+    loop1.destroy
+    return
+  let (reg1, k1) := loop1.nds.ds.registry.allocate fd1 20 .stream
+  let reg1 := reg1.setInterests k1 InterestSet.readOnly |>.markActive k1
+  let (reg2, k2) := reg1.allocate fd2 21 .stream
+  let reg2 := reg2.setInterests k2 InterestSet.readOnly |>.markActive k2
+  let ep1 ← Epoll.register (fd32 loop1.ph.epfd) (fd32 fd1)
+    (Epoll.interestFlags InterestSet.readOnly)
+  let ep2 ← Epoll.register (fd32 loop1.ph.epfd) (fd32 fd2)
+    (Epoll.interestFlags InterestSet.readOnly)
+  check "socketpairs registered for shutdown test" (ep1 == 0 && ep2 == 0)
+  if ep1 != 0 || ep2 != 0 then do
+    Socket.closeFdRaw (fd32 peer1)
+    Socket.closeFdRaw (fd32 fd1)
+    Socket.closeFdRaw (fd32 peer2)
+    Socket.closeFdRaw (fd32 fd2)
+    loop1.destroy
+    return
+  let loop1 := { loop1 with nds := { loop1.nds with
+    ds := { loop1.nds.ds with registry := reg2 } } }
   let loop2 := (loop1.recordTask k1 20).recordTask k2 21
   check "before shutdown: 1 listener tracked" (loop2.listeners.length == 1)
   check "before shutdown: 2 connections tracked" (loop2.connectionCount == 2)
@@ -98,6 +124,8 @@ def testShutdown : IO Unit := do
 
   -- destroy finalizes the poller (no crash)
   loop3.destroy
+  Socket.closeFdRaw (fd32 peer1)
+  Socket.closeFdRaw (fd32 peer2)
   check "destroy after shutdown completes cleanly" true
 
 def main : IO Unit := do

@@ -40,6 +40,7 @@ def driveAll : Nat → DriverState → RuntimeState → FakePoller → Nat →
 
 def traceStr : BridgeTrace → String
   | .injected o m        => s!"injected → actor {o} (id={m.id}, payload={m.payload})"
+  | .returned k ev       => s!"returned → fd {k.raw} ({repr ev})"
   | .coalesced k _       => s!"coalesced (fd {k.raw})"
   | .droppedUnknown raw  => s!"dropped unknown (fd {raw})"
   | .droppedStale raw    => s!"dropped stale (fd {raw})"

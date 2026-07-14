@@ -309,6 +309,21 @@ else
   fail "v0.13-test: $V13_FAIL failed, $V13_PASS passed"
 fi
 
+step "23a. R2 authoritative returned-event regression (RFC 066)"
+if lake --dir runtime build iotakt-r2-delivery-test 2>/dev/null && \
+    timeout 20 runtime/.lake/build/bin/iotakt-r2-delivery-test > /tmp/r2_delivery_ci.txt 2>&1; then
+  R2_DELIVERY_PASS=$(grep -c "\[PASS\]" /tmp/r2_delivery_ci.txt || true)
+  if [ "$R2_DELIVERY_PASS" -eq 8 ]; then
+    pass "R2 delivery: $R2_DELIVERY_PASS checks all PASS"
+  else
+    cat /tmp/r2_delivery_ci.txt
+    fail "R2 delivery: expected 8 passing checks, observed $R2_DELIVERY_PASS"
+  fi
+else
+  cat /tmp/r2_delivery_ci.txt 2>/dev/null || true
+  fail "R2 delivery: build or executable failed"
+fi
+
 step "24. v0.4 integration test (WriteBuffer, HTTP round-trip, FFI, conformance)"
 lake --dir runtime build iotakt-v4-test 2>/dev/null && \
   runtime/.lake/build/bin/iotakt-v4-test > /tmp/v4_out.txt 2>&1

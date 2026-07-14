@@ -18,6 +18,8 @@ Tests the v0.7 additions:
 
 open IotaktRuntime.Loop IotaktRuntime.Native Iotakt.Model
 
+private def fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
+
 def check (label : String) (ok : Bool) : IO Unit :=
   IO.println s!"  [{if ok then "PASS" else "FAIL"}] {label}"
 
@@ -92,15 +94,34 @@ def testReapIdle : IO Unit := do
   IO.println "=== C. reapIdle ==="
 
   let some loop ← EventLoop.create | do IO.println "epoll failed"; return
-  let (loop1, ok) ← loop.addListener 49994
-  check "listener for reap test" ok
-  if !ok then do loop.destroy; return
+  let loop2 := loop.withIdleTimeout 100  -- 100ms idle
 
-  let loop2 := loop1.withIdleTimeout 100  -- 100ms idle
-
-  -- Manually register a couple of connection activity records with old timestamps
-  let key1 : FdKey := { raw := 70, gen := 1 }
-  let key2 : FdKey := { raw := 71, gen := 1 }
+  -- Register two real socketpair endpoints so RFC 064's checked close authority
+  -- and epoll deregistration are exercised by the idle reaper.
+  let (peer1, fd1) ← Socket.socketpairRaw
+  let (peer2, fd2) ← Socket.socketpairRaw
+  if peer1 < 0 || peer2 < 0 then do
+    check "socketpairs for reap test" false
+    loop.destroy
+    return
+  let (reg1, key1) := loop2.nds.ds.registry.allocate fd1 1 .stream
+  let reg1 := reg1.setInterests key1 InterestSet.readOnly |>.markActive key1
+  let (reg2, key2) := reg1.allocate fd2 2 .stream
+  let reg2 := reg2.setInterests key2 InterestSet.readOnly |>.markActive key2
+  let ep1 ← Epoll.register (fd32 loop2.ph.epfd) (fd32 fd1)
+    (Epoll.interestFlags InterestSet.readOnly)
+  let ep2 ← Epoll.register (fd32 loop2.ph.epfd) (fd32 fd2)
+    (Epoll.interestFlags InterestSet.readOnly)
+  check "socketpairs registered for reap test" (ep1 == 0 && ep2 == 0)
+  if ep1 != 0 || ep2 != 0 then do
+    Socket.closeFdRaw (fd32 peer1)
+    Socket.closeFdRaw (fd32 fd1)
+    Socket.closeFdRaw (fd32 peer2)
+    Socket.closeFdRaw (fd32 fd2)
+    loop.destroy
+    return
+  let loop2 := { loop2 with nds := { loop2.nds with
+    ds := { loop2.nds.ds with registry := reg2 } } }
   let oldNs := 1000000000          -- 1.0s
   let loop3 := (loop2.touchConn key1 oldNs).touchConn key2 oldNs
 
@@ -110,7 +131,9 @@ def testReapIdle : IO Unit := do
   check "reapIdle closed both idle connections" (reaped.length == 2)
   check "lastActivityNs cleared after reap" loop4.lastActivityNs.isEmpty
 
-  loop.destroy
+  Socket.closeFdRaw (fd32 peer1)
+  Socket.closeFdRaw (fd32 peer2)
+  loop4.destroy
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- D. Henret receiveUntil timer infrastructure (model readiness)

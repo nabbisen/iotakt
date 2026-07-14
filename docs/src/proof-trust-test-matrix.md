@@ -15,10 +15,11 @@ scope.
 | **ASSUMED** | Accepted from OS, C compiler, or Lean runtime documentation. |
 | **OUTSCOPE** | Outside iotakt's defined responsibility. |
 
-**Corpus during RFC 064 remediation:** 82 machine-checked theorems/lemmas across `Iotakt/`,
+**Corpus during R2 remediation:** 83 machine-checked theorems/lemmas across `Iotakt/`,
 **no `sorry`, no `admit`, no project `axiom`**. The full proven core builds
 with `lake build Iotakt.Proofs`. The CI gate runs **333 executable checks**
-across 14 test suites plus the live server smoke tests.
+across the legacy 14 test suites, plus 8 RFC 066 returned-event checks and
+the live server smoke tests.
 
 ---
 
@@ -56,11 +57,12 @@ no-stale/no-unknown guarantees compose through the translator.
 Closed is terminal; deregistered resources do not translate to injected
 readiness; active registered entries are in non-closed states.
 
-### Henret bridge integration (`Bridge/Driver.lean` 6, `Bridge/Message.lean` 3)
+### Henret bridge integration (`Bridge/Driver.lean` 7, `Bridge/Message.lean` 3)
 
 | Theorem | Property |
 |---------|----------|
 | `inject_ok_of_mailbox` | when the owner mailbox exists, the runtime is running, the owner is not closed, **and the mailbox is not at capacity**, Henret `inject` returns `.ok` (never `.invalid`/`.backpressured`) — mitigates Henret's inject precondition (mailbox v0.6.0+, RFC 055 shutdown guard v0.17.0+, RFC 056 backpressure guard v0.18.0+) |
+| `deliverOne_no_mailbox_pending_unchanged` | a missing mailbox does not consume the coalescing slot, so mailbox delivery remains eligible after the mailbox becomes available |
 
 ### Fake poller (`Fake/Poller.lean`, 4)
 

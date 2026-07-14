@@ -10,8 +10,8 @@ A multi-connection event loop for v0.2 (RFC 023).
 `PollerHandle` and exposes a single `runStep` function that:
 
 1. Calls `epoll_wait` with a configurable blocking timeout.
-2. Parses events, translates through the registry, coalesces, injects
-   into Henret actor mailboxes.
+2. Parses events, translates through the registry, and coalesces them into
+   the authoritative returned-event stream.
 3. Delivers a `LoopEvent` per ready connection so the caller can dispatch:
    - `.newConnection key fd` — an accepted connection
    - `.dataReady key`        — a registered stream has a readable event
@@ -266,20 +266,19 @@ def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
 
   if waitStatus > 0 then do
     let rawEvts := Epoll.parseEvents evtBytes
-    let (ds1, rt1, _) := processEvents nds.ds rt rawEvts
-    nds := { nds with ds := ds1 }; rt := rt1
-    -- Collect dataReady events for streams (not listeners)
-    for ev in rawEvts do
-      match nds.ds.registry.resolveCurrent ev.rawFd with
+    let (ds1, delivered, _) := processEventsReturned nds.ds rawEvts
+    nds := { nds with ds := ds1 }
+    -- The bridge result is authoritative. Never replay raw epoll events here:
+    -- doing so would bypass translation and coalescing and duplicate mailbox
+    -- delivery. Listener readiness is consumed by accept below.
+    for ev in delivered do
+      match nds.ds.registry.lookup ev.key with
       | none => pure ()
-      | some key =>
-          match nds.ds.registry.lookup key with
-          | none => pure ()
-          | some entry =>
-              match entry.kind with
-              | .stream   => loopEvents := loopEvents ++ [.dataReady key ev.event]
-              | .listener  => pure ()  -- handle via acceptConnections below
-              | .datagram  => loopEvents := loopEvents ++ [.dataReady key ev.event]
+      | some entry =>
+          match entry.kind with
+          | .stream   => loopEvents := loopEvents ++ [.dataReady ev.key ev.event]
+          | .listener => pure ()
+          | .datagram => loopEvents := loopEvents ++ [.dataReady ev.key ev.event]
   else if waitStatus == 0 then do
     -- Timeout: advance clock
     let now := nds.ds.clock + 1

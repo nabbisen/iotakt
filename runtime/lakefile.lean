@@ -244,6 +244,11 @@ lean_exe «iotakt-v13-test» where
   root := `examples.V13Test
   extraDepTargets := #[`iotaktNativeLib.static]
 
+/-- R2 regression: returned events are authoritative and mailbox-independent. -/
+lean_exe «iotakt-r2-delivery-test» where
+  root := `examples.R2DeliveryTest
+  extraDepTargets := #[`iotaktNativeLib.static]
+
 /-- RFC 015 standup: iotakt's listener half — accept TCP, emit `newConnection`,
 hand the fd to a consumer seam (kroopt's TLS transport in the harness). -/
 lean_exe «iotakt-standup-listener» where

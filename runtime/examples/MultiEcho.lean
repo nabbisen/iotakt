@@ -71,7 +71,9 @@ def main : IO Unit := do
       | .dataReady key event =>
           match event with
           | .readable =>
-              let recvResult ← Io.recv key.raw loop.nds.ds.config.maxReadBytes
+              let (loopAfterRecv, recvResult) ←
+                EffectError.orThrow (← loop.recvAck key loop.nds.ds.config.maxReadBytes)
+              loop := loopAfterRecv
               match recvResult with
               | .bytes ba =>
                   totalBytesRead := totalBytesRead + ba.size

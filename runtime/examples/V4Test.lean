@@ -200,7 +200,9 @@ def testNativeConformance : IO Unit := do
   -- Close and immediately reopen the same port
   -- (generation in the registry must have incremented)
   let gen0 := loop5.nds.ds.registry.nextGen
-  let _ ← EffectError.orThrow (← loop5.closeConnection (loop5.listeners.head!.1))
+  -- A listener is not connection authority. Until RFC 070's checked
+  -- closeListener lands, use the listener-aware shutdown path.
+  let loop5 ← loop5.shutdown
   let (loop6, _) ← loop5.addListener 49987
   let gen1 := loop6.nds.ds.registry.nextGen
   check "CONF-4: nextGen increments after close+reopen" (gen1 > gen0)
