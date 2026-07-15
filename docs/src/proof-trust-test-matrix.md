@@ -17,7 +17,7 @@ scope.
 
 **Corpus during R2 remediation:** 83 machine-checked theorems/lemmas across `Iotakt/`,
 **no `sorry`, no `admit`, no project `axiom`**. The full proven core builds
-with `lake build Iotakt.Proofs`. The CI gate runs **335 executable checks**
+with `lake build Iotakt.Proofs`. The CI gate runs **365 executable checks**
 across the legacy 14 test suites, plus 11 RFC 066 returned-event checks, 36 RFC
 070 address-aware listener checks, and the live server smoke tests.
 
@@ -114,7 +114,7 @@ Linux epoll backend and real Henret.
 | Body framing (Content-Length + chunked); `readFull`; handoff surface | `v0.9-test` (22) |
 | **Request-size limits** (`.tooLarge`); `readFromBuffer` pipelining (no dropped requests) | `v0.10-test` (13) |
 | **Connection limits / load shedding** (cap=1 admits ≤1 of 3 clients); **graceful shutdown** (drains connections + listeners) | `v0.11-test` (18) |
-| **Explicit-ack coalescing** plus checked stale/invalid/out-of-range authority and live raw-fd reuse isolation for `enableWrite`, `disableWrite`, `closeConnection`, `recvAck`, and `sendAck` | `v0.13-test` (45; `RFC064-FD-REUSE-001`) |
+| **Explicit-ack coalescing** plus checked unknown/forged/invalid-range/wrong-kind/inactive authority and live raw-fd reuse isolation for `enableWrite`, `disableWrite`, `closeConnection`, `recvAck`, and `sendAck` | `v0.13-test` (75; `RFC064-AUTH-MATRIX-001`, `RFC064-FD-REUSE-001`) |
 | Echo, multi-connection echo, live HTTP server+client, routing/streaming/upload/reference servers | server smoke tests |
 
 ---

@@ -307,11 +307,11 @@ lake --dir runtime build iotakt-v13-test 2>/dev/null && \
   timeout 20 runtime/.lake/build/bin/iotakt-v13-test > /tmp/v13_ci.txt 2>&1
 V13_FAIL=$(grep -c "\[FAIL\]" /tmp/v13_ci.txt 2>/dev/null | tr -d "\n" || echo 0)
 V13_PASS=$(grep -c "\[PASS\]" /tmp/v13_ci.txt 2>/dev/null | tr -d "\n" || echo 0)
-if [ "$V13_FAIL" -eq 0 ] && [ "$V13_PASS" -eq 45 ]; then
-  pass "v0.13-test: $V13_PASS checks (explicit ack + recvAck/sendAck) all PASS"
+if [ "$V13_FAIL" -eq 0 ] && [ "$V13_PASS" -eq 75 ]; then
+  pass "v0.13-test: $V13_PASS checks (explicit ack + RFC 064 authority) all PASS"
 else
   cat /tmp/v13_ci.txt
-  fail "v0.13-test: expected 45 passes; $V13_FAIL failed, $V13_PASS passed"
+  fail "v0.13-test: expected 75 passes; $V13_FAIL failed, $V13_PASS passed"
 fi
 
 step "23a. R2 authoritative returned-event regression (RFC 066)"

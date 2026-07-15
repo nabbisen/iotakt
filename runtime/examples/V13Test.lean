@@ -34,6 +34,24 @@ def isInvalidKey {α : Type} : Except EffectError α → Bool
   | .error .invalidKey => true
   | _ => false
 
+def hasEffectError {α : Type} (expected : EffectError) : Except EffectError α → Bool
+  | .error actual => actual == expected
+  | .ok _ => false
+
+def checkAuthorityCase (label : String) (loop : EventLoop) (key : FdKey)
+    (expected : EffectError) : IO Unit := do
+  let payload := "blocked".toUTF8
+  check s!"{label}: enableWrite" <|
+    hasEffectError expected (← loop.enableWrite key)
+  check s!"{label}: disableWrite" <|
+    hasEffectError expected (← loop.disableWrite key)
+  check s!"{label}: closeConnection" <|
+    hasEffectError expected (← loop.closeConnection key)
+  check s!"{label}: recvAck" <|
+    hasEffectError expected (← loop.recvAck key 1)
+  check s!"{label}: sendAck" <|
+    hasEffectError expected (← loop.sendAck key payload 0 payload.size)
+
 -- A. Explicit ack via the coalesce model (pure)
 def testCoalesceAck : IO Unit := do
   IO.println "=== A. Coalesce: explicit ack pinned ==="
@@ -267,11 +285,45 @@ def testLiveFdReuseAuthority : IO Unit := do
   Socket.closeFdRaw (fd32 thirdPeer)
   closedNew.destroy
 
+-- D. RFC064-AUTH-MATRIX-001: every stable key effect rejects invalid authority
+-- before reaching its native fd operation.
+def testAuthorityErrorMatrix : IO Unit := do
+  IO.println ""
+  IO.println "=== D. RFC064-AUTH-MATRIX-001: stable effect authority matrix ==="
+  let some loop <- EventLoop.create | do IO.println "epoll failed"; return
+
+  -- These registry-only fixtures deliberately do not own corresponding OS fds.
+  -- A native call would therefore produce a native error (or observable I/O),
+  -- rather than the authority error asserted for every operation below.
+  let (reg1, current) := loop.nds.ds.registry.allocate 700 50 .stream
+  let reg1 := reg1.markActive current
+  let (reg2, listener) := reg1.allocate 701 51 .listener
+  let reg2 := reg2.markActive listener
+  let (reg3, inactive) := reg2.allocate 702 52 .stream
+  let reg3 := reg3.beginClosing inactive
+  let checkedLoop := { loop with nds := { loop.nds with
+    ds := { loop.nds.ds with registry := reg3 } } }
+
+  let unknown : FdKey := { raw := 703, gen := 0 }
+  let forged : FdKey := { current with gen := current.gen + 1000 }
+  let negative : FdKey := { raw := -1, gen := 0 }
+  let outOfRange : FdKey := { raw := 2147483648, gen := 0 }
+
+  checkAuthorityCase "unknown key rejected" checkedLoop unknown .invalidKey
+  checkAuthorityCase "forged generation rejected" checkedLoop forged .staleKey
+  checkAuthorityCase "negative raw fd rejected" checkedLoop negative .invalidRawFd
+  checkAuthorityCase "out-of-range raw fd rejected" checkedLoop outOfRange .invalidRawFd
+  checkAuthorityCase "listener kind rejected" checkedLoop listener .wrongKind
+  checkAuthorityCase "closing resource rejected" checkedLoop inactive .inactive
+
+  checkedLoop.destroy
+
 def main : IO Unit := do
   IO.println "iotakt v0.13 integration test (explicit ack + recvAck/sendAck)"
   IO.println ""
   testCoalesceAck
   testRecvSendAck
   testLiveFdReuseAuthority
+  testAuthorityErrorMatrix
   IO.println ""
   IO.println "v0.13 integration test complete"
