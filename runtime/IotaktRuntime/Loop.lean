@@ -130,10 +130,8 @@ structure EventLoop where
   ph        : PollerHandle
   /-- Exactly one readiness sink is authoritative for this loop. -/
   deliveryMode : DeliveryMode := .returned
-  listeners : List (FdKey × Int)   -- (key, raw fd) for each active listener
-  /-- Typed endpoint metadata for active listeners. Kept separate from the legacy
-  raw-fd list until RFC 070's checked listener lifecycle replaces it. -/
-  listenerEndpoints : List (ListenerKey × BindEndpoint) := []
+  /-- Active listener identity, native fd, and endpoint as one lifecycle record. -/
+  listeners : List ListenerRecord
   /-- Active connection authority, independent of an optional mailbox task. -/
   connections : List FdKey := []
   /-- Mailbox-mode connection task ownership. Empty in returned mode; used by
@@ -152,6 +150,10 @@ structure EventLoop where
   maxConnections : Option Nat := none
 
 namespace EventLoop
+
+/-- Look up the consolidated record for an active listener key. -/
+def listener? (loop : EventLoop) (key : ListenerKey) : Option ListenerRecord :=
+  loop.listeners.find? (·.key == key)
 
 /-- Resolve model authority and native fd representation before an effect. -/
 private def resolveEffect (loop : EventLoop) (key : FdKey)
@@ -280,25 +282,24 @@ def createMailbox (config : DriverConfig := {}) : IO (Option EventLoop) :=
 /-- Close the epoll handle and free all resources. -/
 def destroy (loop : EventLoop) : IO Unit := do
   -- Close all tracked listener fds
-  for (_, lfd) in loop.listeners do
-    Socket.closeFdRaw (fd32 lfd)
+  for listener in loop.listeners do
+    Socket.closeFdRaw (fd32 listener.key.raw)
   Epoll.close (fd32 loop.ph.epfd)
 
 /-- Add an address-aware IPv4 listener and return its generation-safe identity. -/
 def addListenerAt (loop : EventLoop) (endpoint : BindEndpoint) :
     IO (Except ListenerError (EventLoop × ListenerKey)) := do
   if endpoint.port == 0 then return .error .invalidEndpoint
-  if loop.listenerEndpoints.any (fun item => item.2 == endpoint) then
+  if loop.listeners.any (fun listener => listener.endpoint == endpoint) then
     return .error .duplicateEndpoint
   match ← setupListenerAt loop.nds loop.rt loop.ph endpoint loop.nds.nextActorId with
   | .error e => return .error e
-  | .ok (nds, rt, key, lfd) =>
+  | .ok (nds, rt, key, _lfd) =>
       let (nds, _) := nds.freshActorId
       return .ok ({ loop with
         nds
         rt
-        listeners := (key, lfd) :: loop.listeners
-        listenerEndpoints := (key, endpoint) :: loop.listenerEndpoints }, key)
+        listeners := { key, endpoint } :: loop.listeners }, key)
 
 /-- Compatibility wrapper: add a loopback listener and report success as `Bool`.
 New consumers use `addListenerAt` and retain the returned `ListenerKey`. -/
@@ -366,8 +367,9 @@ def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
   -- Track the running connection count so the cap is enforced across this
   -- step's accept burst, not just against the count at step entry.
   let mut liveCount := loop.connectionCount
-  for (listener, lfd) in loop.listeners do
-    let (nds1, rt1, accepted) ← acceptBurst nds rt loop.ph lfd loop.deliveryMode
+  for listener in loop.listeners do
+    let (nds1, rt1, accepted) ←
+      acceptBurst nds rt loop.ph listener.key.raw loop.deliveryMode
     nds := nds1; rt := rt1
     for (key, _, task) in accepted do
       let overCap := match loop.maxConnections with
@@ -383,7 +385,7 @@ def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
         | some task => rt := (Henret.step rt (.cancel task)).1
         | none => pure ()
       else
-        newConns := newConns ++ [.newConnection listener key]
+        newConns := newConns ++ [.newConnection listener.key key]
         newKeys := key :: newKeys
         match task with
         | some task => newTasks := (key, task) :: newTasks
@@ -508,11 +510,11 @@ close the poller handle. This is the clean lifecycle end that replaces the
 bounded-iteration loop the examples use for testability. -/
 def shutdown (loop : EventLoop) : IO EventLoop := do
   -- 1. Stop accepting: deregister + close listeners.
-  for (_, lfd) in loop.listeners do
-    let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 lfd)
-    Socket.closeFdRaw (fd32 lfd)
+  for listener in loop.listeners do
+    let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 listener.key.raw)
+    Socket.closeFdRaw (fd32 listener.key.raw)
   -- 2. Drain active stream connections.
-  let mut l := { loop with listeners := [], listenerEndpoints := [] }
+  let mut l := { loop with listeners := [] }
   let activeKeys := loop.connections
   for key in activeKeys do
     l ← EffectError.orThrow (← l.closeConnection key)

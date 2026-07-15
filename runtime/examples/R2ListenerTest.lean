@@ -69,7 +69,8 @@ def main : IO Unit := do
   ensure "loopback listener publishes current listener authority"
     (isCurrentListener loop1 key1)
   ensure "loopback endpoint metadata is keyed by ListenerKey"
-    (loop1.listenerEndpoints.contains (key1, endpoint1))
+    (loop1.listeners.any fun listener =>
+      listener.key == key1 && listener.endpoint == endpoint1)
 
   -- FI-ACC-001: accepted-fd registration is the native commit point. Force it
   -- to fail and verify that the candidate is closed once without publishing
@@ -102,8 +103,7 @@ def main : IO Unit := do
   ensure "exact duplicate endpoint is rejected before native publication"
     (match duplicate with | .error .duplicateEndpoint => true | _ => false)
   ensure "duplicate rejection leaves listener and generation state unchanged"
-    (loop1.listeners.length == 1 && loop1.listenerEndpoints.length == 1 &&
-      loop1.nds.ds.registry.nextGen == genBeforeDuplicate)
+    (loop1.listeners.length == 1 && loop1.nds.ds.registry.nextGen == genBeforeDuplicate)
 
   let some conflictingLoop ← EventLoop.create
     | throw <| IO.userError "second epoll create failed"
@@ -113,8 +113,7 @@ def main : IO Unit := do
       | .error (.transitionError (.bindFailed .addressInUse)) => true
       | _ => false)
   ensure "bind failure publishes no listener or generation"
-    (conflictingLoop.listeners.isEmpty && conflictingLoop.listenerEndpoints.isEmpty &&
-      conflictingLoop.nds.ds.registry.nextGen == 0)
+    (conflictingLoop.listeners.isEmpty && conflictingLoop.nds.ds.registry.nextGen == 0)
   conflictingLoop.destroy
 
   let endpoint2 := BindEndpoint.wildcard 49771
@@ -125,7 +124,7 @@ def main : IO Unit := do
   let (loop3, key3) ← requireListener (← loop2.addListenerAt endpoint3)
   ensure "specified local IPv4 listener succeeds" (isCurrentListener loop3 key3)
   ensure "three distinct endpoints are tracked"
-    (loop3.listeners.length == 3 && loop3.listenerEndpoints.length == 3)
+    (loop3.listeners.length == 3)
   let runtimeTaskIdBeforeAccept := loop3.rt.nextId
   let firstConnectionActor := loop3.nds.nextActorId
 
@@ -195,11 +194,11 @@ def main : IO Unit := do
   let (loop4, compatibilityOk) ← loop3.addListener 49773
   ensure "port-only compatibility wrapper still binds loopback" compatibilityOk
   ensure "compatibility listener also records typed endpoint metadata"
-    (loop4.listenerEndpoints.any (fun item => item.2 == .loopback 49773))
+    (loop4.listeners.any (fun listener => listener.endpoint == .loopback 49773))
 
   let drained ← loop4.shutdown
   ensure "shutdown clears listener fd and endpoint metadata"
-    (drained.listeners.isEmpty && drained.listenerEndpoints.isEmpty)
+    drained.listeners.isEmpty
 
   let (rebound, _) ← requireListener (← drained.addListenerAt endpoint1)
   ensure "closed endpoint can bind again without stale duplicate state" true

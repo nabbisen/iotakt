@@ -49,6 +49,13 @@ end BindEndpoint
 /-- Listener identity reuses the model's generation-safe fd authority. -/
 abbrev ListenerKey := FdKey
 
+/-- Consolidated active-listener state. `key.raw` is the native fd, so the record
+stores it once as part of generation-safe identity alongside endpoint metadata. -/
+structure ListenerRecord where
+  key : ListenerKey
+  endpoint : BindEndpoint
+  deriving DecidableEq, Repr
+
 /-- Native phase that failed before a listener could be published. -/
 inductive ListenerTransitionError where
   | socketFailed (errno : IoErrno)
