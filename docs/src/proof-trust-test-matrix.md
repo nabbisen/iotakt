@@ -115,6 +115,7 @@ Linux epoll backend and real Henret.
 | **Request-size limits** (`.tooLarge`); `readFromBuffer` pipelining (no dropped requests) | `v0.10-test` (13) |
 | **Connection limits / load shedding** (cap=1 admits ≤1 of 3 clients); **graceful shutdown** (drains connections + listeners) | `v0.11-test` (18) |
 | **Explicit-ack coalescing** plus checked unknown/forged/invalid-range/wrong-kind/inactive authority and live raw-fd reuse isolation for `enableWrite`, `disableWrite`, `closeConnection`, `recvAck`, and `sendAck` | `v0.13-test` (75; `RFC064-AUTH-MATRIX-001`, `RFC064-FD-REUSE-001`) |
+| An external runtime consumer module can exhaustively handle `EffectError` and compile the exact typed results of all five stable key-effect operations | `check-runtime-typed-surface.sh` (`RFC064-TYPED-SURFACE-001`) |
 | Echo, multi-connection echo, live HTTP server+client, routing/streaming/upload/reference servers | server smoke tests |
 
 ---

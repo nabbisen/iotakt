@@ -147,6 +147,12 @@ call and leaves registry, coalescing, and runtime state unchanged. Examples may
 explicitly convert an error to an `IO` exception with `EffectError.orThrow`;
 library adapters should normally propagate the typed result.
 
+The downstream compile probe `scripts/check-runtime-typed-surface.sh` compiles an
+external consumer module against the runtime package environment, exhaustively
+handles `EffectError`, and pins the exact result type of every stable key-based
+effect operation (`RFC064-TYPED-SURFACE-001`). Clean package-resolution probes remain
+an RFC 069 release-baseline obligation.
+
 ### Internal (settled v0.13 — no stability promise)
 
 | Name | Status |
