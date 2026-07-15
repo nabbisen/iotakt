@@ -61,11 +61,21 @@ The single module a consumer (the future jemmet) imports to get the I/O
 building blocks. **This is not a server** — it re-exports primitives; the
 serve loop and routing policy live in the consumer.
 
-### Stable
+### Stable runtime identities
 
 | Name | Notes |
 |------|-------|
-| `EventLoop`, `LoopEvent` | the driver loop and its event stream |
+| `EventLoop`, `LoopEvent`, `LoopError` | Runtime state, attributed events, and typed fatal-wait result |
+
+### Provisional compatibility surface
+
+The protocol/framing exports below remain available to legacy examples, but the
+approved remediation baseline treats protocol ownership as unresolved. They carry
+no stable native-authority promise and must be moved to a consumer/examples package
+or explicitly accepted with expanded assurance under RFC 069.
+
+| Name | Notes |
+|------|-------|
 | `HttpRequest`, `HttpResponse` | request/response value types |
 | `BodyFraming`, `ReadResult` | body-framing classification and read outcome |
 | `WriteBuffer` | partial-write adapter |
@@ -80,9 +90,9 @@ serve loop and routing policy live in the consumer.
 (jemmet) owns dispatch. The `Iotakt.Router` module remains in the repo as an
 **optional convenience** — the same status as `Iotakt.Http`: a reusable
 primitive, imported directly by code that wants it, carrying **no stability
-promise**. The reference server and routing-server examples import it
-directly. The stable handoff surface now offers I/O + framing primitives
-only.
+promise**. The reference server and routing-server examples import it directly. The
+stable handoff commitment is currently limited to the runtime identities and the
+checked `EventLoop` operations listed below.
 
 ---
 
@@ -90,14 +100,31 @@ only.
 
 ### Stable
 
-`create`, `destroy`, `addListener`, `runStep`, `runStepAuto`,
-`closeConnection`, `enableWrite`/`disableWrite`, `connectTo`,
-`withIdleTimeout`, `withMaxConnections`, `connectionCount`, `atCapacity`,
-`shutdown`.
+Native-effecting operations: `create`, `addListenerAt`, `addListener`, `runStep`,
+`runStepAuto`, `closeConnection`, `enableWrite`/`disableWrite`, `recvAck`, and
+`sendAck`.
 
-These are the connection-lifecycle and resource-control entry points; their
-authority contract is settled by RFC 064 and exercised by the integration
-tests. Every stable operation that accepts an `FdKey` resolves the current live
+The repository-derived classification and evidence bindings are verified from
+[`native-effect-inventory.tsv`](./native-effect-inventory.tsv).
+
+<!-- native-effect-stable: indirect::EventLoop.create -->
+<!-- native-effect-stable: indirect::EventLoop.addListenerAt -->
+<!-- native-effect-stable: indirect::EventLoop.addListener -->
+<!-- native-effect-stable: indirect::EventLoop.runStep -->
+<!-- native-effect-stable: indirect::EventLoop.runStepAuto -->
+<!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::closeConnection -->
+<!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::enableWrite -->
+<!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::disableWrite -->
+<!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::recvAck -->
+<!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::sendAck -->
+
+Pure/configuration operations `withIdleTimeout`, `withMaxConnections`,
+`connectionCount`, `atCapacity`, and `ackReady` remain stable but cause no native fd
+effect and therefore do not appear in RFC 064's effect inventory.
+
+These are the checked connection-authority and resource-control entry points. RFC
+064 remains Proposed until its complete inventory and acceptance evidence are
+reviewed. Every stable operation that accepts an `FdKey` resolves the current live
 registry entry and validates the native fd representation before making a
 native call.
 
@@ -124,8 +151,11 @@ library adapters should normally propagate the typed result.
 
 | Name | Status |
 |------|--------|
-| `recordTask`/`forgetTask`/`taskOf`/`taskByKey` | **Internal.** The Gap-006 cancel-on-close path is final; this bookkeeping backs it and is non-`private` only so the integration tests can inspect it. Consumers use `closeConnection`/`connectionCount`/`shutdown`. |
+| `recordTask`/`forgetTask`/`taskOf`/`taskByKey` | **Internal.** This bookkeeping is non-`private` only so integration tests can inspect it. Consumers use `closeConnection` and `connectionCount`. |
 | `reapIdle`, `pollTimeoutMs`, `touchConn` | **Internal.** Adaptive-timeout / idle-reaping internals; inspectable in tests, not a committed API. |
+| `createMailbox`, `createWithMode`, `runStepWith` | **Internal.** Explicit mailbox and injected-operation seams used by integration tests. |
+| `connectTo` | **Internal during remediation.** Its registration transition is not failure-atomic yet. |
+| `shutdown`, `destroy` | **Internal during remediation.** RFC 070 checked listener close and drained-only finalization are not implemented yet. |
 
 ### `recvAck` / `sendAck` (added v0.13) — Stable
 

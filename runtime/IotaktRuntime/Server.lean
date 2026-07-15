@@ -40,9 +40,10 @@ boundary, jemmet is the HTTP server. `IotaktRuntime.Server` is where they meet.
 
 ## Stability
 
-Everything re-exported here is part of the v0.x public surface. Routing
-(`IotaktRuntime.Router`) is deliberately excluded — see `docs/src/api-stability.md`.
-The consumer contract is in `docs/src/jemmet-handoff.md`.
+Only `EventLoop`, `LoopEvent`, and `LoopError` are stable runtime identities during
+the RFC 064–070 remediation train. Protocol/framing re-exports remain provisional
+compatibility conveniences pending RFC 069's ownership decision. See
+`docs/src/api-stability.md`; no runtime adoption recommendation is currently active.
 
 ## Minimal jemmet-style server
 

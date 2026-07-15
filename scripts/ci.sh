@@ -21,6 +21,11 @@ require() { if ! command -v "$1" >/dev/null 2>&1; then echo "SKIP: $1 not found"
 step "1. RFC invariant checks"
 sh scripts/check-rfcs.sh && pass "RFC checks" || fail "RFC checks"
 
+step "1a. RFC 064 native-effect inventory"
+python3 scripts/check-native-effect-inventory.py \
+  && pass "native-effect inventory complete" \
+  || fail "native-effect inventory incomplete"
+
 step "2. Pure Lean model + fake poller (no C required)"
 lake build Iotakt && pass "lake build Iotakt (model pkg)" || fail "lake build Iotakt (model pkg)"
 
