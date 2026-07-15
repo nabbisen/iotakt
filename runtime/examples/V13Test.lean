@@ -30,6 +30,10 @@ def isInvalidRaw {α : Type} : Except EffectError α → Bool
   | .error .invalidRawFd => true
   | _ => false
 
+def isInvalidKey {α : Type} : Except EffectError α → Bool
+  | .error .invalidKey => true
+  | _ => false
+
 -- A. Explicit ack via the coalesce model (pure)
 def testCoalesceAck : IO Unit := do
   IO.println "=== A. Coalesce: explicit ack pinned ==="
@@ -150,10 +154,124 @@ def testRecvSendAck : IO Unit := do
     Socket.closeFdRaw (fd32 b)
   loop.destroy
 
+-- C. RFC064-FD-REUSE-001: stale authority must not affect the newer owner.
+def testLiveFdReuseAuthority : IO Unit := do
+  IO.println ""
+  IO.println "=== C. RFC064-FD-REUSE-001: live raw-fd reuse authority ==="
+  let some loop ← EventLoop.create | do IO.println "epoll failed"; return
+
+  let (oldPeer, oldFd) ← Socket.socketpairRaw
+  check "reuse fixture: initial socketpair created" (oldPeer >= 0 && oldFd >= 0)
+  if oldPeer < 0 || oldFd < 0 then do
+    loop.destroy
+    return
+
+  let (oldReg, oldKey) := loop.nds.ds.registry.allocate oldFd 40 .stream
+  let oldReg := oldReg.setInterests oldKey InterestSet.readOnly |>.markActive oldKey
+  let oldRegister ← Epoll.register (fd32 loop.ph.epfd) (fd32 oldFd)
+    (Epoll.interestFlags InterestSet.readOnly)
+  check "reuse fixture: original generation registered" (oldRegister == 0)
+  if oldRegister != 0 then do
+    Socket.closeFdRaw (fd32 oldPeer)
+    Socket.closeFdRaw (fd32 oldFd)
+    loop.destroy
+    return
+
+  let oldLoop := ({ loop with nds := { loop.nds with
+    ds := { loop.nds.ds with registry := oldReg } } }).recordConnection oldKey
+  let closedOld ← EffectError.orThrow (← oldLoop.closeConnection oldKey)
+  check "checked close removes original generation authority"
+    (closedOld.nds.ds.registry.resolveCurrent oldFd == none &&
+      closedOld.connectionCount == 0)
+
+  -- Linux assigns the lowest free descriptor, so keeping oldPeer and the poller
+  -- open makes the first endpoint reuse oldFd deterministically.
+  let (newFd, newPeer) ← Socket.socketpairRaw
+  check "kernel reuses the closed raw fd for a newer owner" (newFd == oldFd)
+  if newFd != oldFd then do
+    Socket.closeFdRaw (fd32 oldPeer)
+    if newFd >= 0 then Socket.closeFdRaw (fd32 newFd)
+    if newPeer >= 0 then Socket.closeFdRaw (fd32 newPeer)
+    closedOld.destroy
+    return
+
+  let (newReg, newKey) := closedOld.nds.ds.registry.allocate newFd 41 .stream
+  let newReg := newReg.setInterests newKey InterestSet.readOnly |>.markActive newKey
+  let newRegister ← Epoll.register (fd32 closedOld.ph.epfd) (fd32 newFd)
+    (Epoll.interestFlags InterestSet.readOnly)
+  check "new generation registers on the reused raw fd"
+    (newRegister == 0 && newKey != oldKey && newKey.raw == oldKey.raw)
+  if newRegister != 0 then do
+    Socket.closeFdRaw (fd32 oldPeer)
+    Socket.closeFdRaw (fd32 newFd)
+    Socket.closeFdRaw (fd32 newPeer)
+    closedOld.destroy
+    return
+
+  let newLoop := ({ closedOld with nds := { closedOld.nds with
+    ds := { closedOld.nds.ds with registry := newReg } } }).recordConnection newKey
+
+  check "reused-fd stale enableWrite is rejected" (isStale (← newLoop.enableWrite oldKey))
+  check "reused-fd stale disableWrite is rejected" (isStale (← newLoop.disableWrite oldKey))
+  check "reused-fd stale close is rejected" (isStale (← newLoop.closeConnection oldKey))
+  check "stale interest/close attempts preserve newer authority and interests"
+    (newLoop.nds.ds.registry.resolveCurrent newFd == some newKey &&
+      (newLoop.nds.ds.registry.lookup newKey).map (·.interests) == some InterestSet.readOnly)
+
+  let inbound := "new-owner".toUTF8
+  let inboundWrite ← Io.send newPeer inbound 0 inbound.size
+  check "new peer queues bytes before stale receive"
+    (match inboundWrite with | .wrote n => n.toNat == inbound.size | _ => false)
+  check "reused-fd stale recvAck is rejected" (isStale (← newLoop.recvAck oldKey 64))
+  let (_, inboundRead) ← EffectError.orThrow (← newLoop.recvAck newKey 64)
+  check "stale recvAck did not consume the newer owner's bytes"
+    (match inboundRead with | .bytes bytes => bytes.toList == inbound.toList | _ => false)
+
+  let outbound := "still-open".toUTF8
+  check "reused-fd stale sendAck is rejected"
+    (isStale (← newLoop.sendAck oldKey outbound 0 outbound.size))
+  let peerBeforeLiveSend ← Io.recv newPeer 64
+  check "stale sendAck emitted no bytes to the newer peer"
+    (match peerBeforeLiveSend with | .wouldBlock => true | _ => false)
+  let (_, outboundWrite) ←
+    EffectError.orThrow (← newLoop.sendAck newKey outbound 0 outbound.size)
+  check "new generation sendAck still writes"
+    (match outboundWrite with | .wrote n => n.toNat == outbound.size | _ => false)
+  let peerAfterLiveSend ← Io.recv newPeer 64
+  check "newer peer receives only the live generation's bytes"
+    (match peerAfterLiveSend with
+      | .bytes bytes => bytes.toList == outbound.toList
+      | _ => false)
+
+  let closedNew ← EffectError.orThrow (← newLoop.closeConnection newKey)
+  check "new generation closes through checked authority"
+    (closedNew.nds.ds.registry.resolveCurrent newFd == none)
+
+  let (thirdFd, thirdPeer) ← Socket.socketpairRaw
+  check "raw fd is reused again after checked close" (thirdFd == newFd)
+  let doubleClose ← closedNew.closeConnection newKey
+  check "double close is visibly rejected before a second native close"
+    (isInvalidKey doubleClose)
+  let survivor := "survivor".toUTF8
+  let survivorWrite ← Io.send thirdPeer survivor 0 survivor.size
+  let survivorRead ← Io.recv thirdFd 64
+  check "double-close rejection leaves the reused OS descriptor open"
+    ((match survivorWrite with | .wrote n => n.toNat == survivor.size | _ => false) &&
+      match survivorRead with
+      | .bytes bytes => bytes.toList == survivor.toList
+      | _ => false)
+
+  Socket.closeFdRaw (fd32 oldPeer)
+  Socket.closeFdRaw (fd32 newPeer)
+  Socket.closeFdRaw (fd32 thirdFd)
+  Socket.closeFdRaw (fd32 thirdPeer)
+  closedNew.destroy
+
 def main : IO Unit := do
   IO.println "iotakt v0.13 integration test (explicit ack + recvAck/sendAck)"
   IO.println ""
   testCoalesceAck
   testRecvSendAck
+  testLiveFdReuseAuthority
   IO.println ""
   IO.println "v0.13 integration test complete"
