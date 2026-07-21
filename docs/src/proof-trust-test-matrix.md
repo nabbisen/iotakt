@@ -15,7 +15,7 @@ scope.
 | **ASSUMED** | Accepted from OS, C compiler, or Lean runtime documentation. |
 | **OUTSCOPE** | Outside iotakt's defined responsibility. |
 
-**Corpus during R2 remediation:** 83 machine-checked theorems/lemmas across `Iotakt/`,
+**Corpus during R2 remediation:** 84 machine-checked theorems/lemmas across `Iotakt/`,
 **no `sorry`, no `admit`, no project `axiom`**. The full proven core builds
 with `lake build Iotakt.Proofs`. The CI gate runs **365 executable checks**
 across the legacy 14 test suites, plus 11 RFC 066 returned-event checks, 36 RFC
@@ -28,13 +28,14 @@ across the legacy 14 test suites, plus 11 RFC 066 returned-event checks, 36 RFC
 All theorems live next to the definitions they constrain; `Iotakt.Proofs`
 re-exports them under one target. Counts below are by source file.
 
-### Registry and generation identity (`Model/Registry.lean`, 14)
+### Registry and generation identity (`Model/Registry.lean`, 15)
 
 | Theorem | Property |
 |---------|----------|
 | `allocate_preserves_wf`, `close_preserves_wf` | the registry well-formedness invariant survives every modeled transition |
 | `allocate_fresh_gen` | a newly allocated `FdKey` gets a strictly fresh generation |
 | `close_not_current`, `double_close_idempotent` | closing is terminal; a closed raw fd no longer resolves to a current key, and double-close is a no-op |
+| `resolveEffectKey_ok` | successful effect authority resolution returns the current stored entry with matching key, live state, and an allowed resource kind; signed-32-bit upper-bound validation remains at the runtime boundary |
 | `translate_no_unknown`, `translateKeyed_stale` | unknown and stale-generation events are dropped before any actor message is constructed |
 | `translate_injectable_owner`, `translate_injectable_live` | every injected event targets the *live* registry owner of the *current* key |
 | `translate_readable_interest`, `translate_writable_interest` | readable/writable events inject only when the matching interest is registered |

@@ -299,6 +299,28 @@ theorem resolveEffectKey_stale {reg : Registry} {key current : FdKey}
     reg.resolveEffectKey key allowedKinds = .error .staleKey := by
   simp [resolveEffectKey, hraw, hcurrent, hne]
 
+/-- Successful effect-key resolution returns exactly the current, stored, live
+entry, and its resource kind is one of those authorized by the caller. Native ABI
+upper-bound validation is deliberately proved/tested at the runtime `checkedFd32`
+layer; the pure model owns the non-negative and registry-authority conditions. -/
+theorem resolveEffectKey_ok {reg : Registry} {key : FdKey}
+    {allowedKinds : List ResourceKind} {entry : RegistryEntry}
+    (h : reg.resolveEffectKey key allowedKinds = .ok entry) :
+    (¬key.raw < 0) ∧
+      reg.resolveCurrent key.raw = some key ∧
+      reg.lookup key = some entry ∧
+      entry.key = key ∧
+      entry.state.isLive = true ∧
+      allowedKinds.contains entry.kind = true := by
+  unfold resolveEffectKey at h
+  split at h <;> simp_all
+  split at h <;> simp_all
+  split at h <;> simp_all
+  split at h <;> simp_all
+  split at h <;> try simp_all
+  split at h <;> try simp_all
+  split at h <;> simp_all
+
 /-- **Fresh allocation is strictly newer.** The key produced by
 `allocate` carries generation `reg.nextGen`, so it differs from every
 key already constrained by `WellFormed` (whose generations are
