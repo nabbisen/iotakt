@@ -31,6 +31,11 @@ bash scripts/check-runtime-typed-surface.sh \
   && pass "runtime typed-effect downstream probe compiles" \
   || fail "runtime typed-effect downstream probe"
 
+step "1c. RFC 064 explicit unsafe runtime boundary"
+bash scripts/check-runtime-unsafe-surface.sh \
+  && pass "runtime unsafe escapes are explicit and legacy names are unavailable" \
+  || fail "runtime explicit unsafe boundary"
+
 step "2. Pure Lean model + fake poller (no C required)"
 lake build Iotakt && pass "lake build Iotakt (model pkg)" || fail "lake build Iotakt (model pkg)"
 

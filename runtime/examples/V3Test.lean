@@ -28,26 +28,26 @@ def testUdp : IO Unit := do
   IO.println "=== RFC 036: UDP datagrams ==="
 
   -- Create two UDP sockets
-  let fd_a ← Socket.socketUdpRaw 1
-  let fd_b ← Socket.socketUdpRaw 1
+  let fd_a ← Unsafe.Socket.socketUdpRaw 1
+  let fd_b ← Unsafe.Socket.socketUdpRaw 1
   check "udp socket A created" (fd_a >= 0)
   check "udp socket B created" (fd_b >= 0)
   if fd_a < 0 || fd_b < 0 then return
 
   -- Bind both to loopback on different ports
-  let r_a ← Socket.bindIPv4Raw (fd32 fd_a) LOOPBACK 59100
-  let r_b ← Socket.bindIPv4Raw (fd32 fd_b) LOOPBACK 59101
+  let r_a ← Unsafe.Socket.bindIPv4Raw (fd32 fd_a) LOOPBACK 59100
+  let r_b ← Unsafe.Socket.bindIPv4Raw (fd32 fd_b) LOOPBACK 59101
   check "bind udp A to :59100" (r_a == 0)
   check "bind udp B to :59101" (r_b == 0)
 
   -- A sends a datagram to B (port 59101)
   let ping : ByteArray := ⟨#[0x70, 0x69, 0x6e, 0x67]⟩  -- "ping"
-  let sr ← Io.sendTo fd_a ping 0 ping.size LOOPBACK 59101
+  let sr ← Unsafe.Io.sendTo fd_a ping 0 ping.size LOOPBACK 59101
   check "sendTo B succeeds"
     (match sr with | .wrote n => n == 4 | _ => false)
 
   -- B receives the datagram
-  let rr ← Io.recvFrom fd_b 64
+  let rr ← Unsafe.Io.recvFrom fd_b 64
   check "recvFrom B gets 'ping'"
     (match rr with | .datagram ba _ => ba.toList == ping.toList | _ => false)
   check "recvFrom B peer addr is 4 bytes (IPv4)"
@@ -55,16 +55,16 @@ def testUdp : IO Unit := do
 
   -- B echoes back to A (port 59100)
   let pong : ByteArray := ⟨#[0x70, 0x6f, 0x6e, 0x67]⟩  -- "pong"
-  let sr2 ← Io.sendTo fd_b pong 0 pong.size LOOPBACK 59100
+  let sr2 ← Unsafe.Io.sendTo fd_b pong 0 pong.size LOOPBACK 59100
   check "sendTo A succeeds"
     (match sr2 with | .wrote n => n == 4 | _ => false)
 
-  let rr2 ← Io.recvFrom fd_a 64
+  let rr2 ← Unsafe.Io.recvFrom fd_a 64
   check "recvFrom A gets 'pong'"
     (match rr2 with | .datagram ba _ => ba.toList == pong.toList | _ => false)
 
-  Socket.closeFdRaw (fd32 fd_a)
-  Socket.closeFdRaw (fd32 fd_b)
+  Unsafe.Socket.closeFdRaw (fd32 fd_a)
+  Unsafe.Socket.closeFdRaw (fd32 fd_b)
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- Scenario B: Outbound TCP connect (RFC 039)
@@ -76,11 +76,11 @@ def testOutboundConnect : IO Unit := do
   let some loop ← EventLoop.create | do IO.println "epoll failed"; return
   let (loop1, ok) ← loop.addListener 49950
   check "listener on :49950" ok
-  if !ok then do loop.destroy; return
+  if !ok then do loop.unsafeDestroy; return
 
   -- Outbound connect to our own listener (loopback)
-  let (loop2, outcome) ← loop1.connectTo LOOPBACK 49950
-  check "connectTo returns inProgress or connected"
+  let (loop2, outcome) ← loop1.unsafeConnectTo LOOPBACK 49950
+  check "unsafeConnectTo returns inProgress or connected"
     (match outcome with | .inProgress _ | .connected _ => true | _ => false)
 
   -- Drain a few driver steps: accept the connection, then check writable
@@ -102,7 +102,7 @@ def testOutboundConnect : IO Unit := do
           match event with
           | .writable =>
               if clientKey == some key && !clientConnected then do
-                let r ← Socket.checkConnect key.raw
+                let r ← Unsafe.Socket.checkConnect key.raw
                 match r with
                 | .connected => clientConnected := true
                 | _ => pure ()
@@ -115,18 +115,18 @@ def testOutboundConnect : IO Unit := do
   -- Send data on the outbound (client) side, receive on the inbound
   if let some cKey := clientKey then do
     let data : ByteArray := ⟨#[0x48, 0x65, 0x6c, 0x6c, 0x6f]⟩  -- "Hello"
-    let _ ← Io.send cKey.raw data 0 data.size
+    let _ ← Unsafe.Io.send cKey.raw data 0 data.size
     -- Give the server side a moment then recv
     let (loop3, _) ← LoopError.orThrow (← loop.runStep 50)
     loop := loop3
     if let some sKey := connKey then do
-      let rr ← Io.recv sKey.raw 64
+      let rr ← Unsafe.Io.recv sKey.raw 64
       check "data received on server side of connect"
         (match rr with | .bytes ba => ba.toList == data.toList | _ => false)
       loop := ← EffectError.orThrow (← loop.closeConnection sKey)
     loop := ← EffectError.orThrow (← loop.closeConnection cKey)
 
-  loop.destroy
+  loop.unsafeDestroy
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- Scenario C: Persistent multi-round connection
@@ -136,7 +136,7 @@ def testPersistentConn : IO Unit := do
   IO.println "=== Persistent connection: multiple recv/send rounds ==="
 
   -- Use a socketpair for deterministic persistent connection test
-  let (fd0, fd1) ← Socket.socketpairRaw
+  let (fd0, fd1) ← Unsafe.Socket.socketpairRaw
   check "socketpair created" (fd0 >= 0 && fd1 >= 0)
   if fd0 < 0 then return
 
@@ -148,15 +148,15 @@ def testPersistentConn : IO Unit := do
   for i in List.range rounds do
     -- "client" writes a message on fd1
     let msg : ByteArray := ⟨#[0x52, (i.toUInt8 + 65)]⟩  -- "R" + letter
-    let _ ← Io.send fd1 msg 0 msg.size
+    let _ ← Unsafe.Io.send fd1 msg 0 msg.size
     -- "server" reads and echoes on fd0
-    let rr ← Io.recv fd0 32
+    let rr ← Unsafe.Io.recv fd0 32
     match rr with
     | .bytes ba =>
         totalSent := totalSent + ba.size
-        let _ ← Io.send fd0 ba 0 ba.size  -- echo
+        let _ ← Unsafe.Io.send fd0 ba 0 ba.size  -- echo
         -- "client" reads the echo
-        let er ← Io.recv fd1 32
+        let er ← Unsafe.Io.recv fd1 32
         match er with
         | .bytes echoBa => totalEchoed := totalEchoed + echoBa.size
         | _ => pure ()
@@ -165,8 +165,8 @@ def testPersistentConn : IO Unit := do
   check s!"persistent connection: {rounds} rounds all completed" (totalSent == rounds * 2)
   check "persistent connection: all bytes echoed back" (totalEchoed == totalSent)
 
-  Socket.closeFdRaw (fd32 fd0)
-  Socket.closeFdRaw (fd32 fd1)
+  Unsafe.Socket.closeFdRaw (fd32 fd0)
+  Unsafe.Socket.closeFdRaw (fd32 fd1)
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- Main

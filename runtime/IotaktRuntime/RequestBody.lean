@@ -22,7 +22,7 @@ fully-assembled `HttpRequest` with `body` populated.
 ## Usage
 
 ```lean
-match ← RequestBody.readFull fd 65536 with
+match ← RequestBody.unsafeReadFull fd 65536 with
 | .request req => ... -- req.body is the reassembled payload
 | .incomplete  => ... -- peer closed early / framing not finished
 | .error e     => ...
@@ -93,7 +93,7 @@ private def readUntilHeaders (fd : Int) (maxPolls maxBytes : Nat) : IO ReadPhase
   for _ in List.range maxPolls do
     if (splitHeaders buf).isSome then return .done buf
     if buf.size > maxBytes then return .tooLarge
-    match ← Io.recv fd 4096 with
+    match ← Unsafe.Io.recv fd 4096 with
     | .bytes ba   => buf := appendBa buf ba
     | .wouldBlock => IO.sleep 10
     | .eof        => return (if (splitHeaders buf).isSome then .done buf else .incomplete)
@@ -107,7 +107,7 @@ private def readContentLength (fd : Int) (have_ : ByteArray) (n : Nat)
   let mut body := have_
   for _ in List.range maxPolls do
     if body.size >= n then return .done (body.extract 0 n)
-    match ← Io.recv fd 4096 with
+    match ← Unsafe.Io.recv fd 4096 with
     | .bytes ba   => body := appendBa body ba
     | .wouldBlock => IO.sleep 10
     | .eof        => return (if body.size >= n then .done (body.extract 0 n) else .incomplete)
@@ -126,7 +126,7 @@ private def readChunked (fd : Int) (have_ : ByteArray) (maxPolls maxBytes : Nat)
   for _ in List.range maxPolls do
     if isComplete raw then return finish raw
     if raw.size > maxBytes then return .tooLarge
-    match ← Io.recv fd 4096 with
+    match ← Unsafe.Io.recv fd 4096 with
     | .bytes ba   => raw := appendBa raw ba
     | .wouldBlock => IO.sleep 10
     | .eof        => return (if isComplete raw then finish raw else .incomplete)
@@ -137,7 +137,7 @@ private def readChunked (fd : Int) (have_ : ByteArray) (maxPolls maxBytes : Nat)
 Content-Length and chunked framing. `maxBytes` bounds the total request
 size (returns `.tooLarge` if exceeded — slow-loris / oversized-body
 protection); `maxPolls` bounds each read phase. -/
-def readFull (fd : Int) (maxBytes : Nat := 65536) (maxPolls : Nat := 50) :
+def unsafeReadFull (fd : Int) (maxBytes : Nat := 65536) (maxPolls : Nat := 50) :
     IO ReadResult := do
   match ← readUntilHeaders fd maxPolls maxBytes with
   | .incomplete => return .incomplete
@@ -182,7 +182,7 @@ private def chunkedBodyLen (body : ByteArray) : Option Nat :=
 the request plus any bytes that belong to the *next* request. This is what
 makes HTTP/1.1 request pipelining correct — no bytes are dropped between
 successive requests on one connection. -/
-partial def readFromBuffer (fd : Int) (initial : ByteArray)
+partial def unsafeReadFromBuffer (fd : Int) (initial : ByteArray)
     (maxBytes : Nat := 65536) (maxPolls : Nat := 50) :
     IO (ReadResult × ByteArray) := do
   -- Phase 1: accumulate until the header terminator is present.
@@ -193,7 +193,7 @@ partial def readFromBuffer (fd : Int) (initial : ByteArray)
   while he.isNone && !stop && polls < maxPolls do
     polls := polls + 1
     if buf.size > maxBytes then return (.tooLarge, ByteArray.empty)
-    match ← Io.recv fd 4096 with
+    match ← Unsafe.Io.recv fd 4096 with
     | .bytes ba   => buf := appendBa buf ba; he := findHeaderEnd buf
     | .wouldBlock => IO.sleep 10
     | .eof        => stop := true
@@ -218,7 +218,7 @@ partial def readFromBuffer (fd : Int) (initial : ByteArray)
               while b.size < headerEnd + n && !s && p < maxPolls do
                 p := p + 1
                 if b.size > maxBytes then return (.tooLarge, ByteArray.empty)
-                match ← Io.recv fd 4096 with
+                match ← Unsafe.Io.recv fd 4096 with
                 | .bytes ba   => b := appendBa b ba
                 | .wouldBlock => IO.sleep 10
                 | .eof        => s := true
@@ -238,7 +238,7 @@ partial def readFromBuffer (fd : Int) (initial : ByteArray)
               while !bodyDone b && !s && p < maxPolls do
                 p := p + 1
                 if b.size > maxBytes then return (.tooLarge, ByteArray.empty)
-                match ← Io.recv fd 4096 with
+                match ← Unsafe.Io.recv fd 4096 with
                 | .bytes ba   => b := appendBa b ba
                 | .wouldBlock => IO.sleep 10
                 | .eof        => s := true

@@ -35,7 +35,7 @@ def readExact (fd : Int) (n : Nat) : IO Bool := do
   let mut buf := ByteArray.empty
   for _ in List.range 200 do
     if buf.size >= n then break
-    match ← Io.recv fd (n - buf.size) with
+    match ← Unsafe.Io.recv fd (n - buf.size) with
     | .bytes ba => buf := appendBa buf ba
     | .wouldBlock => IO.sleep 1
     | .eof => return false
@@ -49,7 +49,7 @@ In the socketpair benchmark both sides run in the same thread. -/
 def benchRoundTrip (clientFd serverFd : Int) (respSize : Nat) : IO Bool := do
   -- Client sends request
   let req := "GET /bench HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".toUTF8
-  let (_, sent) ← (WriteBuffer.empty.push req).flushAll clientFd
+  let (_, sent) ← (WriteBuffer.empty.push req).unsafeFlushAll clientFd
   if !sent then return false
 
   -- Server reads request (64 bytes exactly)
@@ -58,7 +58,7 @@ def benchRoundTrip (clientFd serverFd : Int) (respSize : Nat) : IO Bool := do
 
   -- Server sends response
   let resp := (HttpResponse.okKeepAlive "pong").toBytes
-  let (_, sent2) ← (WriteBuffer.empty.push resp).flushAll serverFd
+  let (_, sent2) ← (WriteBuffer.empty.push resp).unsafeFlushAll serverFd
   if !sent2 then return false
 
   -- Client reads response
@@ -69,7 +69,7 @@ def main : IO Unit := do
   IO.println s!"  N = {benchN} request/response round-trips via Unix socketpair"
   IO.println ""
 
-  let (clientFd, serverFd) ← Socket.socketpairRaw
+  let (clientFd, serverFd) ← Unsafe.Socket.socketpairRaw
   check "socketpair created" (clientFd >= 0)
   if clientFd < 0 then return
 
@@ -88,15 +88,15 @@ def main : IO Unit := do
     let _ ← benchRoundTrip clientFd serverFd respSize
 
   -- Timed benchmark
-  let t0 ← Io.monoNs
+  let t0 ← Unsafe.Io.monoNs
   let mut ok := 0
   for _ in List.range benchN do
     if ← benchRoundTrip clientFd serverFd respSize then
       ok := ok + 1
-  let t1 ← Io.monoNs
+  let t1 ← Unsafe.Io.monoNs
 
-  Socket.closeFdRaw clientFd.toInt32
-  Socket.closeFdRaw serverFd.toInt32
+  Unsafe.Socket.closeFdRaw clientFd.toInt32
+  Unsafe.Socket.closeFdRaw serverFd.toInt32
 
   let elapsedNs  := (t1 - t0).toNat
   let elapsedMs  := elapsedNs / 1000000

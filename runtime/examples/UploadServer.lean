@@ -5,7 +5,7 @@ import IotaktRuntime.Server
 
 A jemmet-style server built entirely on the `IotaktRuntime.Server` handoff
 surface. It accepts request bodies in both framings (Content-Length and
-chunked) via `readRequest`, echoes the body size back, and routes with the
+chunked) via `unsafeReadRequest`, echoes the body size back, and routes with the
 `Router`.
 
 ```
@@ -26,19 +26,19 @@ def check (label : String) (ok : Bool) : IO Unit :=
 the received body size, then close. -/
 def handle (loop : EventLoop) (key : FdKey) : IO EventLoop := do
   let fd := key.raw
-  match ← readRequest fd 65536 30 with
+  match ← unsafeReadRequest fd 65536 30 with
   | .request req =>
       let n := req.body.size
       let resp := (HttpResponse.ok s!"received {n} bytes on {req.path}").toBytes
-      let _ ← Io.send fd resp 0 resp.size
+      let _ ← Unsafe.Io.send fd resp 0 resp.size
       EffectError.orThrow (← loop.closeConnection key)
   | .tooLarge =>
       let resp := (HttpResponse.notFound "(request too large)").toBytes
-      let _ ← Io.send fd resp 0 resp.size
+      let _ ← Unsafe.Io.send fd resp 0 resp.size
       EffectError.orThrow (← loop.closeConnection key)
   | .incomplete =>
       let resp := (HttpResponse.notFound "(incomplete request)").toBytes
-      let _ ← Io.send fd resp 0 resp.size
+      let _ ← Unsafe.Io.send fd resp 0 resp.size
       EffectError.orThrow (← loop.closeConnection key)
   | .error _ =>
       EffectError.orThrow (← loop.closeConnection key)
@@ -51,7 +51,7 @@ def main : IO Unit := do
   let some loop ← EventLoop.create { maxReadBytes := 65536 }
     | do IO.println "epoll failed"; return
   let (loop1, ok) ← loop.addListener 49996
-  if !ok then do IO.println "bind failed"; loop.destroy; return
+  if !ok then do IO.println "bind failed"; loop.unsafeDestroy; return
 
   let mut loop := loop1.withIdleTimeout 3000
   let mut handled := 0
@@ -64,7 +64,7 @@ def main : IO Unit := do
       | .newConnection _ key => loop := ← handle loop key; handled := handled + 1
       | _                    => pure ()
 
-  loop.destroy
+  loop.unsafeDestroy
   IO.println s!"Requests handled: {handled}"
   check "upload server: handled requests" (handled >= 0)
   check "upload server: tasks cleaned up" (loop.taskByKey.length == 0)

@@ -46,7 +46,7 @@ def main : IO Unit := do
   let some loop ← EventLoop.create { maxReadBytes := 8192, maxEventsPerPoll := 256 }
     | do IO.println "epoll_create failed"; return
   let (loop1, ok) ← loop.addListener 49995
-  if !ok then do IO.println "bind failed"; loop.destroy; return
+  if !ok then do IO.println "bind failed"; loop.unsafeDestroy; return
 
   let mut loop := loop1
   let mut conns : List ConnS := []
@@ -68,7 +68,7 @@ def main : IO Unit := do
           | some cs =>
               match event with
               | .readable =>
-                  match ← Io.recv key.raw 8192 with
+                  match ← Unsafe.Io.recv key.raw 8192 with
                   | .bytes ba =>
                       let newBuf := appendBa cs.recvBuf ba
                       let (resps, remainder, n) := drainRequests newBuf
@@ -85,7 +85,7 @@ def main : IO Unit := do
                       conns := conns.filter (·.key != key)
                   | _ => pure ()
               | .writable =>
-                  let (wb, done) ← cs.sendBuf.flush key.raw
+                  let (wb, done) ← cs.sendBuf.unsafeFlush key.raw
                   conns := conns.map fun c =>
                     if c.key == key then { c with sendBuf := wb } else c
                   if done then loop := ← EffectError.orThrow (← loop.disableWrite key)
@@ -95,7 +95,7 @@ def main : IO Unit := do
       | .tick _ => pure ()
 
   for cs in conns do loop := ← EffectError.orThrow (← loop.closeConnection cs.key)
-  loop.destroy
+  loop.unsafeDestroy
 
   IO.println s!"Connections:  {totalConns}"
   IO.println s!"Requests:     {totalRequests}"

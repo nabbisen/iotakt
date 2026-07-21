@@ -79,7 +79,7 @@ or explicitly accepted with expanded assurance under RFC 069.
 | `HttpRequest`, `HttpResponse` | request/response value types |
 | `BodyFraming`, `ReadResult` | body-framing classification and read outcome |
 | `WriteBuffer` | partial-write adapter |
-| `readRequest` (`readFull`), `readRequestBuffered` (`readFromBuffer`) | the two read entry points; `readRequestBuffered` is the keep-alive-correct one |
+| `unsafeReadRequest` (`unsafeReadFull`), `unsafeReadRequestBuffered` (`unsafeReadFromBuffer`) | Explicitly unsafe raw-fd compatibility entry points; the buffered form is keep-alive-correct |
 | `bodyFramingOf` | framing classifier |
 | `encodeChunk`, `chunkedTerminator`, `chunkedResponseHeader`, `decodeChunked`, `isChunked` | chunked transfer-encoding (RFC 7230 §4.1) |
 
@@ -153,15 +153,26 @@ handles `EffectError`, and pins the exact result type of every stable key-based
 effect operation (`RFC064-TYPED-SURFACE-001`). Clean package-resolution probes remain
 an RFC 069 release-baseline obligation.
 
-### Internal (settled v0.13 — no stability promise)
+### Explicit unsafe and internal surface (no stability promise)
+
+Lean imports expose declarations from transitive dependencies, so the project does
+not claim that importing `IotaktRuntime.Loop` makes raw implementation declarations
+unresolvable. Instead, every retained downstream-callable escape is enforceably
+marked by an `unsafe` declaration name or the `IotaktRuntime.Native.Unsafe`
+namespace; genuinely hidden helpers are `private`. The inventory checker rejects
+unmarked non-private `unsafe-internal` rows, while
+`scripts/check-runtime-unsafe-surface.sh` proves the former unmarked names no longer
+compile (`RFC064-UNSAFE-SURFACE-001`). These names are outside the checked stable API
+and its proof claim.
 
 | Name | Status |
 |------|--------|
 | `recordTask`/`forgetTask`/`taskOf`/`taskByKey` | **Internal.** This bookkeeping is non-`private` only so integration tests can inspect it. Consumers use `closeConnection` and `connectionCount`. |
 | `reapIdle`, `pollTimeoutMs`, `touchConn` | **Internal.** Adaptive-timeout / idle-reaping internals; inspectable in tests, not a committed API. |
-| `createMailbox`, `createWithMode`, `runStepWith` | **Internal.** Explicit mailbox and injected-operation seams used by integration tests. |
-| `connectTo` | **Internal during remediation.** Its registration transition is not failure-atomic yet. |
-| `shutdown`, `destroy` | **Internal during remediation.** RFC 070 checked listener close and drained-only finalization are not implemented yet. |
+| `unsafeCreateMailbox`, `unsafeCreateWithMode`, `unsafeRunStepWith` | **Explicit unsafe/internal.** Mailbox and injected-operation seams used by integration tests. |
+| `unsafeConnectTo` | **Explicit unsafe/internal during remediation.** Its registration transition is not failure-atomic yet. |
+| `unsafeShutdown`, `unsafeDestroy` | **Explicit unsafe/internal during remediation.** RFC 070 checked listener close and drained-only finalization are not implemented yet. |
+| `IotaktRuntime.Native.Unsafe.*` | **Raw native escape hatch.** Never part of checked `FdKey` authority; intended only for runtime implementation and native conformance tests. |
 
 ### `recvAck` / `sendAck` (added v0.13) — Stable
 

@@ -4,7 +4,7 @@ import IotaktRuntime.Http
 /-!
 # iotakt HTTP/1.0 client
 
-Demonstrates outbound TCP connect via `EventLoop.connectTo` followed by
+Demonstrates outbound TCP connect via `EventLoop.unsafeConnectTo` followed by
 an HTTP/1.0 GET request using `WriteBuffer` for correct write handling.
 
 Intended to be run against `iotakt-http-server` on port 49990:
@@ -29,11 +29,11 @@ def main : IO Unit := do
     | do IO.println "epoll_create failed"; return
 
   -- Initiate outbound connect to :49990
-  let (loop1, outcome) ← loop.connectTo LOOPBACK 49990
+  let (loop1, outcome) ← loop.unsafeConnectTo LOOPBACK 49990
   let clientKey ← match outcome with
     | .failed msg => do
         IO.println s!"connect failed: {msg}"
-        loop.destroy; return
+        loop.unsafeDestroy; return
     | .connected k  => pure k
     | .inProgress k => pure k
 
@@ -55,18 +55,18 @@ def main : IO Unit := do
             match event with
             | .writable =>
                 if !connected then
-                  match ← Socket.checkConnect key.raw with
+                  match ← Unsafe.Socket.checkConnect key.raw with
                   | .connected => connected := true
                   | _          => done := true
                 if connected && !requestSent then
                   let req := HttpRequest.get "127.0.0.1:49990" "/hello/iotakt"
                   let wb  := WriteBuffer.empty.push req
-                  let (_, _) ← wb.flushAll key.raw
+                  let (_, _) ← wb.unsafeFlushAll key.raw
                   requestSent := true
                   -- disable write interest; wait for readable
                   loop := ← EffectError.orThrow (← loop.disableWrite key)
             | .readable =>
-                let resp ← HttpResponse.readAll key.raw
+                let resp ← HttpResponse.unsafeReadAll key.raw
                 responseBytes := resp
                 done := true
             | .eof | .hangup => done := true
@@ -75,7 +75,7 @@ def main : IO Unit := do
       | .tick _ => pure ()
 
   loop := ← EffectError.orThrow (← loop.closeConnection clientKey)
-  loop.destroy
+  loop.unsafeDestroy
 
   -- Validate response
   IO.println ""

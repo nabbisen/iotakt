@@ -54,7 +54,7 @@ private def payloadTooLarge : HttpResponse :=
                 ("Content-Length", toString "too large".toUTF8.size),
                 ("Connection", "close")] }
 
-/-- Keep-alive serve loop — consumer code built on `readRequestBuffered`.
+/-- Keep-alive serve loop — consumer code built on `unsafeReadRequestBuffered`.
 Carries leftover bytes across pipelined requests. -/
 private def serveConnection (fd : Int) : IO Nat := do
   let mut served := 0
@@ -63,7 +63,7 @@ private def serveConnection (fd : Int) : IO Nat := do
   for _ in List.range 100 do
     if !keepGoing then pure ()
     else
-      let (result, rest) ← readRequestBuffered fd leftover maxBytes 30
+      let (result, rest) ← unsafeReadRequestBuffered fd leftover maxBytes 30
       leftover := rest
       match result with
       | .request req =>
@@ -74,12 +74,12 @@ private def serveConnection (fd : Int) : IO Nat := do
                         ++ [("Connection", connVal)]
           let resp := { baseResp with headers := hdrs }
           let bytes := resp.toBytes
-          let _ ← Io.send fd bytes 0 bytes.size
+          let _ ← Unsafe.Io.send fd bytes 0 bytes.size
           served := served + 1
           keepGoing := alive
       | .tooLarge =>
           let bytes := payloadTooLarge.toBytes
-          let _ ← Io.send fd bytes 0 bytes.size
+          let _ ← Unsafe.Io.send fd bytes 0 bytes.size
           keepGoing := false
       | _ => keepGoing := false
   return served
@@ -92,7 +92,7 @@ def main : IO Unit := do
   let some loop ← EventLoop.create { maxReadBytes := maxBytes }
     | do IO.println "epoll_create failed"; return
   let (loop1, ok) ← loop.addListener 49997
-  if !ok then do IO.println "bind failed"; loop.destroy; return
+  if !ok then do IO.println "bind failed"; loop.unsafeDestroy; return
 
   let mut loop := loop1.withIdleTimeout 3000
   let mut total := 0
@@ -105,7 +105,7 @@ def main : IO Unit := do
           total := total + (← serveConnection key.raw)
           loop ← EffectError.orThrow (← loop.closeConnection key)
       | _ => pure ()
-  loop.destroy
+  loop.unsafeDestroy
 
   IO.println s!"Total requests served: {total}"
   check "reference server: served requests" (total >= 0)

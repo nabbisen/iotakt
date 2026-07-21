@@ -49,12 +49,12 @@ def waitForReadable
     if found then pure ()
     else do
       -- Use a real 200ms blocking epoll_wait so we don't spin before
-      -- the client sends data. nativeStep would use computeTimeout which
+      -- the client sends data. unsafeNativeStep would use computeTimeout which
       -- returns 0 (non-blocking) whenever readyQ is non-empty.
-      let (waitStatus, evtBytes) ← Epoll.wait (fd32 ph.epfd) 64 200
+      let (waitStatus, evtBytes) ← Unsafe.Epoll.wait (fd32 ph.epfd) 64 200
       let _ := step  -- suppress unused variable warning
       if waitStatus > 0 then do
-        let rawEvts := Epoll.parseEvents evtBytes
+        let rawEvts := Unsafe.Epoll.parseEvents evtBytes
         let (ds1, rt1, _) := processEvents nds.ds rt rawEvts
         nds := { nds with ds := ds1 }; rt := rt1
       -- Check if the target actor's mailbox has a message
@@ -72,7 +72,7 @@ def main : IO Unit := do
   IO.println "Binding to 127.0.0.1:49900 ..."
 
   -- ── 0. Create epoll ─────────────────────────────────────────────────
-  let epfd_r ← Epoll.create
+  let epfd_r ← Unsafe.Epoll.create
   if epfd_r < 0 then do IO.println s!"epoll_create failed: {-epfd_r}"; return
   let ph : PollerHandle := { epfd := epfd_r }
 
@@ -88,9 +88,9 @@ def main : IO Unit := do
   let rt0  := RuntimeState.init
 
   -- ── 2. Set up TCP listener (actor 0 = listener owner) ───────────────
-  let (nds1, rt1, setupR) ← setupListener nds0 rt0 ph 49900 0
+  let (nds1, rt1, setupR) ← unsafeSetupListener nds0 rt0 ph 49900 0
   match setupR with
-  | .fail msg => IO.println s!"Listener setup failed: {msg}"; Epoll.close (fd32 epfd_r); return
+  | .fail msg => IO.println s!"Listener setup failed: {msg}"; Unsafe.Epoll.close (fd32 epfd_r); return
   | .ok listenerKey listenerFd =>
       IO.println s!"Listener registered (fd={listenerFd}, key={listenerKey.raw}/{listenerKey.gen})"
 
@@ -105,23 +105,23 @@ def main : IO Unit := do
       let mut connAccepted := false
 
       -- Use a blocking-capable loop: poll epoll with 200ms timeout per step.
-      -- We bypass nativeStep here to avoid the computeTimeout issue (readyQ
+      -- We bypass unsafeNativeStep here to avoid the computeTimeout issue (readyQ
       -- has the just-spawned listener task, causing computeTimeout to return 0
       -- which would make all 30 iterations complete before nc connects).
       for _ in List.range 30 do  -- up to 30 × 200ms = 6 seconds
         if connAccepted then pure ()
         else do
           -- Block up to 200ms for a connection event on the listener
-          let (ws, evtBytes) ← Epoll.wait (fd32 ph.epfd) 64 200
+          let (ws, evtBytes) ← Unsafe.Epoll.wait (fd32 ph.epfd) 64 200
           if ws > 0 then do
-            let rawEvts := Epoll.parseEvents evtBytes
+            let rawEvts := Unsafe.Epoll.parseEvents evtBytes
             let (ds1, rt1, _) := processEvents nds.ds rt rawEvts
             nds := { nds with ds := ds1 }; rt := rt1
           -- Always try to accept (in case events arrived)
           match nds.ds.registry.resolveCurrent listenerFd with
           | none => pure ()
           | some _ =>
-              let (nds2, rt2, accepted) ← acceptBurst nds rt ph listenerFd
+              let (nds2, rt2, accepted) ← unsafeAcceptBurst nds rt ph listenerFd
               nds := nds2; rt := rt2
               match accepted with
               | [] => pure ()
@@ -151,14 +151,14 @@ def main : IO Unit := do
                         IO.println s!"Actor received readiness: {recvStatus}"
 
                         -- ── 6. Read bytes via iotakt recv ───────────────────────
-                        let recvResult ← Io.recv streamFd nds.ds.config.maxReadBytes
+                        let recvResult ← Unsafe.Io.recv streamFd nds.ds.config.maxReadBytes
                         match recvResult with
                         | .bytes ba =>
                             let preview := String.fromUTF8? ba |>.getD "(binary data)"
                             IO.println s!"Read {ba.size} bytes: {preview}"
                             check "read at least 1 byte from client" (ba.size > 0)
                             -- ── 7. Echo back ────────────────────────────────────
-                            let sendResult ← Io.send streamFd ba 0 ba.size
+                            let sendResult ← Unsafe.Io.send streamFd ba 0 ba.size
                             match sendResult with
                             | .wrote n =>
                                 IO.println s!"Echoed {n} bytes back to client"
@@ -181,7 +181,7 @@ def main : IO Unit := do
                             IO.println s!"recv error: {repr e}"
 
                       -- ── 8. Close the connection ─────────────────────────────
-                      Socket.closeFdRaw (fd32 streamFd)
+                      Unsafe.Socket.closeFdRaw (fd32 streamFd)
                       IO.println s!"Connection closed"
                       connAccepted := true
 
@@ -192,6 +192,6 @@ def main : IO Unit := do
         IO.println "RFC §21.4 criterion: accept connections + read + write through Henret ✓"
 
       -- ── 9. Cleanup ───────────────────────────────────────────────────
-      Socket.closeFdRaw (fd32 listenerFd)
-      Epoll.close (fd32 epfd_r)
+      Unsafe.Socket.closeFdRaw (fd32 listenerFd)
+      Unsafe.Epoll.close (fd32 epfd_r)
       IO.println "echo server done"

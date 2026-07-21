@@ -8,9 +8,9 @@ iotakt-owned stabilization features (RFC 037, RFC 030):
 
 * **Connection limits** — `withMaxConnections`, `connectionCount`,
   `atCapacity`; accepts past the cap are shed in `runStep`.
-* **Graceful shutdown** — `shutdown` deregisters/closes listeners and drains
+* **Graceful unsafeShutdown** — `unsafeShutdown` deregisters/closes listeners and drains
   active connections (cancelling their Henret tasks), leaving the poller for
-  `destroy`.
+  `unsafeDestroy`.
 -/
 
 open IotaktRuntime.Loop IotaktRuntime.Native Iotakt.Model
@@ -42,7 +42,7 @@ def testCapacityBookkeeping : IO Unit := do
   check "after one close: connectionCount = 1" (loop3.connectionCount == 1)
   check "back under cap: atCapacity = false" (!loop3.atCapacity)
 
-  loop.destroy
+  loop.unsafeDestroy
 
 -- B. Live connection-cap enforcement (load shedding)
 def testCapEnforcement : IO Unit := do
@@ -52,7 +52,7 @@ def testCapEnforcement : IO Unit := do
   let port : UInt16 := 49998
   let (loop1, ok) ← loop.addListener port
   check "listener bound" ok
-  if !ok then do loop.destroy; return
+  if !ok then do loop.unsafeDestroy; return
 
   -- Cap at 1 connection
   let loop2 := loop1.withMaxConnections 1
@@ -61,9 +61,9 @@ def testCapEnforcement : IO Unit := do
   -- Open three client connections to the listener (create socket, then connect)
   let mut clients : List Int := []
   for _ in List.range 3 do
-    let cfd ← Socket.socketTcpRaw 1
+    let cfd ← Unsafe.Socket.socketTcpRaw 1
     if cfd >= 0 then do
-      let _ ← Socket.connectIPv4 cfd LOOPBACK port
+      let _ ← Unsafe.Socket.connectIPv4 cfd LOOPBACK port
       clients := cfd :: clients
   -- Give the kernel a moment to complete the connects
   IO.sleep 50
@@ -75,61 +75,61 @@ def testCapEnforcement : IO Unit := do
   check "loop connectionCount respects cap (<= 1)" (loop3.connectionCount <= 1)
 
   -- Clean up clients
-  for fd in clients do Socket.closeFdRaw (Int32.mk fd.toNat.toUInt32)
-  loop3.destroy
+  for fd in clients do Unsafe.Socket.closeFdRaw (Int32.mk fd.toNat.toUInt32)
+  loop3.unsafeDestroy
 
--- C. Graceful shutdown
+-- C. Graceful unsafeShutdown
 def testShutdown : IO Unit := do
   IO.println ""
-  IO.println "=== C. Graceful shutdown ==="
+  IO.println "=== C. Graceful unsafeShutdown ==="
   let some loop ← EventLoop.create | do IO.println "epoll failed"; return
   let (loop1, ok) ← loop.addListener 49999
-  check "listener bound for shutdown test" ok
-  if !ok then do loop.destroy; return
+  check "listener bound for unsafeShutdown test" ok
+  if !ok then do loop.unsafeDestroy; return
 
-  -- Register real socketpair endpoints so shutdown exercises RFC 064's checked
+  -- Register real socketpair endpoints so unsafeShutdown exercises RFC 064's checked
   -- connection authority and native deregister/close path.
-  let (peer1, fd1) ← Socket.socketpairRaw
-  let (peer2, fd2) ← Socket.socketpairRaw
+  let (peer1, fd1) ← Unsafe.Socket.socketpairRaw
+  let (peer2, fd2) ← Unsafe.Socket.socketpairRaw
   if peer1 < 0 || peer2 < 0 then do
-    check "socketpairs for shutdown test" false
-    loop1.destroy
+    check "socketpairs for unsafeShutdown test" false
+    loop1.unsafeDestroy
     return
   let (reg1, k1) := loop1.nds.ds.registry.allocate fd1 20 .stream
   let reg1 := reg1.setInterests k1 InterestSet.readOnly |>.markActive k1
   let (reg2, k2) := reg1.allocate fd2 21 .stream
   let reg2 := reg2.setInterests k2 InterestSet.readOnly |>.markActive k2
-  let ep1 ← Epoll.register (fd32 loop1.ph.epfd) (fd32 fd1)
-    (Epoll.interestFlags InterestSet.readOnly)
-  let ep2 ← Epoll.register (fd32 loop1.ph.epfd) (fd32 fd2)
-    (Epoll.interestFlags InterestSet.readOnly)
-  check "socketpairs registered for shutdown test" (ep1 == 0 && ep2 == 0)
+  let ep1 ← Unsafe.Epoll.register (fd32 loop1.ph.epfd) (fd32 fd1)
+    (Unsafe.Epoll.interestFlags InterestSet.readOnly)
+  let ep2 ← Unsafe.Epoll.register (fd32 loop1.ph.epfd) (fd32 fd2)
+    (Unsafe.Epoll.interestFlags InterestSet.readOnly)
+  check "socketpairs registered for unsafeShutdown test" (ep1 == 0 && ep2 == 0)
   if ep1 != 0 || ep2 != 0 then do
-    Socket.closeFdRaw (fd32 peer1)
-    Socket.closeFdRaw (fd32 fd1)
-    Socket.closeFdRaw (fd32 peer2)
-    Socket.closeFdRaw (fd32 fd2)
-    loop1.destroy
+    Unsafe.Socket.closeFdRaw (fd32 peer1)
+    Unsafe.Socket.closeFdRaw (fd32 fd1)
+    Unsafe.Socket.closeFdRaw (fd32 peer2)
+    Unsafe.Socket.closeFdRaw (fd32 fd2)
+    loop1.unsafeDestroy
     return
   let loop1 := { loop1 with nds := { loop1.nds with
     ds := { loop1.nds.ds with registry := reg2 } } }
   let loop2 := (loop1.recordTask k1 20).recordTask k2 21
-  check "before shutdown: 1 listener tracked" (loop2.listeners.length == 1)
-  check "before shutdown: 2 connections tracked" (loop2.connectionCount == 2)
+  check "before unsafeShutdown: 1 listener tracked" (loop2.listeners.length == 1)
+  check "before unsafeShutdown: 2 connections tracked" (loop2.connectionCount == 2)
 
-  let loop3 ← loop2.shutdown
-  check "after shutdown: no listeners" (loop3.listeners.isEmpty)
-  check "after shutdown: all connections drained" (loop3.connectionCount == 0)
-  check "after shutdown: activity records cleared" (loop3.lastActivityNs.isEmpty)
+  let loop3 ← loop2.unsafeShutdown
+  check "after unsafeShutdown: no listeners" (loop3.listeners.isEmpty)
+  check "after unsafeShutdown: all connections drained" (loop3.connectionCount == 0)
+  check "after unsafeShutdown: activity records cleared" (loop3.lastActivityNs.isEmpty)
 
-  -- destroy finalizes the poller (no crash)
-  loop3.destroy
-  Socket.closeFdRaw (fd32 peer1)
-  Socket.closeFdRaw (fd32 peer2)
-  check "destroy after shutdown completes cleanly" true
+  -- unsafeDestroy finalizes the poller (no crash)
+  loop3.unsafeDestroy
+  Unsafe.Socket.closeFdRaw (fd32 peer1)
+  Unsafe.Socket.closeFdRaw (fd32 peer2)
+  check "unsafeDestroy after unsafeShutdown completes cleanly" true
 
 def main : IO Unit := do
-  IO.println "iotakt v0.11 integration test (connection limits + graceful shutdown)"
+  IO.println "iotakt v0.11 integration test (connection limits + graceful unsafeShutdown)"
   IO.println ""
   testCapacityBookkeeping
   testCapEnforcement

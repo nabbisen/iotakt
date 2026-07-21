@@ -87,8 +87,8 @@ lean_exe «iotakt-echo-test» where
   root := `examples.EchoTest
   extraDepTargets := #[`iotaktNativeLib.static]
 
-/-- Full native driver integration layer (RFC 007+011+012): nativeStep,
-    setupListener, acceptBurst.  Requires both native C shim and Henret. -/
+/-- Full native driver integration layer (RFC 007+011+012): unsafeNativeStep,
+    unsafeSetupListener, unsafeAcceptBurst.  Requires both native C shim and Henret. -/
 lean_lib IotaktDriver where
   globs := #[.one `IotaktRuntime.Driver]
   extraDepTargets := #[`iotaktNativeLib.static]
@@ -238,7 +238,7 @@ lean_exe «iotakt-v10-test» where
   root := `examples.V10Test
   extraDepTargets := #[`iotaktNativeLib.static]
 
-/-- v0.11 integration test: connection limits + graceful shutdown. -/
+/-- v0.11 integration test: connection limits + graceful unsafeShutdown. -/
 lean_exe «iotakt-v11-test» where
   root := `examples.V11Test
   extraDepTargets := #[`iotaktNativeLib.static]

@@ -40,11 +40,11 @@ let ref ← IO.mkRef MyState.initial
 let actor : ConnectionActor := {
   key := key,
   onReadable := do
-    let bytes ← Io.recv key.raw 4096
+    let bytes ← Unsafe.Io.recv key.raw 4096
     -- handle bytes, update ref
     return .continue,
   onWritable := do
-    let (wb, done) ← (← ref.get).wbuf.flush key.raw
+    let (wb, done) ← (← ref.get).wbuf.unsafeFlush key.raw
     ref.modify (·.setWb wb)
     return if done then .disableWrite else .continue,
   onEof := do
@@ -97,12 +97,12 @@ def dispatch (actor : ConnectionActor) (ev : IoEvent) : IO ActorAction :=
   | .error none      => actor.onError .badFd
 
 /-- Build a simple echo actor over a socketpair/stream fd. -/
-def mkEcho (key : FdKey) (maxRead : Nat := 4096) : ConnectionActor := {
+def unsafeMkEcho (key : FdKey) (maxRead : Nat := 4096) : ConnectionActor := {
   key
   onReadable := do
-    match ← Io.recv key.raw maxRead with
+    match ← Unsafe.Io.recv key.raw maxRead with
     | .bytes ba =>
-        let _ ← Io.send key.raw ba 0 ba.size
+        let _ ← Unsafe.Io.send key.raw ba 0 ba.size
         return .continue
     | .eof        => return .close
     | .wouldBlock => return .continue
@@ -113,11 +113,11 @@ def mkEcho (key : FdKey) (maxRead : Nat := 4096) : ConnectionActor := {
 }
 
 /-- Build an actor that accumulates read bytes into a `Ref` buffer. -/
-def mkBuffered (key : FdKey) (ref : IO.Ref ByteArray)
+def unsafeMkBuffered (key : FdKey) (ref : IO.Ref ByteArray)
     (maxRead : Nat := 4096) : ConnectionActor := {
   key
   onReadable := do
-    match ← Io.recv key.raw maxRead with
+    match ← Unsafe.Io.recv key.raw maxRead with
     | .bytes ba =>
         ref.modify fun buf =>
           let combined := ByteArray.mkEmpty (buf.size + ba.size)

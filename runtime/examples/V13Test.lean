@@ -86,7 +86,7 @@ def testRecvSendAck : IO Unit := do
   IO.println "=== B. recvAck / sendAck combined helpers ==="
   let some loop ← EventLoop.create | do IO.println "epoll failed"; return
 
-  let (a, b) ← Socket.socketpairRaw
+  let (a, b) ← Unsafe.Socket.socketpairRaw
   if a < 0 then check "socketpair" false
   else do
     -- Register `b` as a live stream, then mark its readable readiness pending
@@ -106,7 +106,7 @@ def testRecvSendAck : IO Unit := do
     -- Queue bytes before the rejected authority calls. A later successful
     -- recv proves those calls neither consumed data nor closed the live fd.
     let msg := "ping".toUTF8
-    let pingWrite ← Io.send a msg 0 msg.size
+    let pingWrite ← Unsafe.Io.send a msg 0 msg.size
     match pingWrite with
     | .wrote n => IO.println s!"    peer send count={n.toNat}"
     | .wouldBlock => IO.println "    peer send result=wouldBlock"
@@ -168,9 +168,9 @@ def testRecvSendAck : IO Unit := do
       (match wr with | .wrote n => n.toNat == 4 | _ => false)
     check "sendAck cleared writable pending" (!loop4.nds.ds.coalesce.pending wpk)
 
-    Socket.closeFdRaw (fd32 a)
-    Socket.closeFdRaw (fd32 b)
-  loop.destroy
+    Unsafe.Socket.closeFdRaw (fd32 a)
+    Unsafe.Socket.closeFdRaw (fd32 b)
+  loop.unsafeDestroy
 
 -- C. RFC064-FD-REUSE-001: stale authority must not affect the newer owner.
 def testLiveFdReuseAuthority : IO Unit := do
@@ -178,21 +178,21 @@ def testLiveFdReuseAuthority : IO Unit := do
   IO.println "=== C. RFC064-FD-REUSE-001: live raw-fd reuse authority ==="
   let some loop ← EventLoop.create | do IO.println "epoll failed"; return
 
-  let (oldPeer, oldFd) ← Socket.socketpairRaw
+  let (oldPeer, oldFd) ← Unsafe.Socket.socketpairRaw
   check "reuse fixture: initial socketpair created" (oldPeer >= 0 && oldFd >= 0)
   if oldPeer < 0 || oldFd < 0 then do
-    loop.destroy
+    loop.unsafeDestroy
     return
 
   let (oldReg, oldKey) := loop.nds.ds.registry.allocate oldFd 40 .stream
   let oldReg := oldReg.setInterests oldKey InterestSet.readOnly |>.markActive oldKey
-  let oldRegister ← Epoll.register (fd32 loop.ph.epfd) (fd32 oldFd)
-    (Epoll.interestFlags InterestSet.readOnly)
+  let oldRegister ← Unsafe.Epoll.register (fd32 loop.ph.epfd) (fd32 oldFd)
+    (Unsafe.Epoll.interestFlags InterestSet.readOnly)
   check "reuse fixture: original generation registered" (oldRegister == 0)
   if oldRegister != 0 then do
-    Socket.closeFdRaw (fd32 oldPeer)
-    Socket.closeFdRaw (fd32 oldFd)
-    loop.destroy
+    Unsafe.Socket.closeFdRaw (fd32 oldPeer)
+    Unsafe.Socket.closeFdRaw (fd32 oldFd)
+    loop.unsafeDestroy
     return
 
   let oldLoop := ({ loop with nds := { loop.nds with
@@ -204,26 +204,26 @@ def testLiveFdReuseAuthority : IO Unit := do
 
   -- Linux assigns the lowest free descriptor, so keeping oldPeer and the poller
   -- open makes the first endpoint reuse oldFd deterministically.
-  let (newFd, newPeer) ← Socket.socketpairRaw
+  let (newFd, newPeer) ← Unsafe.Socket.socketpairRaw
   check "kernel reuses the closed raw fd for a newer owner" (newFd == oldFd)
   if newFd != oldFd then do
-    Socket.closeFdRaw (fd32 oldPeer)
-    if newFd >= 0 then Socket.closeFdRaw (fd32 newFd)
-    if newPeer >= 0 then Socket.closeFdRaw (fd32 newPeer)
-    closedOld.destroy
+    Unsafe.Socket.closeFdRaw (fd32 oldPeer)
+    if newFd >= 0 then Unsafe.Socket.closeFdRaw (fd32 newFd)
+    if newPeer >= 0 then Unsafe.Socket.closeFdRaw (fd32 newPeer)
+    closedOld.unsafeDestroy
     return
 
   let (newReg, newKey) := closedOld.nds.ds.registry.allocate newFd 41 .stream
   let newReg := newReg.setInterests newKey InterestSet.readOnly |>.markActive newKey
-  let newRegister ← Epoll.register (fd32 closedOld.ph.epfd) (fd32 newFd)
-    (Epoll.interestFlags InterestSet.readOnly)
+  let newRegister ← Unsafe.Epoll.register (fd32 closedOld.ph.epfd) (fd32 newFd)
+    (Unsafe.Epoll.interestFlags InterestSet.readOnly)
   check "new generation registers on the reused raw fd"
     (newRegister == 0 && newKey != oldKey && newKey.raw == oldKey.raw)
   if newRegister != 0 then do
-    Socket.closeFdRaw (fd32 oldPeer)
-    Socket.closeFdRaw (fd32 newFd)
-    Socket.closeFdRaw (fd32 newPeer)
-    closedOld.destroy
+    Unsafe.Socket.closeFdRaw (fd32 oldPeer)
+    Unsafe.Socket.closeFdRaw (fd32 newFd)
+    Unsafe.Socket.closeFdRaw (fd32 newPeer)
+    closedOld.unsafeDestroy
     return
 
   let newLoop := ({ closedOld with nds := { closedOld.nds with
@@ -237,7 +237,7 @@ def testLiveFdReuseAuthority : IO Unit := do
       (newLoop.nds.ds.registry.lookup newKey).map (·.interests) == some InterestSet.readOnly)
 
   let inbound := "new-owner".toUTF8
-  let inboundWrite ← Io.send newPeer inbound 0 inbound.size
+  let inboundWrite ← Unsafe.Io.send newPeer inbound 0 inbound.size
   check "new peer queues bytes before stale receive"
     (match inboundWrite with | .wrote n => n.toNat == inbound.size | _ => false)
   check "reused-fd stale recvAck is rejected" (isStale (← newLoop.recvAck oldKey 64))
@@ -248,14 +248,14 @@ def testLiveFdReuseAuthority : IO Unit := do
   let outbound := "still-open".toUTF8
   check "reused-fd stale sendAck is rejected"
     (isStale (← newLoop.sendAck oldKey outbound 0 outbound.size))
-  let peerBeforeLiveSend ← Io.recv newPeer 64
+  let peerBeforeLiveSend ← Unsafe.Io.recv newPeer 64
   check "stale sendAck emitted no bytes to the newer peer"
     (match peerBeforeLiveSend with | .wouldBlock => true | _ => false)
   let (_, outboundWrite) ←
     EffectError.orThrow (← newLoop.sendAck newKey outbound 0 outbound.size)
   check "new generation sendAck still writes"
     (match outboundWrite with | .wrote n => n.toNat == outbound.size | _ => false)
-  let peerAfterLiveSend ← Io.recv newPeer 64
+  let peerAfterLiveSend ← Unsafe.Io.recv newPeer 64
   check "newer peer receives only the live generation's bytes"
     (match peerAfterLiveSend with
       | .bytes bytes => bytes.toList == outbound.toList
@@ -265,25 +265,25 @@ def testLiveFdReuseAuthority : IO Unit := do
   check "new generation closes through checked authority"
     (closedNew.nds.ds.registry.resolveCurrent newFd == none)
 
-  let (thirdFd, thirdPeer) ← Socket.socketpairRaw
+  let (thirdFd, thirdPeer) ← Unsafe.Socket.socketpairRaw
   check "raw fd is reused again after checked close" (thirdFd == newFd)
   let doubleClose ← closedNew.closeConnection newKey
   check "double close is visibly rejected before a second native close"
     (isInvalidKey doubleClose)
   let survivor := "survivor".toUTF8
-  let survivorWrite ← Io.send thirdPeer survivor 0 survivor.size
-  let survivorRead ← Io.recv thirdFd 64
+  let survivorWrite ← Unsafe.Io.send thirdPeer survivor 0 survivor.size
+  let survivorRead ← Unsafe.Io.recv thirdFd 64
   check "double-close rejection leaves the reused OS descriptor open"
     ((match survivorWrite with | .wrote n => n.toNat == survivor.size | _ => false) &&
       match survivorRead with
       | .bytes bytes => bytes.toList == survivor.toList
       | _ => false)
 
-  Socket.closeFdRaw (fd32 oldPeer)
-  Socket.closeFdRaw (fd32 newPeer)
-  Socket.closeFdRaw (fd32 thirdFd)
-  Socket.closeFdRaw (fd32 thirdPeer)
-  closedNew.destroy
+  Unsafe.Socket.closeFdRaw (fd32 oldPeer)
+  Unsafe.Socket.closeFdRaw (fd32 newPeer)
+  Unsafe.Socket.closeFdRaw (fd32 thirdFd)
+  Unsafe.Socket.closeFdRaw (fd32 thirdPeer)
+  closedNew.unsafeDestroy
 
 -- D. RFC064-AUTH-MATRIX-001: every stable key effect rejects invalid authority
 -- before reaching its native fd operation.
@@ -316,7 +316,7 @@ def testAuthorityErrorMatrix : IO Unit := do
   checkAuthorityCase "listener kind rejected" checkedLoop listener .wrongKind
   checkAuthorityCase "closing resource rejected" checkedLoop inactive .inactive
 
-  checkedLoop.destroy
+  checkedLoop.unsafeDestroy
 
 def main : IO Unit := do
   IO.println "iotakt v0.13 integration test (explicit ack + recvAck/sendAck)"

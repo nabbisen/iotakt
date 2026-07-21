@@ -207,9 +207,9 @@ precondition: the driver's mailbox guard guarantees no readiness is lost.
 
 The preconditions track Henret's admission guards, all of which hold
 throughout iotakt's driver operation:
-* `runtimeStatus`/`actorStatus` — RFC 055 (v0.17.0) shutdown guards. The
+* `runtimeStatus`/`actorStatus` — RFC 055 (v0.17.0) unsafeShutdown guards. The
   driver starts from `RuntimeState.init` (`runtimeStatus = .running`, every
-  actor `.active`) and never issues `closeActor`/`shutdown`/`stopWhenIdle`.
+  actor `.active`) and never issues `closeActor`/`unsafeShutdown`/`stopWhenIdle`.
 * `mailboxFull a mb = false` — RFC 056 (v0.18.0) backpressure guard. iotakt
   never configures a mailbox bound, so `mailboxPolicy` stays `.unbounded`
   (from `RuntimeState.init`) and `mailboxFull` is always `false`; readiness

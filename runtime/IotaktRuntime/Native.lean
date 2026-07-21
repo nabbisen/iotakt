@@ -12,4 +12,10 @@ static library built from `native/` (run `lake run buildNative` or see
 
 This module is intentionally separate from the pure `Iotakt` core so
 that `lake build Iotakt` succeeds without a C toolchain.
+
+All raw/native effect declarations are deliberately namespaced under
+`IotaktRuntime.Native.Unsafe`. Lean imports are transitive and cannot hide these
+implementation dependencies from downstream name resolution, so the explicit
+namespace is the enforceable warning boundary. Stable consumers use checked
+`EventLoop` operations instead.
 -/

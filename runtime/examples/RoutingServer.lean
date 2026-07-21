@@ -44,12 +44,12 @@ def appRouter : Router :=
     |>.post "/users"    (fun _ => HttpResponse.ok "user created")
 
 /-- Read a full HTTP request from `fd` (until headers terminator). -/
-def readRequest (fd : Int) : IO (Option ByteArray) := do
+def unsafeReadRequest (fd : Int) : IO (Option ByteArray) := do
   let mut buf := ByteArray.empty
   for _ in List.range 20 do
     let s := String.fromUTF8? buf |>.getD ""
     if (s.splitOn "\r\n\r\n").length > 1 then return some buf
-    match ← Io.recv fd 4096 with
+    match ← Unsafe.Io.recv fd 4096 with
     | .bytes ba =>
         let combined := ByteArray.mkEmpty (buf.size + ba.size)
         let combined := ByteArray.copySlice buf 0 combined 0 buf.size
@@ -63,7 +63,7 @@ def readRequest (fd : Int) : IO (Option ByteArray) := do
 /-- Handle one connection: read request, route, respond, close. -/
 def handleConn (loop : EventLoop) (key : FdKey) : IO EventLoop := do
   let fd := key.raw
-  match ← readRequest fd with
+  match ← unsafeReadRequest fd with
   | none =>
       EffectError.orThrow (← loop.closeConnection key)
   | some raw =>
@@ -71,7 +71,7 @@ def handleConn (loop : EventLoop) (key : FdKey) : IO EventLoop := do
         | some req => appRouter.dispatchRequest req
         | none     => HttpResponse.notFound "(unparseable)"
       let wb := WriteBuffer.empty.push resp.toBytes
-      let (_, _) ← wb.flushAll fd
+      let (_, _) ← wb.unsafeFlushAll fd
       EffectError.orThrow (← loop.closeConnection key)
 
 def main : IO Unit := do
@@ -82,7 +82,7 @@ def main : IO Unit := do
   let some loop ← EventLoop.create { maxReadBytes := 8192 }
     | do IO.println "epoll_create failed"; return
   let (loop1, ok) ← loop.addListener 49993
-  if !ok then do IO.println "bind failed"; loop.destroy; return
+  if !ok then do IO.println "bind failed"; loop.unsafeDestroy; return
 
   let mut loop := loop1
   let mut handled := 0
@@ -98,7 +98,7 @@ def main : IO Unit := do
       | .dataReady _ _ => pure ()
       | .tick _        => pure ()
 
-  loop.destroy
+  loop.unsafeDestroy
 
   IO.println s!"Requests handled: {handled}"
   IO.println s!"Active task mappings remaining: {loop.taskByKey.length}"

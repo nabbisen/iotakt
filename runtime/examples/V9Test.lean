@@ -11,7 +11,7 @@ import IotaktRuntime.Native
   Content-Length, chunked, and bodyless requests.
 * **Header/body splitting** — `splitHeaders` separates the header block
   from buffered body bytes.
-* **Live request reading** — `readFull` over a real socketpair, for both
+* **Live request reading** — `unsafeReadFull` over a real socketpair, for both
   Content-Length and chunked request bodies.
 * **Handoff surface** — the `IotaktRuntime.Server` re-exports resolve.
 -/
@@ -73,49 +73,49 @@ def testLiveRead : IO Unit := do
   IO.println "=== C. Live request reading (socketpair) ==="
 
   -- Content-Length body
-  let (a, b) ← Socket.socketpairRaw
+  let (a, b) ← Unsafe.Socket.socketpairRaw
   if a < 0 then check "socketpair (Content-Length)" false
   else do
     let req := "POST /cl HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nHELLO".toUTF8
-    let _ ← Io.send a req 0 req.size
-    Socket.closeFdRaw (fd32 a)  -- EOF after the request
-    match ← readFull b 65536 30 with
+    let _ ← Unsafe.Io.send a req 0 req.size
+    Unsafe.Socket.closeFdRaw (fd32 a)  -- EOF after the request
+    match ← unsafeReadFull b 65536 30 with
     | .request r =>
         check "Content-Length: read path = .request" true
         check "Content-Length body = 'HELLO'" ((String.fromUTF8? r.body |>.getD "") == "HELLO")
         check "Content-Length path preserved" (r.path == "/cl")
     | _ => check "Content-Length read returned .request" false
-    Socket.closeFdRaw (fd32 b)
+    Unsafe.Socket.closeFdRaw (fd32 b)
 
   -- Chunked body
-  let (a, b) ← Socket.socketpairRaw
+  let (a, b) ← Unsafe.Socket.socketpairRaw
   if a < 0 then check "socketpair (chunked)" false
   else do
     let req := "POST /ck HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nHello\r\n6\r\n world\r\n0\r\n\r\n".toUTF8
-    let _ ← Io.send a req 0 req.size
-    Socket.closeFdRaw (fd32 a)
-    match ← readFull b 65536 30 with
+    let _ ← Unsafe.Io.send a req 0 req.size
+    Unsafe.Socket.closeFdRaw (fd32 a)
+    match ← unsafeReadFull b 65536 30 with
     | .request r =>
         check "chunked: read path = .request" true
         check "chunked body reassembled = 'Hello world'"
           ((String.fromUTF8? r.body |>.getD "") == "Hello world")
         check "chunked path preserved" (r.path == "/ck")
     | _ => check "chunked read returned .request" false
-    Socket.closeFdRaw (fd32 b)
+    Unsafe.Socket.closeFdRaw (fd32 b)
 
   -- Bodyless GET
-  let (a, b) ← Socket.socketpairRaw
+  let (a, b) ← Unsafe.Socket.socketpairRaw
   if a < 0 then check "socketpair (GET)" false
   else do
     let req := "GET /home HTTP/1.1\r\nHost: x\r\n\r\n".toUTF8
-    let _ ← Io.send a req 0 req.size
-    Socket.closeFdRaw (fd32 a)
-    match ← readFull b 65536 30 with
+    let _ ← Unsafe.Io.send a req 0 req.size
+    Unsafe.Socket.closeFdRaw (fd32 a)
+    match ← unsafeReadFull b 65536 30 with
     | .request r =>
         check "GET: read path = .request" true
         check "GET has empty body" r.body.isEmpty
     | _ => check "GET read returned .request" false
-    Socket.closeFdRaw (fd32 b)
+    Unsafe.Socket.closeFdRaw (fd32 b)
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- D. Handoff surface re-exports

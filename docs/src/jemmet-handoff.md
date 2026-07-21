@@ -1,5 +1,11 @@
 # jemmet Handoff Surface
 
+> **Remediation status:** This v0.9 guide retains pre-RFC 061 namespace examples and
+> is not a current downstream adoption contract. Release/runtime adoption remains
+> No-Go; RFC 069 owns its full replacement. During RFC 064 remediation, every raw-fd
+> protocol helper shown here was renamed with `unsafe` and is outside the checked
+> stable API described in `api-stability.md`.
+
 This document is the consumer contract for **jemmet** (or any Lean HTTP
 server) building on iotakt. It is the iotakt-side mirror of what
 `henret-integration.md` does for the Henret dependency: it states exactly
@@ -19,7 +25,7 @@ Iotakt.Server
 │                    idle reaping, Gap 006 connection teardown (Iotakt.Loop)
 ├── HttpRequest    — request line + headers + body (Iotakt.Http)
 ├── HttpResponse   — response building, Content-Length / keep-alive (Iotakt.Http)
-├── RequestBody    — readFull / readFromBuffer: headers + body, both framings
+├── RequestBody    — unsafeReadFull / unsafeReadFromBuffer: headers + body, both framings
 ├── Chunked        — chunked transfer encoding, both directions (Iotakt.Chunked)
 └── WriteBuffer    — partial-write-safe response streaming (Iotakt.WriteBuffer)
 
@@ -28,16 +34,16 @@ optional convenience reached via a separate `import Iotakt.Router`; it carries
 no stability promise.
 ```
 
-### The one call that matters: `readRequest`
+### The one call that matters: `unsafeReadRequest`
 
 ```lean
-match ← Iotakt.Server.readRequest fd 65536 30 with
+match ← Iotakt.Server.unsafeReadRequest fd 65536 30 with
 | .request req => ...   -- req.body is fully reassembled (CL or chunked)
 | .incomplete  => ...   -- peer closed before the body finished
 | .error e     => ...
 ```
 
-`readRequest` (= `RequestBody.readFull`) reads the header block, determines
+`unsafeReadRequest` (= `RequestBody.unsafeReadFull`) reads the header block, determines
 the body framing from the headers, and reassembles the body:
 
 | Header | Framing | Behaviour |
@@ -95,7 +101,7 @@ partial def serve (loop : EventLoop) : IO Unit := do
   for ev in events do
     match ev with
     | .newConnection _listener key =>
-        match ← readRequest key.raw 65536 30 with
+        match ← unsafeReadRequest key.raw 65536 30 with
         | .request req =>
             let resp := (router.dispatchRequest req).toBytes
             let _ ← Io.send key.raw resp 0 resp.size
@@ -118,7 +124,7 @@ versions of this pattern.
 ## Note on `open` vs the single import
 
 `import Iotakt.Server` brings the entire stack into scope transitively, and
-the consolidated chunked/read abbrevs (`encodeChunk`, `readRequest`,
+the consolidated chunked/read abbrevs (`encodeChunk`, `unsafeReadRequest`,
 `decodeChunked`, …) are available as `Iotakt.Server.*`. Dot-notation
 *constructors* on re-exported types (e.g. `HttpResponse.ok`) live in their
 original namespaces, so a consumer still `open`s `Iotakt.Http` and
@@ -131,8 +137,7 @@ present and version-aligned; the `open`s are a notational convenience.
 
 ## Stability
 
-Everything reachable from `Iotakt.Server` is part of the v0.x public
-surface. Internal module *structure* may change without being breaking, as
-long as the names and behaviours reachable from `Iotakt.Server` are
-preserved — the same guarantee `Iotakt.Api` carries for the core model
-(RFC 017).
+Transitive reachability is not a stability promise. Only the identities and checked
+operations listed in `api-stability.md` are stable during remediation. The HTTP,
+buffering, and raw-fd helpers in this legacy guide are provisional or explicitly
+unsafe and may move under RFC 069.

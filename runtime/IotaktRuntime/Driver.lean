@@ -12,13 +12,13 @@ a deterministic single-threaded step.
 
 ## Driver step
 
-One call to `nativeStep` performs:
+One call to `unsafeNativeStep` performs:
 
 ```text
 1. Henret.drain — run all ready tasks until the queue is empty
 2. computeTimeout — nearest Henret timer deadline → epoll timeout
-3. Epoll.wait — poll for I/O readiness (blocking up to timeout)
-4. Epoll.parseEvents — decode raw ByteArray → NormalizedRawEvent list
+3. Unsafe.Epoll.wait — poll for I/O readiness (blocking up to timeout)
+4. Unsafe.Epoll.parseEvents — decode raw ByteArray → NormalizedRawEvent list
 5. Bridge.processEvents — translate → coalesce → guarded inject
 6. tick if timeout — advance Henret logical clock on timer expiry
 ```
@@ -75,7 +75,7 @@ def computeTimeout (rt : RuntimeState) (cfg : DriverConfig) : Int :=
 /-- One driver step: drain Henret, wait for I/O, translate events,
 inject messages, tick if timer expired. Returns the updated state, the
 updated Henret runtime, and the trace for this step. -/
-def nativeStep
+def unsafeNativeStep
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     : IO (NativeDriverState × RuntimeState × List BridgeTrace) := do
   let cfg := nds.ds.config
@@ -91,10 +91,10 @@ def nativeStep
   -- 3. Wait for I/O or timeout.
   let maxEv := min cfg.maxEventsPerPoll 1024 |>.toInt32
   let (waitStatus, evtBytes) ←
-    Epoll.wait (fd32 ph.epfd) maxEv timeoutMs.toInt32
+    Unsafe.Epoll.wait (fd32 ph.epfd) maxEv timeoutMs.toInt32
 
   -- 4. Parse events and translate through the bridge.
-  let rawEvts := Epoll.parseEvents evtBytes
+  let rawEvts := Unsafe.Epoll.parseEvents evtBytes
   let (ds1, rt1, trace) :=
     if waitStatus > 0 then
       processEvents nds.ds rt rawEvts
@@ -117,36 +117,36 @@ where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 /-- Failure-atomic typed listener setup. Registry state and the Henret runtime are
 published only after socket configuration, bind, listen, and poller registration
 all succeed. Every earlier failure closes the candidate fd exactly once. -/
-def setupListenerAt
+def unsafeSetupListenerAt
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (endpoint : BindEndpoint) (ownerActorId : Nat) :
     IO (Except ListenerError (NativeDriverState × RuntimeState × ListenerKey × Int)) := do
   if endpoint.port == 0 then return .error .invalidEndpoint
 
-  let lfdResult ← Socket.socketTcpRaw 1
+  let lfdResult ← Unsafe.Socket.socketTcpRaw 1
   if lfdResult < 0 then
     return .error (.transitionError (.socketFailed (classifyErrno (-lfdResult))))
   let lfd := lfdResult
 
-  let configureResult ← Socket.setReuseAddrRaw (fd32 lfd)
+  let configureResult ← Unsafe.Socket.setReuseAddrRaw (fd32 lfd)
   if configureResult < 0 then do
-    Socket.closeFdRaw (fd32 lfd)
+    Unsafe.Socket.closeFdRaw (fd32 lfd)
     return .error (.transitionError (.configureFailed (classifyErrno (-configureResult))))
 
-  let bindResult ← Socket.bindIPv4Raw (fd32 lfd) endpoint.address.value endpoint.port
+  let bindResult ← Unsafe.Socket.bindIPv4Raw (fd32 lfd) endpoint.address.value endpoint.port
   if bindResult < 0 then do
-    Socket.closeFdRaw (fd32 lfd)
+    Unsafe.Socket.closeFdRaw (fd32 lfd)
     return .error (.transitionError (.bindFailed (classifyErrno (-bindResult))))
 
-  let listenResult ← Socket.listenRaw (fd32 lfd) nds.ds.config.maxAcceptBurst.toInt32
+  let listenResult ← Unsafe.Socket.listenRaw (fd32 lfd) nds.ds.config.maxAcceptBurst.toInt32
   if listenResult < 0 then do
-    Socket.closeFdRaw (fd32 lfd)
+    Unsafe.Socket.closeFdRaw (fd32 lfd)
     return .error (.transitionError (.listenFailed (classifyErrno (-listenResult))))
 
-  let registerResult ← Epoll.register (fd32 ph.epfd) (fd32 lfd)
-    (Epoll.interestFlags InterestSet.readOnly)
+  let registerResult ← Unsafe.Epoll.register (fd32 ph.epfd) (fd32 lfd)
+    (Unsafe.Epoll.interestFlags InterestSet.readOnly)
   if registerResult < 0 then do
-    Socket.closeFdRaw (fd32 lfd)
+    Unsafe.Socket.closeFdRaw (fd32 lfd)
     return .error (.transitionError (.registerFailed (classifyErrno (-registerResult))))
 
   let (registry, key) := nds.ds.registry.allocate lfd ownerActorId .listener
@@ -165,11 +165,11 @@ inductive ListenerSetupResult where
 
 /-- Create a TCP listener on 127.0.0.1:port, register it with epoll and
 the iotakt registry.  The listener fd is owned by `ownerActorId`. -/
-def setupListener
+def unsafeSetupListener
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (port : UInt16) (ownerActorId : Nat)
     : IO (NativeDriverState × RuntimeState × ListenerSetupResult) := do
-  match ← setupListenerAt nds rt ph (.loopback port) ownerActorId with
+  match ← unsafeSetupListenerAt nds rt ph (.loopback port) ownerActorId with
   | .error e => return (nds, rt, .fail s!"{repr e}")
   | .ok (nds, rt, key, lfd) => return (nds, rt, .ok key lfd)
 
@@ -192,20 +192,20 @@ inductive AcceptOneResult where
 fallible boundary explicit permits deterministic RFC 029 failure testing without
 changing the production path. -/
 structure AcceptOps where
-  accept : Int → IO Socket.AcceptResult
+  accept : Int → IO Unsafe.Socket.AcceptResult
   register : Int32 → Int32 → UInt32 → IO Int
   close : Int32 → IO Unit
 
 /-- Production accepted-connection operations. -/
-def nativeAcceptOps : AcceptOps where
-  accept := Socket.accept
-  register := Epoll.register
-  close := Socket.closeFdRaw
+def unsafeNativeAcceptOps : AcceptOps where
+  accept := Unsafe.Socket.accept
+  register := Unsafe.Epoll.register
+  close := Unsafe.Socket.closeFdRaw
 
 /-- Accept one connection and commit its registry/runtime authority only after
 poller registration succeeds. A failed registration closes the candidate exactly
 once and returns the original model/runtime state. -/
-def acceptOneWith
+def unsafeAcceptOneWith
     (ops : AcceptOps)
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (listenerFd : Int) (mode : DeliveryMode := .mailbox)
@@ -224,7 +224,7 @@ def acceptOneWith
       -- Native registration is the commit prerequisite. On failure, the
       -- candidate is closed exactly once and no tentative state is returned.
       let registerResult ← ops.register (fd32 ph.epfd) (fd32 streamFd)
-        (Epoll.interestFlags InterestSet.readOnly)
+        (Unsafe.Epoll.interestFlags InterestSet.readOnly)
       if registerResult < 0 then do
         ops.close (fd32 streamFd)
         return (nds, rt, .error (.registerFailed (classifyErrno (-registerResult))))
@@ -244,15 +244,15 @@ def acceptOneWith
 where fd32 (n : Int) : Int32 := Int32.mk n.toNat.toUInt32
 
 /-- Production wrapper for the failure-atomic accepted-connection transition. -/
-def acceptOne
+def unsafeAcceptOne
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (listenerFd : Int) (mode : DeliveryMode := .mailbox)
     : IO (NativeDriverState × RuntimeState × AcceptOneResult) :=
-  acceptOneWith nativeAcceptOps nds rt ph listenerFd mode
+  unsafeAcceptOneWith unsafeNativeAcceptOps nds rt ph listenerFd mode
 
 /-- Accept up to `maxBurst` connections in a loop.
 Returns the list of accepted (streamKey, streamFd) pairs. -/
-def acceptBurst
+def unsafeAcceptBurst
     (nds : NativeDriverState) (rt : RuntimeState) (ph : PollerHandle)
     (listenerFd : Int) (mode : DeliveryMode := .mailbox)
     : IO (NativeDriverState × RuntimeState × List (FdKey × Int × Option Nat)) := do
@@ -264,7 +264,7 @@ def acceptBurst
   for _ in List.range maxBurst do
     if stop then pure ()
     else do
-      let (nds1, rt1, r) ← acceptOne nds rt ph listenerFd mode
+      let (nds1, rt1, r) ← unsafeAcceptOne nds rt ph listenerFd mode
       nds := nds1; rt := rt1
       match r with
       | .wouldBlock  => stop := true

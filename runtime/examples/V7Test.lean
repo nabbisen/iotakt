@@ -54,7 +54,7 @@ def testPollTimeout : IO Unit := do
   check "past-deadline connection → pollTimeoutMs = 0"
     (loop2.pollTimeoutMs pastNs == 0)
 
-  loop.destroy
+  loop.unsafeDestroy
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- B. Idle expiry detection
@@ -84,7 +84,7 @@ def testIdleExpiry : IO Unit := do
   let loop3 := { loop2 with idleTimeoutMs := none }
   check "no idle timeout → nothing expires" (loop3.idleExpired checkTime |>.isEmpty)
 
-  loop.destroy
+  loop.unsafeDestroy
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- C. reapIdle over real connections (socketpair-backed)
@@ -98,27 +98,27 @@ def testReapIdle : IO Unit := do
 
   -- Register two real socketpair endpoints so RFC 064's checked close authority
   -- and epoll deregistration are exercised by the idle reaper.
-  let (peer1, fd1) ← Socket.socketpairRaw
-  let (peer2, fd2) ← Socket.socketpairRaw
+  let (peer1, fd1) ← Unsafe.Socket.socketpairRaw
+  let (peer2, fd2) ← Unsafe.Socket.socketpairRaw
   if peer1 < 0 || peer2 < 0 then do
     check "socketpairs for reap test" false
-    loop.destroy
+    loop.unsafeDestroy
     return
   let (reg1, key1) := loop2.nds.ds.registry.allocate fd1 1 .stream
   let reg1 := reg1.setInterests key1 InterestSet.readOnly |>.markActive key1
   let (reg2, key2) := reg1.allocate fd2 2 .stream
   let reg2 := reg2.setInterests key2 InterestSet.readOnly |>.markActive key2
-  let ep1 ← Epoll.register (fd32 loop2.ph.epfd) (fd32 fd1)
-    (Epoll.interestFlags InterestSet.readOnly)
-  let ep2 ← Epoll.register (fd32 loop2.ph.epfd) (fd32 fd2)
-    (Epoll.interestFlags InterestSet.readOnly)
+  let ep1 ← Unsafe.Epoll.register (fd32 loop2.ph.epfd) (fd32 fd1)
+    (Unsafe.Epoll.interestFlags InterestSet.readOnly)
+  let ep2 ← Unsafe.Epoll.register (fd32 loop2.ph.epfd) (fd32 fd2)
+    (Unsafe.Epoll.interestFlags InterestSet.readOnly)
   check "socketpairs registered for reap test" (ep1 == 0 && ep2 == 0)
   if ep1 != 0 || ep2 != 0 then do
-    Socket.closeFdRaw (fd32 peer1)
-    Socket.closeFdRaw (fd32 fd1)
-    Socket.closeFdRaw (fd32 peer2)
-    Socket.closeFdRaw (fd32 fd2)
-    loop.destroy
+    Unsafe.Socket.closeFdRaw (fd32 peer1)
+    Unsafe.Socket.closeFdRaw (fd32 fd1)
+    Unsafe.Socket.closeFdRaw (fd32 peer2)
+    Unsafe.Socket.closeFdRaw (fd32 fd2)
+    loop.unsafeDestroy
     return
   let loop2 := { loop2 with nds := { loop2.nds with
     ds := { loop2.nds.ds with registry := reg2 } } }
@@ -131,9 +131,9 @@ def testReapIdle : IO Unit := do
   check "reapIdle closed both idle connections" (reaped.length == 2)
   check "lastActivityNs cleared after reap" loop4.lastActivityNs.isEmpty
 
-  Socket.closeFdRaw (fd32 peer1)
-  Socket.closeFdRaw (fd32 peer2)
-  loop4.destroy
+  Unsafe.Socket.closeFdRaw (fd32 peer1)
+  Unsafe.Socket.closeFdRaw (fd32 peer2)
+  loop4.unsafeDestroy
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- D. Henret receiveUntil timer infrastructure (model readiness)

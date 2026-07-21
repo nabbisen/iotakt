@@ -70,8 +70,13 @@ Implementation must generate a repository-derived inventory of every stable entr
 point that can cause a native fd effect. A reviewer-maintained classification file
 records each path as `checked-stable`, `unsafe-internal`, or `unreachable`, names the
 resolver/native call and test identifier, and fails verification when a discovered
-path lacks a row. `unsafe-internal` paths must not be re-exported through a stable
-module; `unreachable` rows require a cited proof or structural justification.
+path lacks a row. Lean imports are transitive and do not provide declaration hiding:
+an `unsafe-internal` path must therefore either be a `private` declaration or carry
+an explicit `unsafe` name/`Unsafe` namespace at every downstream-callable escape
+point. The stable API does not re-export these names as checked operations. The
+inventory gate rejects an unmarked non-private unsafe row, and a downstream negative
+compile probe requires the former unmarked escape names to be unavailable.
+`unreachable` rows require a cited proof or structural justification.
 
 The R1 inventory records RFC 070's not-yet-implemented `closeListener` as
 `unreachable`, citing the accepted RFC as its structural justification. Before RFC
@@ -123,8 +128,10 @@ API and no second native `close` call.
 
 This RFC closes a cross-actor confused-lifetime vulnerability. No compatibility
 shim may preserve unchecked raw-fd authority on the stable path. Any low-level raw
-escape hatch must be explicitly unsafe, excluded from the stable API, and outside
-the proof claim.
+escape hatch must be explicitly named unsafe, excluded from the documented stable
+API, and outside the proof claim. Transitive name resolution is not represented as
+visibility isolation; the enforceable boundary is private declarations plus
+mandatory `unsafe`/`Unsafe` naming and compile-time regression checks.
 
 ## Dependencies and follow-ups
 

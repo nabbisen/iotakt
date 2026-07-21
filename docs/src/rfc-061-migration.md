@@ -63,6 +63,11 @@ The runtime package transitively provides the model, so `import Iotakt.Api` /
 | `Iotakt.Http` | `IotaktRuntime.Http` |
 | `Iotakt.Router` | `IotaktRuntime.Router` |
 | `Iotakt.Chunked` | `IotaktRuntime.Chunked` |
+
+The module import paths remain those shown above. After RFC 064 remediation, the raw
+declarations inside the native modules resolve under
+`IotaktRuntime.Native.Unsafe.{Io,Epoll,Socket}` so transitive imports cannot make an
+unchecked escape look stable.
 | `Iotakt.RequestBody` | `IotaktRuntime.RequestBody` |
 | `Iotakt.WriteBuffer` | `IotaktRuntime.WriteBuffer` |
 | `Iotakt.Actor` | `IotaktRuntime.Actor` |

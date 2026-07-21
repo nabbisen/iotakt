@@ -1,9 +1,9 @@
 # iotakt response to jemmet M2C native-runtime consumer request
 
-**Response date:** 2026-07-14  
+**Response date:** 2026-07-14
 **Status:** Architecture decisions accepted; implementation and release evidence
-pending  
-**Release decision:** No-Go remains in force  
+pending
+**Release decision:** No-Go remains in force
 **Governing work:** [RFC 064](../../proposed/064-generation-safe-effectful-fd-authority.md),
 [RFC 066](../../proposed/066-authoritative-event-delivery-and-state-safe-native-transitions.md),
 [RFC 070](../../proposed/070-address-aware-listener-identity-and-lifecycle.md)

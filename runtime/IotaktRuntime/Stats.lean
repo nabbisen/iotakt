@@ -16,7 +16,7 @@ not automatically populate them.
 ```lean
 let statsRef ← IO.mkRef ConnStats.empty
 -- In onReadable:
-let bytes ← Io.recv key.raw 4096
+let bytes ← Unsafe.Io.recv key.raw 4096
 statsRef.modify (·.addBytesRead bytes.size)
 ```
 -/

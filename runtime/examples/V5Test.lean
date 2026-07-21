@@ -30,20 +30,20 @@ def appendBa (a b : ByteArray) : ByteArray :=
 def testActor : IO Unit := do
   IO.println "=== A. ConnectionActor ==="
 
-  let (fd0, fd1) ← Socket.socketpairRaw
+  let (fd0, fd1) ← Unsafe.Socket.socketpairRaw
   check "socketpair for actor test" (fd0 >= 0)
   if fd0 < 0 then return
 
   -- Build an echo actor on fd0
   let key : FdKey := { raw := fd0, gen := 1 }
-  let actor := ConnectionActor.mkEcho key 4096
+  let actor := ConnectionActor.unsafeMkEcho key 4096
 
   check "actor.key matches"     (actor.key == key)
   check "actor.key.raw == fd0"  (actor.key.raw == fd0)
 
   -- Simulate: send to fd1, actor reads from fd0 (onReadable echoes back)
   let data : ByteArray := "Hello, Actor!".toUTF8
-  let (_, sent) ← (WriteBuffer.empty.push data).flushAll fd1
+  let (_, sent) ← (WriteBuffer.empty.push data).unsafeFlushAll fd1
   check "test data sent to fd1" sent
 
   let action ← actor.onReadable
@@ -51,7 +51,7 @@ def testActor : IO Unit := do
     (match action with | .continue => true | _ => false)
 
   -- fd1 should now have the echoed bytes
-  match ← Io.recv fd1 64 with
+  match ← Unsafe.Io.recv fd1 64 with
   | .bytes ba => check "echoed back correctly" (ba.toList == data.toList)
   | _         => check "echoed back correctly" false
 
@@ -65,8 +65,8 @@ def testActor : IO Unit := do
   check "dispatch error → close"
     (match errAction with | .close => true | _ => false)
 
-  Socket.closeFdRaw fd0.toInt32
-  Socket.closeFdRaw fd1.toInt32
+  Unsafe.Socket.closeFdRaw fd0.toInt32
+  Unsafe.Socket.closeFdRaw fd1.toInt32
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- B. ActorRegistry dispatch
@@ -75,12 +75,12 @@ def testRegistry : IO Unit := do
   IO.println ""
   IO.println "=== B. ActorRegistry ==="
 
-  let (fd0, fd1) ← Socket.socketpairRaw
+  let (fd0, fd1) ← Unsafe.Socket.socketpairRaw
   check "socketpair for registry test" (fd0 >= 0)
   if fd0 < 0 then return
 
   let key : FdKey := { raw := fd0, gen := 1 }
-  let actor := ConnectionActor.mkEcho key 4096
+  let actor := ConnectionActor.unsafeMkEcho key 4096
 
   let reg0 := ActorRegistry.empty
   check "empty registry lookup is none" (reg0.lookup key).isNone
@@ -93,11 +93,11 @@ def testRegistry : IO Unit := do
 
   -- Test buffered actor
   let bufRef ← IO.mkRef ByteArray.empty
-  let bufActor := ConnectionActor.mkBuffered key bufRef
+  let bufActor := ConnectionActor.unsafeMkBuffered key bufRef
   let reg3 := reg0.register bufActor
 
   let msg : ByteArray := "buffered".toUTF8
-  let (_, _) ← (WriteBuffer.empty.push msg).flushAll fd1
+  let (_, _) ← (WriteBuffer.empty.push msg).unsafeFlushAll fd1
 
   -- The registry runStep would dispatch, but we test dispatch directly
   let action ← bufActor.onReadable
@@ -108,8 +108,8 @@ def testRegistry : IO Unit := do
     (accumulated.toList == msg.toList)
 
   let _ := reg3
-  Socket.closeFdRaw fd0.toInt32
-  Socket.closeFdRaw fd1.toInt32
+  Unsafe.Socket.closeFdRaw fd0.toInt32
+  Unsafe.Socket.closeFdRaw fd1.toInt32
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- C. Stats counters
@@ -188,7 +188,7 @@ def testThroughput : IO Unit := do
   IO.println ""
   IO.println "=== E. Throughput baseline (RFC 025) ==="
 
-  let (clientFd, serverFd) ← Socket.socketpairRaw
+  let (clientFd, serverFd) ← Unsafe.Socket.socketpairRaw
   check "socketpair for throughput" (clientFd >= 0)
   if clientFd < 0 then return
 
@@ -196,40 +196,40 @@ def testThroughput : IO Unit := do
   let respBytes := (HttpResponse.okKeepAlive "pong").toBytes
   let n := 200
 
-  let t0 ← Io.monoNs
+  let t0 ← Unsafe.Io.monoNs
 
   let mut ok := 0
   for _ in List.range n do
     -- Client sends request
-    let (_, _) ← (WriteBuffer.empty.push reqBytes).flushAll clientFd
+    let (_, _) ← (WriteBuffer.empty.push reqBytes).unsafeFlushAll clientFd
     -- Server reads 64 bytes
     let mut reqBuf := ByteArray.empty
     for _ in List.range 50 do
       if reqBuf.size >= 64 then break
-      match ← Io.recv serverFd (64 - reqBuf.size) with
+      match ← Unsafe.Io.recv serverFd (64 - reqBuf.size) with
       | .bytes ba => reqBuf := appendBa reqBuf ba
       | .wouldBlock => IO.sleep 1
       | _ => break
     -- Server sends response
-    let (_, _) ← (WriteBuffer.empty.push respBytes).flushAll serverFd
+    let (_, _) ← (WriteBuffer.empty.push respBytes).unsafeFlushAll serverFd
     -- Client reads response
     let mut respBuf := ByteArray.empty
     for _ in List.range 50 do
       if respBuf.size >= respBytes.size then break
-      match ← Io.recv clientFd (respBytes.size - respBuf.size) with
+      match ← Unsafe.Io.recv clientFd (respBytes.size - respBuf.size) with
       | .bytes ba => respBuf := appendBa respBuf ba
       | .wouldBlock => IO.sleep 1
       | _ => break
     if respBuf.size == respBytes.size then ok := ok + 1
 
-  let t1 ← Io.monoNs
+  let t1 ← Unsafe.Io.monoNs
   let elapsedMs := (t1 - t0).toNat / 1000000
   let rps : Float :=
     if (t1 - t0).toNat == 0 then 0.0
     else Float.ofNat ok / (Float.ofNat (t1 - t0).toNat / 1000000000.0)
 
-  Socket.closeFdRaw clientFd.toInt32
-  Socket.closeFdRaw serverFd.toInt32
+  Unsafe.Socket.closeFdRaw clientFd.toInt32
+  Unsafe.Socket.closeFdRaw serverFd.toInt32
 
   IO.println s!"  {n} round-trips in {elapsedMs}ms → {rps} req/s"
   check "throughput: all round-trips succeeded"  (ok == n)

@@ -16,8 +16,8 @@ INVENTORY = ROOT / "docs" / "src" / "native-effect-inventory.tsv"
 STABILITY = ROOT / "docs" / "src" / "api-stability.md"
 
 DECL = re.compile(
-    r"^(?:(?:private|protected|partial|noncomputable)\s+)*"
-    r"(?:def|abbrev)\s+([A-Za-z_][A-Za-z0-9_']*)\b"
+    r"^(?P<modifiers>(?:(?:private|protected|partial|noncomputable)\s+)*)"
+    r"(?:def|abbrev)\s+(?P<name>[A-Za-z_][A-Za-z0-9_']*)\b"
 )
 BOUNDARY = re.compile(
     r"^(?:inductive|structure|class|instance|theorem|lemma|axiom|namespace|end)\b"
@@ -40,8 +40,9 @@ def key(path: Path, symbol: str) -> str:
     return f"{path.relative_to(ROOT).as_posix()}::{symbol}"
 
 
-def discover() -> dict[str, set[str]]:
+def discover() -> tuple[dict[str, set[str]], set[str]]:
     found: dict[str, set[str]] = {}
+    private_symbols: set[str] = set()
     for path in sorted(RUNTIME.rglob("*.lean")):
         if "/Native/" in path.as_posix():
             continue
@@ -66,14 +67,16 @@ def discover() -> dict[str, set[str]]:
             line = "".join(code)
             match = DECL.match(line)
             if match:
-                current = match.group(1)
+                current = match.group("name")
+                if "private" in match.group("modifiers").split():
+                    private_symbols.add(key(path, current))
             elif BOUNDARY.match(line):
                 current = None
             if current is None:
                 continue
             for effect in EFFECT.findall(line):
                 found.setdefault(key(path, current), set()).add(effect)
-    return found
+    return found, private_symbols
 
 
 def read_inventory() -> dict[str, dict[str, str]]:
@@ -116,7 +119,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--list", action="store_true", help="list discovered symbols")
     args = parser.parse_args()
-    discovered = discover()
+    discovered, private_symbols = discover()
     if args.list:
         for symbol, effects in sorted(discovered.items()):
             print(f"{symbol}\t{','.join(sorted(effects))}")
@@ -141,6 +144,19 @@ def main() -> int:
     markers = set(STABLE_MARKER.findall(STABILITY.read_text(encoding="utf-8")))
     missing_markers = sorted(checked - markers)
     unknown_markers = sorted(markers - checked)
+    unmarked_unsafe = sorted(
+        symbol for symbol, row in rows.items()
+        if row["classification"] == "unsafe-internal"
+        and symbol not in private_symbols
+        and not symbol.rsplit("::", 1)[-1].startswith("unsafe")
+    )
+
+    native_namespace_errors = []
+    for relative in ("Native/Epoll.lean", "Native/Socket.lean", "Native/Io.lean"):
+        text = (RUNTIME / relative).read_text(encoding="utf-8")
+        expected = f"namespace IotaktRuntime.Native.Unsafe.{Path(relative).stem}"
+        if expected not in text:
+            native_namespace_errors.append(relative)
 
     evidence_paths = (
         sorted((ROOT / "runtime" / "examples").rglob("*.lean"))
@@ -173,11 +189,28 @@ def main() -> int:
         print("native-effect inventory: FAIL: stable markers not checked in inventory:", file=sys.stderr)
         for symbol in unknown_markers:
             print(f"  {symbol}", file=sys.stderr)
+    if unmarked_unsafe:
+        print(
+            "native-effect inventory: FAIL: non-private unsafe rows need an "
+            "explicit unsafe-prefixed declaration:",
+            file=sys.stderr,
+        )
+        for symbol in unmarked_unsafe:
+            print(f"  {symbol}", file=sys.stderr)
+    if native_namespace_errors:
+        print(
+            "native-effect inventory: FAIL: raw native declarations escaped the "
+            "IotaktRuntime.Native.Unsafe namespace:",
+            file=sys.stderr,
+        )
+        for relative in native_namespace_errors:
+            print(f"  runtime/IotaktRuntime/{relative}", file=sys.stderr)
     if missing_test_ids:
         print("native-effect inventory: FAIL: unbound checked test identifiers:", file=sys.stderr)
         for symbol, test_id in missing_test_ids:
             print(f"  {symbol}: {test_id}", file=sys.stderr)
-    if missing or stale or missing_markers or unknown_markers or missing_test_ids:
+    if (missing or stale or missing_markers or unknown_markers or unmarked_unsafe
+            or native_namespace_errors or missing_test_ids):
         return 1
 
     counts = {classification: 0 for classification in sorted(CLASSES)}

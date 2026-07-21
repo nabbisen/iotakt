@@ -35,7 +35,7 @@ def handleConn (loop : EventLoop) (connKey : FdKey) : IO EventLoop := do
   for _ in List.range 10 do
     let headersDone := ((String.fromUTF8? reqBuf |>.getD "").splitOn "\r\n\r\n").length > 1
     if headersDone then break
-    match ← Io.recv fd 4096 with
+    match ← Unsafe.Io.recv fd 4096 with
     | .bytes ba =>
         let combined := ByteArray.mkEmpty (reqBuf.size + ba.size)
         let combined := ByteArray.copySlice reqBuf 0 combined 0 reqBuf.size
@@ -54,7 +54,7 @@ def handleConn (loop : EventLoop) (connKey : FdKey) : IO EventLoop := do
 
   -- Write response using WriteBuffer
   let wb := WriteBuffer.empty.push resp.toBytes
-  let (_, _) ← wb.flushAll fd
+  let (_, _) ← wb.unsafeFlushAll fd
 
   -- Close the connection
   EffectError.orThrow (← loop.closeConnection connKey)
@@ -70,7 +70,7 @@ def main : IO Unit := do
   let (loop1, ok) ← loop.addListener 49990
   if !ok then do
     IO.println "bind/listen failed (port in use?)"
-    loop.destroy; return
+    loop.unsafeDestroy; return
 
   let mut loop := loop1
   let mut reqCount := 0
@@ -88,7 +88,7 @@ def main : IO Unit := do
       | .dataReady _ _ => pure ()  -- handled inside handleConn
       | .tick _        => pure ()
 
-  loop.destroy
+  loop.unsafeDestroy
 
   IO.println ""
   IO.println s!"Total requests handled: {reqCount}"

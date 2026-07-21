@@ -2,7 +2,7 @@ import Iotakt.Model.Fd
 import IotaktRuntime.Native.Errno
 
 /-!
-# IotaktRuntime.Native.Socket
+# IotaktRuntime.Native.Unsafe.Socket
 
 POSIX socket primitives (RFC 012): `@[extern]` declarations and a thin
 Lean wrapper that interprets the flat C return codes into typed results.
@@ -12,7 +12,7 @@ registered. The `accept` wrapper returns `(newFd, peerAddr)` on
 success or an `IoErrno` on error.
 -/
 
-namespace IotaktRuntime.Native.Socket
+namespace IotaktRuntime.Native.Unsafe.Socket
 
 open Iotakt.Model
 
@@ -134,4 +134,4 @@ def checkConnect (fd : Int) : IO ConnectResult := do
   if r == 0 then return .connected
   else return .error (classifyErrno (-r))
 
-end IotaktRuntime.Native.Socket
+end IotaktRuntime.Native.Unsafe.Socket

@@ -29,7 +29,7 @@ loop:
         | .newConnection listener connection =>
             register connection in app state
         | .dataReady key =>
-            bytes ← Io.recv key.raw maxBytes
+            bytes ← Unsafe.Io.recv key.raw maxBytes
             handle(bytes)
         | .tick now =>
             cleanup idle connections
@@ -80,8 +80,8 @@ structure WaitOps where
   wait : Int32 → Int32 → Int32 → IO (Int × ByteArray)
 
 /-- Production epoll wait boundary. -/
-def nativeWaitOps : WaitOps where
-  wait := Epoll.wait
+def unsafeNativeWaitOps : WaitOps where
+  wait := Unsafe.Epoll.wait
 
 namespace EffectError
 
@@ -167,7 +167,7 @@ private def resolveEffect (loop : EventLoop) (key : FdKey)
 Connection authority is tracked independently of Henret. Mailbox mode additionally
 records a connection→task mapping for cancel-on-close (Gap 006). These helpers are
 internal and remain non-`private` only for integration tests. Consumers should use
-`closeConnection` / `connectionCount` / `shutdown`, not these. -/
+`closeConnection` / `connectionCount` / `unsafeShutdown`, not these. -/
 
 /-- (Internal) Record the Henret task id that owns a connection key. -/
 def recordTask (loop : EventLoop) (key : FdKey) (task : Nat) : EventLoop :=
@@ -252,9 +252,9 @@ def idleExpired (loop : EventLoop) (nowNs : Nat) : List FdKey :=
         if t + idleNs <= nowNs then some key else none
 
 /-- Create a new event loop with an explicitly selected authoritative sink. -/
-def createWithMode (mode : DeliveryMode) (config : DriverConfig := {}) :
+def unsafeCreateWithMode (mode : DeliveryMode) (config : DriverConfig := {}) :
     IO (Option EventLoop) := do
-  let epfd ← Epoll.create
+  let epfd ← Unsafe.Epoll.create
   if epfd < 0 then return none
   let ds : DriverState := {
     registry := Registry.empty,
@@ -273,18 +273,18 @@ def createWithMode (mode : DeliveryMode) (config : DriverConfig := {}) :
 /-- Create the stable external-consumer loop. Returned events are authoritative
 and accepted connections do not allocate Henret tasks/mailboxes. -/
 def create (config : DriverConfig := {}) : IO (Option EventLoop) :=
-  createWithMode .returned config
+  unsafeCreateWithMode .returned config
 
 /-- Create the explicitly selected legacy/internal mailbox-authority loop. -/
-def createMailbox (config : DriverConfig := {}) : IO (Option EventLoop) :=
-  createWithMode .mailbox config
+def unsafeCreateMailbox (config : DriverConfig := {}) : IO (Option EventLoop) :=
+  unsafeCreateWithMode .mailbox config
 
 /-- Close the epoll handle and free all resources. -/
-def destroy (loop : EventLoop) : IO Unit := do
+def unsafeDestroy (loop : EventLoop) : IO Unit := do
   -- Close all tracked listener fds
   for listener in loop.listeners do
-    Socket.closeFdRaw (fd32 listener.key.raw)
-  Epoll.close (fd32 loop.ph.epfd)
+    Unsafe.Socket.closeFdRaw (fd32 listener.key.raw)
+  Unsafe.Epoll.close (fd32 loop.ph.epfd)
 
 /-- Add an address-aware IPv4 listener and return its generation-safe identity. -/
 def addListenerAt (loop : EventLoop) (endpoint : BindEndpoint) :
@@ -292,7 +292,7 @@ def addListenerAt (loop : EventLoop) (endpoint : BindEndpoint) :
   if endpoint.port == 0 then return .error .invalidEndpoint
   if loop.listeners.any (fun listener => listener.endpoint == endpoint) then
     return .error .duplicateEndpoint
-  match ← setupListenerAt loop.nds loop.rt loop.ph endpoint loop.nds.nextActorId with
+  match ← unsafeSetupListenerAt loop.nds loop.rt loop.ph endpoint loop.nds.nextActorId with
   | .error e => return .error e
   | .ok (nds, rt, key, _lfd) =>
       let (nds, _) := nds.freshActorId
@@ -310,7 +310,7 @@ def addListener (loop : EventLoop) (port : UInt16) : IO (EventLoop × Bool) := d
 
 /-- Run one driver step through an explicit wait boundary. A fatal wait returns
 before readiness processing or accept work and preserves the input loop. -/
-def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
+def unsafeRunStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
     IO (Except LoopError (EventLoop × List LoopEvent)) := do
   let cfg := loop.nds.ds.config
 
@@ -326,7 +326,7 @@ def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
   let mut loopEvents : List LoopEvent := []
 
   if waitStatus > 0 then do
-    let rawEvts := Epoll.parseEvents evtBytes
+    let rawEvts := Unsafe.Epoll.parseEvents evtBytes
     -- Listener readiness drives accept below and never occupies a connection
     -- coalescing slot or mailbox entry.
     let connectionEvts := rawEvts.filter fun raw =>
@@ -369,7 +369,7 @@ def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
   let mut liveCount := loop.connectionCount
   for listener in loop.listeners do
     let (nds1, rt1, accepted) ←
-      acceptBurst nds rt loop.ph listener.key.raw loop.deliveryMode
+      unsafeAcceptBurst nds rt loop.ph listener.key.raw loop.deliveryMode
     nds := nds1; rt := rt1
     for (key, _, task) in accepted do
       let overCap := match loop.maxConnections with
@@ -378,8 +378,8 @@ def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
       if overCap then
         -- Load-shed: deregister, close the fd, cancel its task, drop the
         -- registry entry. The connection is never surfaced to the caller.
-        let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 key.raw)
-        Socket.closeFdRaw (fd32 key.raw)
+        let _ ← Unsafe.Epoll.deregister (fd32 loop.ph.epfd) (fd32 key.raw)
+        Unsafe.Socket.closeFdRaw (fd32 key.raw)
         nds := { nds with ds := { nds.ds with registry := nds.ds.registry.close key } }
         match task with
         | some task => rt := (Henret.step rt (.cancel task)).1
@@ -403,7 +403,7 @@ def runStepWith (ops : WaitOps) (loop : EventLoop) (timeoutMs : Int := -1) :
 confused with timeout/no-readiness. `timeoutMs = -1` blocks indefinitely. -/
 def runStep (loop : EventLoop) (timeoutMs : Int := -1) :
     IO (Except LoopError (EventLoop × List LoopEvent)) :=
-  runStepWith nativeWaitOps loop timeoutMs
+  unsafeRunStepWith unsafeNativeWaitOps loop timeoutMs
 
 /-- Register write interest for a connection (call when you have pending
 output; disable when the output buffer is drained). -/
@@ -412,7 +412,7 @@ def enableWrite (loop : EventLoop) (key : FdKey) : IO (Except EffectError EventL
   | .error e => return .error e
   | .ok (_, nativeFd) =>
       let newInterests := InterestSet.readOnly.enableWrite
-      let status ← Epoll.modify (fd32 loop.ph.epfd) nativeFd (Epoll.interestFlags newInterests)
+      let status ← Unsafe.Epoll.modify (fd32 loop.ph.epfd) nativeFd (Unsafe.Epoll.interestFlags newInterests)
       match nativeStatus status with
       | .error e => return .error e
       | .ok () =>
@@ -426,7 +426,7 @@ def disableWrite (loop : EventLoop) (key : FdKey) : IO (Except EffectError Event
   | .error e => return .error e
   | .ok (_, nativeFd) =>
       let newInterests := InterestSet.readOnly
-      let status ← Epoll.modify (fd32 loop.ph.epfd) nativeFd (Epoll.interestFlags newInterests)
+      let status ← Unsafe.Epoll.modify (fd32 loop.ph.epfd) nativeFd (Unsafe.Epoll.interestFlags newInterests)
       match nativeStatus status with
       | .error e => return .error e
       | .ok () =>
@@ -441,11 +441,11 @@ def closeConnection (loop : EventLoop) (key : FdKey) :
   match loop.resolveEffect key [.stream, .datagram] with
   | .error e => return .error e
   | .ok (_, nativeFd) =>
-      let status ← Epoll.deregister (fd32 loop.ph.epfd) nativeFd
+      let status ← Unsafe.Epoll.deregister (fd32 loop.ph.epfd) nativeFd
       match nativeStatus status with
       | .error e => return .error e
       | .ok () =>
-          Socket.closeFdRaw nativeFd
+          Unsafe.Socket.closeFdRaw nativeFd
           let reg1 := loop.nds.ds.registry.close key
           -- Gap 006 (henret ≥ v0.11.0): cancel the owning task to free its
           -- runtime state (readyQ / timers / mailboxWaiters entries). The actor
@@ -478,13 +478,13 @@ timeout blocks forever (zero CPU); a server with idle timeouts wakes just
 in time to reap expired connections. -/
 def runStepAuto (loop : EventLoop) :
     IO (Except LoopError (EventLoop × List LoopEvent)) := do
-  let nowNs := (← Io.monoNs).toNat
+  let nowNs := (← Unsafe.Io.monoNs).toNat
   let timeout := loop.pollTimeoutMs nowNs
   match ← loop.runStep timeout with
   | .error e => return .error e
   | .ok (loop1, events) =>
       -- Touch every connection that saw activity this step
-      let nowNs2 := (← Io.monoNs).toNat
+      let nowNs2 := (← Unsafe.Io.monoNs).toNat
       let mut l := loop1
       for ev in events do
         match ev with
@@ -498,21 +498,22 @@ def runStepAuto (loop : EventLoop) :
       let _ := reaped
       return .ok (l2, events)
 
-/-- Graceful shutdown (RFC 037): stop accepting and drain cleanly.
+/-- Explicitly unsafe graceful-shutdown helper (RFC 037): stop accepting and drain
+cleanly.
 
 1. Deregister and close every listener fd (stop accepting new connections).
 2. Close every active stream connection (deregister from epoll, close the fd,
    cancel its Henret task — the same path as `closeConnection`).
-3. Leave the poller open for `destroy` to finalize.
+3. Leave the poller open for `unsafeDestroy` to finalize.
 
-Returns the drained loop. The caller should call `destroy` afterwards to
+Returns the drained loop. The caller should call `unsafeDestroy` afterwards to
 close the poller handle. This is the clean lifecycle end that replaces the
 bounded-iteration loop the examples use for testability. -/
-def shutdown (loop : EventLoop) : IO EventLoop := do
+def unsafeShutdown (loop : EventLoop) : IO EventLoop := do
   -- 1. Stop accepting: deregister + close listeners.
   for listener in loop.listeners do
-    let _ ← Epoll.deregister (fd32 loop.ph.epfd) (fd32 listener.key.raw)
-    Socket.closeFdRaw (fd32 listener.key.raw)
+    let _ ← Unsafe.Epoll.deregister (fd32 loop.ph.epfd) (fd32 listener.key.raw)
+    Unsafe.Socket.closeFdRaw (fd32 listener.key.raw)
   -- 2. Drain active stream connections.
   let mut l := { loop with listeners := [] }
   let activeKeys := loop.connections
@@ -540,7 +541,7 @@ def recvAck (loop : EventLoop) (key : FdKey) (maxBytes : Nat) :
   match loop.resolveEffect key [.stream] with
   | .error e => return .error e
   | .ok _ =>
-      let r ← Io.recv key.raw maxBytes
+      let r ← Unsafe.Io.recv key.raw maxBytes
       return .ok (loop.ackReady key .readable, r)
 
 /-- Send on a connection **and acknowledge** its writable readiness in one
@@ -553,13 +554,13 @@ def sendAck (loop : EventLoop) (key : FdKey) (ba : ByteArray) (offset len : Nat)
   match loop.resolveEffect key [.stream] with
   | .error e => return .error e
   | .ok _ =>
-      let w ← Io.send key.raw ba offset len
+      let w ← Unsafe.Io.send key.raw ba offset len
       return .ok (loop.ackReady key .writable, w)
 
 /-- Result of initiating an outbound connect. -/
 inductive ConnectOutcome where
   /-- Connection initiated; `key` is the fd key to watch for `.dataReady writable`.
-      When writable arrives, call `Socket.checkConnect key.raw` to confirm. -/
+      When writable arrives, call `Unsafe.Socket.checkConnect key.raw` to confirm. -/
   | inProgress (key : FdKey) : ConnectOutcome
   /-- Connection succeeded immediately (rare). -/
   | connected (key : FdKey) : ConnectOutcome
@@ -569,16 +570,16 @@ inductive ConnectOutcome where
 /-- Initiate a non-blocking outbound TCP connect to `addr:port` (RFC 039).
 `addr` is host-byte-order IPv4 (e.g. `0x7f000001` = 127.0.0.1).
 The caller should watch for a `.dataReady key .writable` event, then
-call `Socket.checkConnect key.raw` to confirm the connection. -/
-def connectTo (loop : EventLoop) (addr : UInt32) (port : UInt16) :
+call `Unsafe.Socket.checkConnect key.raw` to confirm the connection. -/
+def unsafeConnectTo (loop : EventLoop) (addr : UInt32) (port : UInt16) :
     IO (EventLoop × ConnectOutcome) := do
-  let fd_r ← Socket.socketTcpRaw 1  -- AF_INET
+  let fd_r ← Unsafe.Socket.socketTcpRaw 1  -- AF_INET
   if fd_r < 0 then return (loop, .failed s!"socket() failed errno={-fd_r}")
 
-  let r ← Socket.connectIPv4 fd_r addr port
+  let r ← Unsafe.Socket.connectIPv4 fd_r addr port
   match r with
   | .error e =>
-      Socket.closeFdRaw (fd32 fd_r)
+      Unsafe.Socket.closeFdRaw (fd32 fd_r)
       return (loop, .failed s!"connect() failed: {repr e}")
   | .connected =>
       -- Connected immediately; allocate key with read+write interest
@@ -587,8 +588,8 @@ def connectTo (loop : EventLoop) (addr : UInt32) (port : UInt16) :
       let reg2 := reg1.setInterests key (InterestSet.readOnly.enableWrite)
                     |>.markActive key
       let (rt1, spawnRes) := Henret.step loop.rt (.spawn actorId)
-      let _ ← Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
-                (Epoll.interestFlags (InterestSet.readOnly.enableWrite))
+      let _ ← Unsafe.Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
+                (Unsafe.Epoll.interestFlags (InterestSet.readOnly.enableWrite))
       let loop1 := { loop with
         nds := { nds1 with ds := { nds1.ds with registry := reg2 } }
         rt  := rt1 }
@@ -603,8 +604,8 @@ def connectTo (loop : EventLoop) (addr : UInt32) (port : UInt16) :
       let reg2 := reg1.setInterests key (InterestSet.readOnly.enableWrite)
                     |>.markActive key
       let (rt1, spawnRes) := Henret.step loop.rt (.spawn actorId)
-      let _ ← Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
-                (Epoll.interestFlags (InterestSet.readOnly.enableWrite))
+      let _ ← Unsafe.Epoll.register (fd32 loop.ph.epfd) (fd32 fd_r)
+                (Unsafe.Epoll.interestFlags (InterestSet.readOnly.enableWrite))
       let loop1 := { loop with
         nds := { nds1 with ds := { nds1.ds with registry := reg2 } }
         rt  := rt1 }

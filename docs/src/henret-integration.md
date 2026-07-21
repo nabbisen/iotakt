@@ -267,7 +267,7 @@ same triggers:
 **Why the guard never fires at runtime.** iotakt's driver starts from
 `RuntimeState.init` (running, every actor `.active`) and never issues
 `closeActor`, `shutdown`, or `stopWhenIdle` — the only ops that could
-falsify the strengthened hypotheses. (iotakt's own `EventLoop.shutdown`,
+falsify the strengthened hypotheses. (iotakt's own `EventLoop.unsafeShutdown`,
 RFC 037, is an IO-level graceful drain; it does **not** emit Henret's
 `RuntimeOp.shutdown`.) The hypotheses therefore hold at every inject the
 driver issues, so no readiness event is lost.

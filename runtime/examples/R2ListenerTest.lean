@@ -42,11 +42,11 @@ private def isCurrentStream (loop : EventLoop) (key : FdKey) : Bool :=
     | none => false
 
 private def connectClient (address : Ipv4Address) (port : UInt16) : IO Int := do
-  let fd ← Socket.socketTcpRaw 1
+  let fd ← Unsafe.Socket.socketTcpRaw 1
   if fd < 0 then throw <| IO.userError "client socket create failed"
-  match ← Socket.connectIPv4 fd address.value port with
+  match ← Unsafe.Socket.connectIPv4 fd address.value port with
   | .error e =>
-      Socket.closeFdRaw (Int32.mk fd.toNat.toUInt32)
+      Unsafe.Socket.closeFdRaw (Int32.mk fd.toNat.toUInt32)
       throw <| IO.userError s!"client connect failed: {repr e}"
   | .connected | .inProgress => pure fd
 
@@ -82,7 +82,7 @@ def main : IO Unit := do
     close := fun _ => closeCount.modify (· + 1)
   }
   let (failedNds, failedRt, failedAccept) ←
-    acceptOneWith failedRegisterOps loop1.nds loop1.rt loop1.ph key1.raw
+    unsafeAcceptOneWith failedRegisterOps loop1.nds loop1.rt loop1.ph key1.raw
   ensure "FI-ACC-001 returns typed accepted-register failure"
     (match failedAccept with
       | .error (.registerFailed (.other 5)) => true
@@ -114,7 +114,7 @@ def main : IO Unit := do
       | _ => false)
   ensure "bind failure publishes no listener or generation"
     (conflictingLoop.listeners.isEmpty && conflictingLoop.nds.ds.registry.nextGen == 0)
-  conflictingLoop.destroy
+  conflictingLoop.unsafeDestroy
 
   let endpoint2 := BindEndpoint.wildcard 49771
   let (loop2, key2) ← requireListener (← loop1.addListenerAt endpoint2)
@@ -133,7 +133,7 @@ def main : IO Unit := do
   let client3 ← connectClient specified endpoint3.port
   IO.sleep 50
   let fatalWaitOps : WaitOps := { wait := fun _ _ _ => pure (-9, ByteArray.empty) }
-  let fatalWait ← EventLoop.runStepWith fatalWaitOps loop3 100
+  let fatalWait ← EventLoop.unsafeRunStepWith fatalWaitOps loop3 100
   ensure "fatal poll failure is returned as typed LoopError"
     (match fatalWait with | .error (.waitFailed .badFd) => true | _ => false)
   ensure "fatal poll failure publishes no connection authority"
@@ -169,7 +169,7 @@ def main : IO Unit := do
   ensure "listener identity selects plaintext/TLS configuration before I/O"
     (modes.contains .plaintext && modes.contains (.tls 1) && modes.contains (.tls 2))
   let busyPayload := "busy".toUTF8
-  let _ ← Io.send client1 busyPayload 0 busyPayload.size
+  let _ ← Unsafe.Io.send client1 busyPayload 0 busyPayload.size
   let mut busyLoop := loop3
   let mut sawBusyReadiness := false
   for _ in List.range 5 do
@@ -187,25 +187,25 @@ def main : IO Unit := do
       (List.range accepted.length).all fun offset =>
         (busyLoop.rt.mailboxes (firstConnectionActor + offset)).isNone)
   let loop3 := busyLoop
-  Socket.closeFdRaw (Int32.mk client1.toNat.toUInt32)
-  Socket.closeFdRaw (Int32.mk client2.toNat.toUInt32)
-  Socket.closeFdRaw (Int32.mk client3.toNat.toUInt32)
+  Unsafe.Socket.closeFdRaw (Int32.mk client1.toNat.toUInt32)
+  Unsafe.Socket.closeFdRaw (Int32.mk client2.toNat.toUInt32)
+  Unsafe.Socket.closeFdRaw (Int32.mk client3.toNat.toUInt32)
 
   let (loop4, compatibilityOk) ← loop3.addListener 49773
   ensure "port-only compatibility wrapper still binds loopback" compatibilityOk
   ensure "compatibility listener also records typed endpoint metadata"
     (loop4.listeners.any (fun listener => listener.endpoint == .loopback 49773))
 
-  let drained ← loop4.shutdown
-  ensure "shutdown clears listener fd and endpoint metadata"
+  let drained ← loop4.unsafeShutdown
+  ensure "unsafeShutdown clears listener fd and endpoint metadata"
     drained.listeners.isEmpty
 
   let (rebound, _) ← requireListener (← drained.addListenerAt endpoint1)
   ensure "closed endpoint can bind again without stale duplicate state" true
-  let rebound ← rebound.shutdown
-  rebound.destroy
+  let rebound ← rebound.unsafeShutdown
+  rebound.unsafeDestroy
 
-  let some mailboxLoop ← EventLoop.createMailbox
+  let some mailboxLoop ← EventLoop.unsafeCreateMailbox
     | throw <| IO.userError "mailbox epoll create failed"
   ensure "mailbox authority requires explicit loop construction"
     (mailboxLoop.deliveryMode == .mailbox)
@@ -218,7 +218,7 @@ def main : IO Unit := do
       match event with | .newConnection _ connection => some connection | _ => none
     | throw <| IO.userError "mailbox-mode accept missing"
   let mailboxPayload := "mailbox".toUTF8
-  let _ ← Io.send mailboxClient mailboxPayload 0 mailboxPayload.size
+  let _ ← Unsafe.Io.send mailboxClient mailboxPayload 0 mailboxPayload.size
   let (mailboxLoop, mailboxReadyEvents) ← LoopError.orThrow (← mailboxLoop.runStep 100)
   let mailboxOwner := (mailboxLoop.nds.ds.registry.lookup mailboxConnection).map (·.owner)
   let mailboxHasReadiness := match mailboxOwner with
@@ -227,8 +227,8 @@ def main : IO Unit := do
   ensure "mailbox mode injects readiness without returning duplicate dataReady"
     (mailboxHasReadiness && mailboxLoop.taskByKey.length == 1 &&
       !mailboxReadyEvents.any (fun event => match event with | .dataReady _ _ => true | _ => false))
-  Socket.closeFdRaw (Int32.mk mailboxClient.toNat.toUInt32)
-  let mailboxLoop ← mailboxLoop.shutdown
-  mailboxLoop.destroy
+  Unsafe.Socket.closeFdRaw (Int32.mk mailboxClient.toNat.toUInt32)
+  let mailboxLoop ← mailboxLoop.unsafeShutdown
+  mailboxLoop.unsafeDestroy
 
   IO.println "RFC 070 address-aware listener regression complete"

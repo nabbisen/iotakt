@@ -33,7 +33,7 @@ def readReq (fd : Int) : IO (Option ByteArray) := do
   for _ in List.range 20 do
     let s := String.fromUTF8? buf |>.getD ""
     if (s.splitOn "\r\n\r\n").length > 1 then return some buf
-    match ← Io.recv fd 4096 with
+    match ← Unsafe.Io.recv fd 4096 with
     | .bytes ba =>
         let c := ByteArray.mkEmpty (buf.size + ba.size)
         buf := ByteArray.copySlice ba 0 (ByteArray.copySlice buf 0 c 0 buf.size) buf.size ba.size
@@ -45,12 +45,12 @@ def readReq (fd : Int) : IO (Option ByteArray) := do
 /-- Stream a chunked response: header, then three chunks, then terminator. -/
 def streamChunked (fd : Int) : IO Unit := do
   let header := IotaktRuntime.Chunked.responseHeader 200 "OK" "text/plain"
-  let _ ← Io.send fd header 0 header.size
+  let _ ← Unsafe.Io.send fd header 0 header.size
   for part in ["Hello, ", "chunked ", "world!\n"] do
     let frame := IotaktRuntime.Chunked.encodeChunk part.toUTF8
-    let _ ← Io.send fd frame 0 frame.size
+    let _ ← Unsafe.Io.send fd frame 0 frame.size
   let term := IotaktRuntime.Chunked.terminator
-  let _ ← Io.send fd term 0 term.size
+  let _ ← Unsafe.Io.send fd term 0 term.size
 
 /-- Handle a connection: route, stream chunked for /stream, plain otherwise. -/
 def handle (loop : EventLoop) (key : FdKey) : IO EventLoop := do
@@ -64,10 +64,10 @@ def handle (loop : EventLoop) (key : FdKey) : IO EventLoop := do
             streamChunked fd
           else
             let resp := (HttpResponse.ok "try /stream for a chunked response").toBytes
-            let _ ← Io.send fd resp 0 resp.size
+            let _ ← Unsafe.Io.send fd resp 0 resp.size
       | none =>
           let resp := (HttpResponse.notFound "(bad request)").toBytes
-          let _ ← Io.send fd resp 0 resp.size
+          let _ ← Unsafe.Io.send fd resp 0 resp.size
       EffectError.orThrow (← loop.closeConnection key)
 
 def main : IO Unit := do
@@ -77,7 +77,7 @@ def main : IO Unit := do
 
   let some loop ← EventLoop.create | do IO.println "epoll failed"; return
   let (loop1, ok) ← loop.addListener 49995
-  if !ok then do IO.println "bind failed"; loop.destroy; return
+  if !ok then do IO.println "bind failed"; loop.unsafeDestroy; return
 
   -- runStepAuto + idle timeout: the loop blocks adaptively, reaps idle conns
   let mut loop := loop1.withIdleTimeout 2000
@@ -91,7 +91,7 @@ def main : IO Unit := do
       | .newConnection _ key => loop := ← handle loop key; handled := handled + 1
       | _                    => pure ()
 
-  loop.destroy
+  loop.unsafeDestroy
   IO.println s!"Requests handled: {handled}"
   check "streaming server: handled requests" (handled >= 0)
   check "streaming server: tasks cleaned up" (loop.taskByKey.length == 0)

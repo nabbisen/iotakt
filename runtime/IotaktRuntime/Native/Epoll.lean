@@ -2,7 +2,7 @@ import Iotakt.Model.Event
 import IotaktRuntime.Native.Errno
 
 /-!
-# IotaktRuntime.Native.Epoll
+# IotaktRuntime.Native.Unsafe.Epoll
 
 Linux epoll backend (RFC 011): `@[extern]` declarations for the C shim
 and pure helpers to normalize raw epoll flags into the backend-neutral
@@ -13,7 +13,7 @@ the fd is drained; coalescing at the model layer (RFC 006) prevents
 mailbox floods.
 -/
 
-namespace IotaktRuntime.Native.Epoll
+namespace IotaktRuntime.Native.Unsafe.Epoll
 
 open Iotakt.Model
 
@@ -106,4 +106,4 @@ def parseEvents (ba : ByteArray) : List NormalizedRawEvent :=
       (f0 ||| (f1 <<< 8) ||| (f2 <<< 16) ||| (f3 <<< 24)).toUInt32
     normalizeFlags rawFd flags
 
-end IotaktRuntime.Native.Epoll
+end IotaktRuntime.Native.Unsafe.Epoll

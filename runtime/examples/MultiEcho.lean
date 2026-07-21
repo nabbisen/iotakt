@@ -45,7 +45,7 @@ def main : IO Unit := do
 
   -- ── 1. Add listener on port 49901 ─────────────────────────────────
   let (loop1, ok) ← loop.addListener 49901
-  if !ok then do IO.println "bind/listen failed (port in use?)"; loop.destroy; return
+  if !ok then do IO.println "bind/listen failed (port in use?)"; loop.unsafeDestroy; return
 
   -- ── 2. Drive the event loop ────────────────────────────────────────
   let mut loop := loop1
@@ -77,7 +77,7 @@ def main : IO Unit := do
               | .bytes ba =>
                   totalBytesRead := totalBytesRead + ba.size
                   -- Echo back
-                  let _ ← Io.send key.raw ba 0 ba.size
+                  let _ ← Unsafe.Io.send key.raw ba 0 ba.size
                   -- Update bytes sent in connection state
                   conns := conns.map fun cs =>
                     if cs.key == key then { cs with bytesSent := cs.bytesSent + ba.size }
@@ -105,7 +105,7 @@ def main : IO Unit := do
   -- ── 3. Close remaining connections ────────────────────────────────
   for cs in conns do
     loop := ← EffectError.orThrow (← loop.closeConnection cs.key)
-  loop.destroy
+  loop.unsafeDestroy
 
   -- ── 4. Report ─────────────────────────────────────────────────────
   IO.println ""

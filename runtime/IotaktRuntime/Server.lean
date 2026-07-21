@@ -62,7 +62,7 @@ def serve : IO Unit := do
   let some loop ← EventLoop.create | return
   let (loop, _) ← loop.addListener 8080
   let mut loop := loop.withIdleTimeout 30000
-  -- driver loop: accept → readFull → router.dispatch → respond → close
+  -- driver loop: accept → unsafeReadFull → router.dispatch → respond → close
   ...
 ```
 -/
@@ -97,11 +97,11 @@ abbrev isChunked := @IotaktRuntime.Chunked.isChunked
 
 /-- Read a full request (headers + body, both framings) from an fd.
 The one call jemmet needs to get a dispatch-ready `HttpRequest`. -/
-abbrev readRequest := @IotaktRuntime.RequestBody.readFull
+abbrev unsafeReadRequest := @IotaktRuntime.RequestBody.unsafeReadFull
 
 /-- Keep-alive-aware read carrying leftover bytes between pipelined requests
 on one connection. -/
-abbrev readRequestBuffered := @IotaktRuntime.RequestBody.readFromBuffer
+abbrev unsafeReadRequestBuffered := @IotaktRuntime.RequestBody.unsafeReadFromBuffer
 
 /-- Determine a request's body framing from its headers. -/
 abbrev bodyFramingOf := @IotaktRuntime.RequestBody.framingOf

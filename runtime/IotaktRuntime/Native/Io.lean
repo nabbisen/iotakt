@@ -2,7 +2,7 @@ import Iotakt.Model.Result
 import IotaktRuntime.Native.Errno
 
 /-!
-# IotaktRuntime.Native.Io
+# IotaktRuntime.Native.Unsafe.Io
 
 Non-blocking recv and send wrappers (RFC 010, Option A).
 
@@ -15,7 +15,7 @@ or an error; partial writes are normal. The caller retains the unsent
 suffix.
 -/
 
-namespace IotaktRuntime.Native.Io
+namespace IotaktRuntime.Native.Unsafe.Io
 
 open Iotakt.Model
 
@@ -115,4 +115,4 @@ def sendTo (fd : Int) (ba : ByteArray) (offset len : Nat)
     else if isInterrupted e then return .interrupted
     else return .error (classifyErrno e)
 
-end IotaktRuntime.Native.Io
+end IotaktRuntime.Native.Unsafe.Io

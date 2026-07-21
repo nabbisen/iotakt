@@ -112,11 +112,12 @@ Linux epoll backend and real Henret.
 | Router (path params, method match, 404); Gap 006 cancel-on-close | `v0.6-test` (32) |
 | Adaptive poll timeout (idle = block, work = 0ms); idle reaping; `receiveUntil` | `v0.7-test` (21) |
 | Chunked transfer-encoding; SchedConn scheduled lifecycle + **failure/restart (RFC 049)** | `v0.8-test` (44) |
-| Body framing (Content-Length + chunked); `readFull`; handoff surface | `v0.9-test` (22) |
-| **Request-size limits** (`.tooLarge`); `readFromBuffer` pipelining (no dropped requests) | `v0.10-test` (13) |
+| Body framing (Content-Length + chunked); `unsafeReadFull`; handoff surface | `v0.9-test` (22) |
+| **Request-size limits** (`.tooLarge`); `unsafeReadFromBuffer` pipelining (no dropped requests) | `v0.10-test` (13) |
 | **Connection limits / load shedding** (cap=1 admits ≤1 of 3 clients); **graceful shutdown** (drains connections + listeners) | `v0.11-test` (18) |
 | **Explicit-ack coalescing** plus checked unknown/forged/invalid-range/wrong-kind/inactive authority and live raw-fd reuse isolation for `enableWrite`, `disableWrite`, `closeConnection`, `recvAck`, and `sendAck` | `v0.13-test` (75; `RFC064-AUTH-MATRIX-001`, `RFC064-FD-REUSE-001`) |
 | An external runtime consumer module can exhaustively handle `EffectError` and compile the exact typed results of all five stable key-effect operations | `check-runtime-typed-surface.sh` (`RFC064-TYPED-SURFACE-001`) |
+| Transitive runtime imports expose no legacy unmarked raw/unchecked escape names; retained escapes resolve only through explicit `unsafe`/`Unsafe` names | `check-runtime-unsafe-surface.sh` (`RFC064-UNSAFE-SURFACE-001`) |
 | Echo, multi-connection echo, live HTTP server+client, routing/streaming/upload/reference servers | server smoke tests |
 
 ---
@@ -155,7 +156,7 @@ Outside iotakt's defined responsibility.
 | Global fairness between actors under arbitrary scheduling | Henret responsibility (its RFC 046 fairness layer is opt-in and conditional) |
 
 iotakt provides the I/O-boundary *building blocks* a server consumes
-(`readFull`, `readFromBuffer`, body framing, the `Iotakt.Server` surface);
+(`unsafeReadFull`, `unsafeReadFromBuffer`, body framing, the `Iotakt.Server` surface);
 it is not itself a server. The reference server (`examples/ReferenceServer.lean`)
 is a demonstration consumer, not a shipped module.
 

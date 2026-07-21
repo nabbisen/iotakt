@@ -177,7 +177,7 @@ def testTaskTracking : IO Unit := do
   check "after forget key1: taskOf key1 = none" ((loop3.taskOf key1).isNone)
   check "after forget key1: taskOf key2 still 6" (loop3.taskOf key2 == some 6)
 
-  loop.destroy
+  loop.unsafeDestroy
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- Main

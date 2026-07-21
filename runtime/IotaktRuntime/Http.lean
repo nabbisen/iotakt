@@ -24,12 +24,12 @@ match req with
 | some r => do
     let resp := HttpResponse.ok "Hello from iotakt!"
     let wb := WriteBuffer.empty.push resp.toBytes
-    let (_, _) ← wb.flushAll fd
+    let (_, _) ← wb.unsafeFlushAll fd
 
 -- Client side
 let request := HttpRequest.get "127.0.0.1" 49980 "/"
 let wb := WriteBuffer.empty.push request.toBytes
-let (_, _) ← wb.flushAll fd
+let (_, _) ← wb.unsafeFlushAll fd
 let body ← HttpResponse.readBody fd 64 * 1024
 ```
 -/
@@ -66,11 +66,11 @@ def parseRequestLine (line : String) : Option (String × String × String) :=
 /-- Read up to `maxBytes` from `fd`, accumulating until the HTTP header
 terminator `\r\n\r\n` is found. Returns `some buf` when complete or
 `none` on error/EOF. -/
-def readHeaders (fd : Int) (maxBytes : Nat) : IO (Option ByteArray) := do
+def unsafeReadHeaders (fd : Int) (maxBytes : Nat) : IO (Option ByteArray) := do
   let mut buf := ByteArray.empty
   for _ in List.range 100 do  -- bound iterations
     let chunkSize := min 4096 (maxBytes - buf.size)
-    match ← Io.recv fd chunkSize with
+    match ← Unsafe.Io.recv fd chunkSize with
     | .bytes ba =>
         buf := ByteArray.copySlice ba 0 (ByteArray.mkEmpty (buf.size + ba.size))
                   0 ba.size |> fun dst =>
@@ -204,12 +204,12 @@ def toBytes (r : HttpResponse) : ByteArray :=
 
 /-- Read an HTTP/1.0 response body from `fd` until EOF.
 Returns the full response bytes (headers + body). -/
-def readAll (fd : Int) (maxBytes : Nat := 64 * 1024) : IO ByteArray := do
+def unsafeReadAll (fd : Int) (maxBytes : Nat := 64 * 1024) : IO ByteArray := do
   let mut buf := ByteArray.empty
   for _ in List.range 200 do
     if buf.size >= maxBytes then break
     let chunkSize := min 4096 (maxBytes - buf.size)
-    match ← Io.recv fd chunkSize with
+    match ← Unsafe.Io.recv fd chunkSize with
     | .bytes ba =>
         -- Append ba to buf
         let newSize := buf.size + ba.size

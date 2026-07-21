@@ -60,7 +60,7 @@ def runStandupListener (port : UInt16) (seam : ConsumerSeam)
     | do IO.println "epoll_create failed"; return 0
   let (loop1, ok) ← loop.addListener port
   if !ok then do
-    IO.println s!"bind/listen failed on :{port} (port in use?)"; loop.destroy; return 0
+    IO.println s!"bind/listen failed on :{port} (port in use?)"; loop.unsafeDestroy; return 0
   let mut loop := loop1
   let mut handed : Nat := 0
   for _ in List.range steps do
@@ -77,7 +77,7 @@ def runStandupListener (port : UInt16) (seam : ConsumerSeam)
           loop := ← EffectError.orThrow (← loop.closeConnection connection)
       | .dataReady _ _ => pure ()   -- consumer-owned in the harness
       | .tick _        => pure ()
-  loop.destroy
+  loop.unsafeDestroy
   return handed
 
 def main : IO Unit := do
