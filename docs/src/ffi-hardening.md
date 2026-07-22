@@ -157,6 +157,9 @@ Every native function is verified against this contract in two ways:
    - RFC065-C-SLICE-001: a synthetic in-bounds length above `SSIZE_MAX` returns
      `nativeLengthLimit` with zero syscall-gate invocations; a valid positive
      control reaches the gate exactly once.
+   - RFC065-RECV-REPRESENTABLE-001: stable `recvAck` rejects a request at least
+     `2 ^ System.Platform.numBits` with `nativeLengthLimit` before `Nat.toUSize`,
+     allocation, native I/O, or readiness acknowledgement.
 
 ---
 

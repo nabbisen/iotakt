@@ -103,7 +103,7 @@ Linux epoll backend and real Henret.
 | epoll deregistration before close takes effect |
 | FFI ownership contract (RFC 028): one `lean_dec` per arg per path; recvfrom double-free avoided |
 | RFC 065 TCP/UDP slices are subtraction-safe in Lean and C; invalid and `SSIZE_MAX`-exceeding requests reach zero syscalls |
-| RFC 065 receive-allocation inventory classifies every library/native path; stable `recvAck` enforces `DriverConfig.maxReadBytes` before allocation |
+| RFC 065 receive-allocation inventory classifies every library/native path; stable `recvAck` enforces `DriverConfig.maxReadBytes` and Linux `SSIZE_MAX` before conversion/allocation |
 | Throughput benchmark sustains ~250–400k req/s over socketpair (`benchmark`, 4) |
 
 ### Lifecycle, framing, and stabilization (v0.5 – v0.11, against real Henret v0.34.0)

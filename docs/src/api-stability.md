@@ -156,11 +156,14 @@ handles `EffectError`, and pins the exact result type of every stable key-based
 effect operation (`RFC064-TYPED-SURFACE-001`). Clean package-resolution probes remain
 an RFC 069 release-baseline obligation.
 
-`recvAck` is the only stable receive-allocation path. It checks the requested byte
-count against `DriverConfig.maxReadBytes` before calling the raw wrapper, so an
-oversized request returns `limitExceeded` before allocation or native I/O. Raw and
-protocol compatibility receive paths remain explicitly unsafe/internal and carry no
-stable configured-limit promise.
+`recvAck` is the only stable receive-allocation path. Before calling the raw wrapper,
+it checks the requested byte count against `DriverConfig.maxReadBytes` and the
+current Linux native I/O ceiling (`SSIZE_MAX`). Configured-limit overflow returns
+`limitExceeded`; a request that cannot cross the native length boundary without
+wrapping returns `nativeLengthLimit`. Both failures occur before conversion,
+allocation, native I/O, or readiness acknowledgement. Raw and protocol compatibility
+receive paths remain explicitly unsafe/internal and carry no stable configured-limit
+promise.
 
 ### Explicit unsafe and internal surface (no stability promise)
 

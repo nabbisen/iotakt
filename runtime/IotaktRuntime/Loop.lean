@@ -546,6 +546,8 @@ def recvAck (loop : EventLoop) (key : FdKey) (maxBytes : Nat) :
   | .ok _ =>
       if maxBytes > loop.nds.ds.config.maxReadBytes then
         return .error .limitExceeded
+      if !Unsafe.Io.nativeIoLengthInRange maxBytes then
+        return .error .nativeLengthLimit
       let r ← Unsafe.Io.recv key.raw maxBytes
       return .ok (loop.ackReady key .readable, r)
 

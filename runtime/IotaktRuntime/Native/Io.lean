@@ -70,6 +70,16 @@ before computing the remaining length, so no `offset + len` overflow is possible
 def sliceInBounds (size offset len : Nat) : Bool :=
   if offset > size then false else len <= size - offset
 
+/-- Largest byte count accepted by the current POSIX native I/O boundary. On the
+supported Linux targets this is `SSIZE_MAX`, derived from the platform word size. -/
+def nativeIoLengthMax : Nat :=
+  2 ^ (System.Platform.numBits - 1) - 1
+
+/-- Whether a natural-number byte count is representable by the native syscall
+result/length type without wrapping or implicit shortening. -/
+def nativeIoLengthInRange (len : Nat) : Bool :=
+  len <= nativeIoLengthMax
+
 private def writeResultOfStatus (status : Int) : WriteResult :=
   if status == -4096 then
     .invalidSlice

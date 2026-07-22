@@ -34,6 +34,11 @@ No C-side long-lived buffers. Each recv call allocates and returns
 exactly one `ByteArray`. The allocation strategy may be revisited in
 v0.2+ once benchmarks show it matters.
 
+The stable `EventLoop.recvAck` boundary rejects requests above either
+`DriverConfig.maxReadBytes` or the current Linux `SSIZE_MAX` before converting the
+request to `USize`, allocating the `ByteArray`, or entering this raw FFI layer. The
+raw `Unsafe.Io.recv`/`recvFrom` primitives do not carry that stable policy.
+
 ## Send semantics
 
 ```

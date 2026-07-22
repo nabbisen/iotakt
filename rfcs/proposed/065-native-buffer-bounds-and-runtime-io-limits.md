@@ -34,6 +34,10 @@ than shorten an oversized slice; this RFC introduces no truncating helper.
 `DriverConfig.maxReadBytes`. A request above the configured maximum returns
 `limitExceeded` before allocation or syscall. This reject-without-I/O behavior is the
 R0 stable policy; callers that want a smaller request must choose it explicitly.
+After the configured-limit check, the stable boundary also rejects a request above
+the current Linux `SSIZE_MAX` with `nativeLengthLimit` before `Nat.toUSize`
+conversion, allocation, or syscall. A configured limit may be a larger `Nat`, but it
+does not authorize implicit wrapping or shortening at the native boundary.
 
 ## Receive-allocation inventory
 

@@ -339,6 +339,23 @@ def testRfc065LeanBoundary : IO Unit := do
   check "stable receive rejects configured-limit overflow before allocation" <|
     hasEffectError .limitExceeded (← checkedLoop.recvAck key 5)
 
+  -- RFC065-RECV-REPRESENTABLE-001: an equally huge request and configured limit
+  -- passes the application-limit comparison but must fail before Nat.toUSize,
+  -- allocation, native I/O, or readiness acknowledgement.
+  let hugeRequest := 2 ^ System.Platform.numBits + 5
+  let pk : PendingKey := { fd := key, kind := .readable }
+  let oe : OwnerEvent := { owner := 50, key := key, event := .readable }
+  let pending := (checkedLoop.nds.ds.coalesce.step oe).1
+  let hugeConfig := { checkedLoop.nds.ds.config with maxReadBytes := hugeRequest }
+  let hugeLoop := { checkedLoop with nds := { checkedLoop.nds with
+    ds := { checkedLoop.nds.ds with coalesce := pending, config := hugeConfig } } }
+  check "non-representable receive starts with readiness pending"
+    (hugeLoop.nds.ds.coalesce.pending pk)
+  check "stable receive rejects non-representable request before allocation" <|
+    hasEffectError .nativeLengthLimit (← hugeLoop.recvAck key hugeRequest)
+  check "non-representable receive leaves readiness pending"
+    (hugeLoop.nds.ds.coalesce.pending pk)
+
   checkedLoop.unsafeDestroy
 
 def main : IO Unit := do
