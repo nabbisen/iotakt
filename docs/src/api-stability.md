@@ -123,10 +123,9 @@ Pure/configuration operations `withIdleTimeout`, `withMaxConnections`,
 effect and therefore do not appear in RFC 064's effect inventory.
 
 These are the checked connection-authority and resource-control entry points. RFC
-064 remains Proposed until its complete inventory and acceptance evidence are
-reviewed. Every stable operation that accepts an `FdKey` resolves the current live
-registry entry and validates the native fd representation before making a
-native call.
+064 is implemented and accepted at reviewed head `e3a6ca8`. Every stable operation
+that accepts an `FdKey` resolves the current live registry entry and validates the
+native fd representation before making a native call.
 
 The effectful key-based operations return typed results:
 

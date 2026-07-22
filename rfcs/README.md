@@ -17,7 +17,6 @@ records an evidence-backed independent Go.
 
 | ID | RFC | Primary finding |
 |---|---|---|
-| 064 | [Generation-safe effectful fd authority](./proposed/064-generation-safe-effectful-fd-authority.md) | B1, N3 |
 | 065 | [Native buffer bounds and enforced runtime I/O limits](./proposed/065-native-buffer-bounds-and-runtime-io-limits.md) | B2 |
 | 066 | [Authoritative event delivery and state-safe native transitions](./proposed/066-authoritative-event-delivery-and-state-safe-native-transitions.md) | B3, N1, N2, N4 |
 | 067 | [Fail-closed CI, sanitizer, and clean-checkout evidence](./proposed/067-fail-closed-ci-sanitizer-and-clean-checkout-evidence.md) | B4, N4 |
@@ -106,6 +105,7 @@ one an explicit dependency.
 | 061 | [Model/Bridge Package Split](./done/061-model-bridge-package-split.md) | v0.14.0-dev, Option B |
 | 062 | [Release-Provenance Manifest](./done/062-release-provenance-manifest.md) | v0.13.4-dev; remediation RFC 068 follows |
 | 063 | [Stack-Contract Dependency Edges](./done/063-stack-contract-dependency-edges.md) | v0.14.2-dev |
+| 064 | [Generation-safe effectful fd authority](./done/064-generation-safe-effectful-fd-authority.md) | Accepted at `e3a6ca8` |
 
 ## Archive
 

@@ -4,7 +4,7 @@
 **Status:** Architecture decisions accepted; implementation and release evidence
 pending
 **Release decision:** No-Go remains in force
-**Governing work:** [RFC 064](../../proposed/064-generation-safe-effectful-fd-authority.md),
+**Governing work:** [RFC 064](../../done/064-generation-safe-effectful-fd-authority.md),
 [RFC 066](../../proposed/066-authoritative-event-delivery-and-state-safe-native-transitions.md),
 [RFC 070](../../proposed/070-address-aware-listener-identity-and-lifecycle.md)
 

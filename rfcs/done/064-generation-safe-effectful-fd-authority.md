@@ -1,6 +1,6 @@
 # RFC 064 — Generation-safe effectful fd authority
 
-**Status.** Proposed — release-blocking remediation
+**Status.** Implemented — accepted at reviewed head `e3a6ca8` (2026-07-22)
 **Tracks.** Architecture review B1 and N3; Go evidence 1.
 **Touches.** `Iotakt.Model.Registry`, `Iotakt.Api`, `IotaktRuntime.Loop`, native-operation wrappers, proofs, fd-reuse tests.
 

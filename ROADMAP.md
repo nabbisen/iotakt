@@ -85,7 +85,7 @@ current schedule.
 
 - Keep release/v1.0/downstream-runtime promotion frozen.
 - Review and accept the six focused remediation RFCs:
-  - [RFC 064 — Generation-safe effectful fd authority](./rfcs/proposed/064-generation-safe-effectful-fd-authority.md)
+  - [RFC 064 — Generation-safe effectful fd authority](./rfcs/done/064-generation-safe-effectful-fd-authority.md)
   - [RFC 065 — Native buffer bounds and runtime I/O limits](./rfcs/proposed/065-native-buffer-bounds-and-runtime-io-limits.md)
   - [RFC 066 — Authoritative event delivery and state-safe native transitions](./rfcs/proposed/066-authoritative-event-delivery-and-state-safe-native-transitions.md)
   - [RFC 067 — Fail-closed CI, sanitizer, and clean-checkout evidence](./rfcs/proposed/067-fail-closed-ci-sanitizer-and-clean-checkout-evidence.md)
