@@ -20,6 +20,9 @@ def classifyEffectError : EffectError -> String
   | .invalidRawFd => "invalid-raw-fd"
   | .wrongKind => "wrong-kind"
   | .inactive => "inactive"
+  | .invalidSlice => "invalid-slice"
+  | .nativeLengthLimit => "native-length-limit"
+  | .limitExceeded => "limit-exceeded"
   | .nativeError _ => "native-error"
 
 /- Exact annotations make result-shape regressions fail in a downstream build. -/

@@ -140,11 +140,12 @@ sendAck : EventLoop → FdKey → ByteArray → Nat → Nat
   → IO (Except EffectError (EventLoop × WriteResult))
 ```
 
-`EffectError` distinguishes invalid, stale, out-of-range, wrong-kind,
-inactive, and native failures. Authority-validation failure performs no native
-call and leaves registry, coalescing, and runtime state unchanged. Examples may
-explicitly convert an error to an `IO` exception with `EffectError.orThrow`;
-library adapters should normally propagate the typed result.
+`EffectError` distinguishes invalid, stale, out-of-range, wrong-kind, inactive,
+invalid-slice, native-length-limit, configured-limit, and native failures.
+Authority or request-validation failure performs no native call and leaves
+registry, coalescing, and runtime state unchanged. Examples may explicitly convert
+an error to an `IO` exception with `EffectError.orThrow`; library adapters should
+normally propagate the typed result.
 
 The downstream compile probe `scripts/check-runtime-typed-surface.sh` compiles an
 external consumer module against the runtime package environment, exhaustively

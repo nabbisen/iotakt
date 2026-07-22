@@ -89,8 +89,8 @@ def unsafeFlush (wb : WriteBuffer) (fd : Int) : IO (WriteBuffer × Bool) := do
   | .interrupted =>
       -- Transient; caller will retry on next writable event
       return (wb, false)
-  | .closed | .error _ =>
-      -- Connection broken; discard pending data
+  | .closed | .invalidSlice | .nativeLengthLimit | .error _ =>
+      -- Connection broken or the internal slice invariant failed; stop retrying.
       return ({ pending := ByteArray.empty, offset := 0 }, true)
 
 /-- Flush all pending bytes, retrying up to `maxRetries` times on

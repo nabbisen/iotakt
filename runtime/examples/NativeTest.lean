@@ -67,6 +67,23 @@ def main : IO Unit := do
   check "send 0 bytes → wrote 0"
     (match send_r with | .wrote 0 => true | _ => false)
 
+  -- RFC065-LEAN-SLICE-001: shared subtraction-safe validation rejects before
+  -- either TCP or UDP FFI. The invalid fd would produce a native error if the
+  -- wrapper reached the syscall path.
+  let payload : ByteArray := ⟨#[1, 2, 3]⟩
+  check "slice exact end is valid" (Unsafe.Io.sliceInBounds payload.size 1 2)
+  check "zero-length slice at end is valid" (Unsafe.Io.sliceInBounds payload.size 3 0)
+  check "offset beyond end is invalid" (!Unsafe.Io.sliceInBounds payload.size 4 0)
+  check "length beyond remainder is invalid" (!Unsafe.Io.sliceInBounds payload.size 2 2)
+  check "huge offset/length pair is invalid"
+    (!Unsafe.Io.sliceInBounds payload.size (2 ^ 128) (2 ^ 128))
+  let invalidTcp ← Unsafe.Io.send (-1) payload 2 2
+  check "TCP invalid slice rejected before FFI"
+    (invalidTcp matches .invalidSlice)
+  let invalidUdp ← Unsafe.Io.sendTo (-1) payload 2 2 loopback 1
+  check "UDP invalid slice rejected before FFI"
+    (invalidUdp matches .invalidSlice)
+
   -- ── 8. epoll deregister and close ─────────────────────────────────────
   let dereg_r ← Unsafe.Epoll.deregister (toFd32 epfd) (toFd32 lfd)
   check "epoll deregister" (dereg_r == 0)

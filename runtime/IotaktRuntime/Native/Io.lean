@@ -60,6 +60,11 @@ opaque sendToRaw (fd : Int32) (ba : @& ByteArray) (offset len : USize)
 
 /-! ## Typed wrappers -/
 
+/-- Subtraction-safe application-buffer slice validation. The offset is checked
+before computing the remaining length, so no `offset + len` overflow is possible. -/
+def sliceInBounds (size offset len : Nat) : Bool :=
+  if offset > size then false else len <= size - offset
+
 /-- Perform one non-blocking recv and return a typed `ReadResult`. -/
 def recv (fd : Int) (maxBytes : Nat) : IO ReadResult := do
   let (status, buf) ← recvRaw fd.toInt32 maxBytes.toUSize
@@ -75,6 +80,7 @@ def recv (fd : Int) (maxBytes : Nat) : IO ReadResult := do
 
 /-- Perform one non-blocking send and return a typed `WriteResult`. -/
 def send (fd : Int) (ba : ByteArray) (offset len : Nat) : IO WriteResult := do
+  if !sliceInBounds ba.size offset len then return .invalidSlice
   let status ← sendRaw fd.toInt32 ba offset.toUSize len.toUSize
   if status >= 0 then
     return .wrote status.toNat.toUSize
@@ -107,6 +113,7 @@ def recvFrom (fd : Int) (maxBytes : Nat) : IO RecvFromResult := do
 `addr` is host-byte-order IPv4 (e.g. 0x7f000001 = 127.0.0.1). -/
 def sendTo (fd : Int) (ba : ByteArray) (offset len : Nat)
     (addr : UInt32) (port : UInt16) : IO WriteResult := do
+  if !sliceInBounds ba.size offset len then return .invalidSlice
   let status ← sendToRaw fd.toInt32 ba offset.toUSize len.toUSize addr port
   if status >= 0 then return .wrote status.toNat.toUSize
   else

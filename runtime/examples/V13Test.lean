@@ -112,6 +112,8 @@ def testRecvSendAck : IO Unit := do
     | .wouldBlock => IO.println "    peer send result=wouldBlock"
     | .interrupted => IO.println "    peer send result=interrupted"
     | .closed => IO.println "    peer send result=closed"
+    | .invalidSlice => IO.println "    peer send result=invalidSlice"
+    | .nativeLengthLimit => IO.println "    peer send result=nativeLengthLimit"
     | .error e => IO.println s!"    peer send error={repr e}"
     check "peer send before authority checks wrote bytes"
       (match pingWrite with | .wrote n => n.toNat == 4 | _ => false)
@@ -163,6 +165,8 @@ def testRecvSendAck : IO Unit := do
     | .wouldBlock => IO.println "    sendAck result=wouldBlock"
     | .interrupted => IO.println "    sendAck result=interrupted"
     | .closed => IO.println "    sendAck result=closed"
+    | .invalidSlice => IO.println "    sendAck result=invalidSlice"
+    | .nativeLengthLimit => IO.println "    sendAck result=nativeLengthLimit"
     | .error e => IO.println s!"    sendAck error={repr e}"
     check "sendAck wrote bytes"
       (match wr with | .wrote n => n.toNat == 4 | _ => false)
@@ -318,6 +322,25 @@ def testAuthorityErrorMatrix : IO Unit := do
 
   checkedLoop.unsafeDestroy
 
+-- E. RFC065-LEAN-BOUNDARY-001: stable requests reject before allocation/FFI.
+def testRfc065LeanBoundary : IO Unit := do
+  IO.println ""
+  IO.println "=== E. RFC065-LEAN-BOUNDARY-001: stable request validation ==="
+  let some loop <- EventLoop.create | do IO.println "epoll failed"; return
+  let (reg, key) := loop.nds.ds.registry.allocate 700 50 .stream
+  let reg := reg.markActive key
+  let config := { loop.nds.ds.config with maxReadBytes := 4 }
+  let checkedLoop := { loop with nds := { loop.nds with
+    ds := { loop.nds.ds with registry := reg, config := config } } }
+  let payload : ByteArray := ⟨#[1, 2, 3]⟩
+
+  check "stable TCP send rejects invalid slice before native fd use" <|
+    hasEffectError .invalidSlice (← checkedLoop.sendAck key payload 2 2)
+  check "stable receive rejects configured-limit overflow before allocation" <|
+    hasEffectError .limitExceeded (← checkedLoop.recvAck key 5)
+
+  checkedLoop.unsafeDestroy
+
 def main : IO Unit := do
   IO.println "iotakt v0.13 integration test (explicit ack + recvAck/sendAck)"
   IO.println ""
@@ -325,5 +348,6 @@ def main : IO Unit := do
   testRecvSendAck
   testLiveFdReuseAuthority
   testAuthorityErrorMatrix
+  testRfc065LeanBoundary
   IO.println ""
   IO.println "v0.13 integration test complete"

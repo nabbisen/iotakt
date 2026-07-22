@@ -56,6 +56,9 @@ inductive EffectError where
   | invalidRawFd
   | wrongKind
   | inactive
+  | invalidSlice
+  | nativeLengthLimit
+  | limitExceeded
   | nativeError (errno : IoErrno)
   deriving DecidableEq, Repr, Inhabited
 
@@ -541,6 +544,8 @@ def recvAck (loop : EventLoop) (key : FdKey) (maxBytes : Nat) :
   match loop.resolveEffect key [.stream] with
   | .error e => return .error e
   | .ok _ =>
+      if maxBytes > loop.nds.ds.config.maxReadBytes then
+        return .error .limitExceeded
       let r ← Unsafe.Io.recv key.raw maxBytes
       return .ok (loop.ackReady key .readable, r)
 
@@ -555,7 +560,10 @@ def sendAck (loop : EventLoop) (key : FdKey) (ba : ByteArray) (offset len : Nat)
   | .error e => return .error e
   | .ok _ =>
       let w ← Unsafe.Io.send key.raw ba offset len
-      return .ok (loop.ackReady key .writable, w)
+      match w with
+      | .invalidSlice => return .error .invalidSlice
+      | .nativeLengthLimit => return .error .nativeLengthLimit
+      | _ => return .ok (loop.ackReady key .writable, w)
 
 /-- Result of initiating an outbound connect. -/
 inductive ConnectOutcome where

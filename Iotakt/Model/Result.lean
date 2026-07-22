@@ -31,6 +31,10 @@ inductive WriteResult where
   | wouldBlock
   | interrupted
   | closed
+  /-- The requested `(offset, len)` is outside the application buffer. -/
+  | invalidSlice
+  /-- The requested length cannot be represented safely by the native syscall. -/
+  | nativeLengthLimit
   | error (errno : IoErrno)
   deriving Inhabited
 

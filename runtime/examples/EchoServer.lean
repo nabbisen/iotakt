@@ -169,6 +169,10 @@ def main : IO Unit := do
                                 IO.println "send: interrupted"
                             | .closed =>
                                 IO.println "send: connection closed"
+                            | .invalidSlice =>
+                                IO.println "send: invalid application-buffer slice"
+                            | .nativeLengthLimit =>
+                                IO.println "send: native length limit exceeded"
                             | .error e =>
                                 IO.println s!"send error: {repr e}"
                         | .wouldBlock =>
