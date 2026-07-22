@@ -91,7 +91,7 @@ Linux epoll backend and real Henret.
 | Timeout ⇒ Henret `tick`, clock advances; interrupted wait ⇒ no mutation | 7 |
 | Inject delivers `.ok` (Mesa semantics; waiter appended to readyQ) | 1 |
 
-### Native backend — **implemented** (Linux epoll; `native-test` 13, `v0.4-test` 31)
+### Native backend — **implemented** (Linux epoll; `native-test` 25, `v0.4-test` 31)
 
 | Claim |
 |-------|
@@ -102,6 +102,7 @@ Linux epoll backend and real Henret.
 | EINTR classified correctly; `accept` burst limit respected |
 | epoll deregistration before close takes effect |
 | FFI ownership contract (RFC 028): one `lean_dec` per arg per path; recvfrom double-free avoided |
+| RFC 065 TCP/UDP slices are subtraction-safe in Lean and C; invalid and `SSIZE_MAX`-exceeding requests reach zero syscalls |
 | Throughput benchmark sustains ~250–400k req/s over socketpair (`benchmark`, 4) |
 
 ### Lifecycle, framing, and stabilization (v0.5 – v0.11, against real Henret v0.34.0)

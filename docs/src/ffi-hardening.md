@@ -64,7 +64,13 @@ the lifetime of the call.
 LEAN_EXPORT lean_obj_res iotakt_send(
     int32_t fd, b_lean_obj_arg ba, ..., lean_obj_arg w)
 {
-    const uint8_t *buf = lean_sarray_cptr(ba);  // borrow pointer only
+    int64_t status = iotakt_validate_send_slice(
+        lean_sarray_size(ba), offset, len);
+    if (status != 0) {
+        lean_dec(w);
+        return lean_io_result_mk_ok(lean_int64_to_int(status));
+    }
+    const uint8_t *buf = lean_sarray_cptr(ba) + offset;  // borrow pointer only
     ssize_t n = send((int)fd, buf, len, MSG_NOSIGNAL);
     lean_dec(w);  // only w is owned
     return lean_io_result_mk_ok(lean_int64_to_int(n >= 0 ? n : -errno));
@@ -140,13 +146,17 @@ Every native function is verified against this contract in two ways:
 
 1. **Static review**: the diff for any new C function must include a reviewer
    note confirming C.1–C.6 compliance.
-2. **Runtime verification**: the v0.4 integration test (`iotakt-v4-test`)
-   section C runs live FFI invariant checks that would segfault or produce
-   wrong sizes if the contract were violated:
+2. **Runtime verification**: `iotakt-v4-test` section C and the native boundary
+   suite run live FFI and request-validation checks:
    - INV-1a/b: recv buffer sizes match the actual bytes received.
    - INV-2: recv after peer-close returns a Lean value (not a crash).
    - INV-3: send after peer-close returns a Lean error value (not SIGPIPE).
    - INV-4: recvfrom peer-address buffer is exactly 6 bytes.
+   - RFC065-C-SLICE-001: TCP/UDP invalid slices return `invalidSlice` through
+     the defensive C path with zero syscall-gate invocations.
+   - RFC065-C-SLICE-001: a synthetic in-bounds length above `SSIZE_MAX` returns
+     `nativeLengthLimit` with zero syscall-gate invocations; a valid positive
+     control reaches the gate exactly once.
 
 ---
 

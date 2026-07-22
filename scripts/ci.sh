@@ -77,7 +77,7 @@ else
     echo "SKIP: gcc not found"
   fi
 
-  step "7. Native integration test (13 checks)"
+  step "7. Native integration test (RFC 026 + RFC 065 bounds)"
   lake --dir runtime build iotakt-native-test 2>/dev/null && \
     runtime/.lake/build/bin/iotakt-native-test > /tmp/native_out.txt 2>&1
   NAT_FAIL=$(grep -c "\[FAIL\]" /tmp/native_out.txt || true)

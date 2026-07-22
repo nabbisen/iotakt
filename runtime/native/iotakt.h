@@ -21,6 +21,10 @@
  * The value INT32_MIN (-2147483648) is reserved for "unknown error".
  * ---------------------------------------------------------------------- */
 
+/* RFC 065 request-validation statuses. Linux errno values occupy 1..4095. */
+#define IOTAKT_STATUS_INVALID_SLICE       (-INT64_C(4096))
+#define IOTAKT_STATUS_NATIVE_LENGTH_LIMIT (-INT64_C(4097))
+
 /* Platform errno values we care about (Linux x86-64). */
 #define IOTAKT_EAGAIN       11
 #define IOTAKT_EWOULDBLOCK  11

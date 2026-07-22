@@ -36,6 +36,11 @@ Returns IO Int:
 @[extern "iotakt_send"]
 opaque sendRaw (fd : Int32) (ba : @& ByteArray) (offset len : USize) : IO Int
 
+/-- Test-only view of the shared C validation/syscall gate. Returns the encoded
+validation status and the number of syscalls the request would reach. -/
+@[extern "iotakt_test_send_slice_gate"]
+opaque testSendSliceGateRaw (bufferSize offset len : USize) : IO (Int × Nat)
+
 /-- Monotonic nanosecond wall-clock timestamp (CLOCK_MONOTONIC).
 Suitable for measuring elapsed time in benchmarks. -/
 @[extern "iotakt_mono_ns"]
@@ -65,6 +70,20 @@ before computing the remaining length, so no `offset + len` overflow is possible
 def sliceInBounds (size offset len : Nat) : Bool :=
   if offset > size then false else len <= size - offset
 
+private def writeResultOfStatus (status : Int) : WriteResult :=
+  if status == -4096 then
+    .invalidSlice
+  else if status == -4097 then
+    .nativeLengthLimit
+  else if status >= 0 then
+    .wrote status.toNat.toUSize
+  else
+    let e := -status
+    if isWouldBlock e then .wouldBlock
+    else if isInterrupted e then .interrupted
+    else if e == 32 || e == 104 then .closed
+    else .error (classifyErrno e)
+
 /-- Perform one non-blocking recv and return a typed `ReadResult`. -/
 def recv (fd : Int) (maxBytes : Nat) : IO ReadResult := do
   let (status, buf) ← recvRaw fd.toInt32 maxBytes.toUSize
@@ -82,14 +101,7 @@ def recv (fd : Int) (maxBytes : Nat) : IO ReadResult := do
 def send (fd : Int) (ba : ByteArray) (offset len : Nat) : IO WriteResult := do
   if !sliceInBounds ba.size offset len then return .invalidSlice
   let status ← sendRaw fd.toInt32 ba offset.toUSize len.toUSize
-  if status >= 0 then
-    return .wrote status.toNat.toUSize
-  else
-    let e := -status  -- positive errno
-    if isWouldBlock e then return .wouldBlock
-    else if isInterrupted e then return .interrupted
-    else if e == 32 || e == 104 then return .closed  -- EPIPE or ECONNRESET
-    else return .error (classifyErrno e)
+  return writeResultOfStatus status
 
 /-- UDP receive result: includes the datagram payload and peer address. -/
 inductive RecvFromResult where
@@ -115,11 +127,6 @@ def sendTo (fd : Int) (ba : ByteArray) (offset len : Nat)
     (addr : UInt32) (port : UInt16) : IO WriteResult := do
   if !sliceInBounds ba.size offset len then return .invalidSlice
   let status ← sendToRaw fd.toInt32 ba offset.toUSize len.toUSize addr port
-  if status >= 0 then return .wrote status.toNat.toUSize
-  else
-    let e := -status
-    if isWouldBlock e then return .wouldBlock
-    else if isInterrupted e then return .interrupted
-    else return .error (classifyErrno e)
+  return writeResultOfStatus status
 
 end IotaktRuntime.Native.Unsafe.Io

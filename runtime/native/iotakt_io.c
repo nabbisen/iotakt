@@ -17,7 +17,46 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 #include <string.h>
+
+/*
+ * Validate a borrowed application-buffer slice before pointer arithmetic or a
+ * syscall. Checking the offset first makes the remaining-length subtraction
+ * well-defined; the validation never evaluates `offset + len`.
+ */
+static int64_t iotakt_validate_send_slice(
+    size_t buffer_size, size_t offset, size_t len)
+{
+    if (offset > buffer_size) {
+        return IOTAKT_STATUS_INVALID_SLICE;
+    }
+    size_t remaining = buffer_size - offset;
+    if (len > remaining) {
+        return IOTAKT_STATUS_INVALID_SLICE;
+    }
+    if (len > (size_t)SSIZE_MAX) {
+        return IOTAKT_STATUS_NATIVE_LENGTH_LIMIT;
+    }
+    return 0;
+}
+
+/*
+ * Test-only probe for the shared validation/syscall gate. `syscall_count` is
+ * one exactly when a non-empty request would reach send(2)/sendto(2), allowing
+ * boundary tests to prove rejected requests remain on the no-syscall path.
+ */
+LEAN_EXPORT lean_obj_res iotakt_test_send_slice_gate(
+    size_t buffer_size, size_t offset, size_t len, lean_obj_arg w)
+{
+    int64_t status = iotakt_validate_send_slice(buffer_size, offset, len);
+    size_t syscall_count = (status == 0 && len > 0) ? 1 : 0;
+    lean_object *pair = lean_alloc_ctor(0, 2, 0);
+    lean_ctor_set(pair, 0, lean_int64_to_int(status));
+    lean_ctor_set(pair, 1, lean_usize_to_nat(syscall_count));
+    lean_dec(w);
+    return lean_io_result_mk_ok(pair);
+}
 
 /*
  * Non-blocking recv (Option A).
@@ -81,7 +120,9 @@ LEAN_EXPORT lean_obj_res iotakt_recv(
  *
  * Returns IO Int:
  *   Int > 0 → bytes sent (partial write is normal).
- *   Int < 0 → -errno (EAGAIN, EINTR, EPIPE, etc.).
+ *   -4096   → invalid application-buffer slice.
+ *   -4097   → length exceeds SSIZE_MAX.
+ *   Other Int < 0 → -errno (EAGAIN, EINTR, EPIPE, etc.).
  *
  * MSG_NOSIGNAL prevents SIGPIPE from terminating the process.
  */
@@ -89,11 +130,10 @@ LEAN_EXPORT lean_obj_res iotakt_send(
     int32_t fd, b_lean_obj_arg ba, size_t offset, size_t len, lean_obj_arg w)
 {
     size_t ba_size = lean_sarray_size(ba);
-    if (offset > ba_size) len = 0;
-    else if (offset + len > ba_size) len = ba_size - offset;
-
-    int64_t status;
-    if (len == 0) {
+    int64_t status = iotakt_validate_send_slice(ba_size, offset, len);
+    if (status != 0) {
+        /* Validation failed: no pointer arithmetic and no syscall. */
+    } else if (len == 0) {
         status = 0;
     } else {
         const uint8_t *buf = lean_sarray_cptr(ba) + offset;
@@ -174,7 +214,7 @@ LEAN_EXPORT lean_obj_res iotakt_recvfrom(
  * Sends `len` bytes from `ba` starting at `offset` to IPv4 addr:port.
  * addr is in host byte order; port is in host byte order.
  *
- * Returns IO Int: bytes sent (≥ 0) or -errno.
+ * Returns IO Int: bytes sent (≥ 0), an RFC 065 validation status, or -errno.
  */
 LEAN_EXPORT lean_obj_res iotakt_sendto(
     int32_t fd, b_lean_obj_arg ba,
@@ -188,11 +228,10 @@ LEAN_EXPORT lean_obj_res iotakt_sendto(
     sa.sin_port        = htons(port_hbo);
 
     size_t ba_size = lean_sarray_size(ba);
-    if (offset > ba_size) len = 0;
-    else if (offset + len > ba_size) len = ba_size - offset;
-
-    int64_t status;
-    if (len == 0) {
+    int64_t status = iotakt_validate_send_slice(ba_size, offset, len);
+    if (status != 0) {
+        /* Validation failed: no pointer arithmetic and no syscall. */
+    } else if (len == 0) {
         status = 0;
     } else {
         const uint8_t *buf = lean_sarray_cptr(ba) + offset;

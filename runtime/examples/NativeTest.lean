@@ -84,6 +84,24 @@ def main : IO Unit := do
   check "UDP invalid slice rejected before FFI"
     (invalidUdp matches .invalidSlice)
 
+  -- RFC065-C-SLICE-001: bypass the Lean validator and exercise the defensive
+  -- C boundary plus its shared syscall gate directly.
+  let rawTcp ← Unsafe.Io.sendRaw (toFd32 lfd) payload 2 2
+  check "defensive C TCP path returns invalidSlice status" (rawTcp == -4096)
+  let rawUdp ← Unsafe.Io.sendToRaw (toFd32 lfd) payload 2 2 loopback 1
+  check "defensive C UDP path returns invalidSlice status" (rawUdp == -4096)
+  let (invalidStatus, invalidCalls) ← Unsafe.Io.testSendSliceGateRaw 3 2 2
+  check "defensive C invalid slice reaches zero syscalls"
+    (invalidStatus == -4096 && invalidCalls == 0)
+  let nativeTooLarge := (2 ^ (System.Platform.numBits - 1)).toUSize
+  let (limitStatus, limitCalls) ←
+    Unsafe.Io.testSendSliceGateRaw nativeTooLarge 0 nativeTooLarge
+  check "defensive C native-length limit reaches zero syscalls"
+    (limitStatus == -4097 && limitCalls == 0)
+  let (validStatus, validCalls) ← Unsafe.Io.testSendSliceGateRaw 3 1 2
+  check "defensive C valid non-empty slice reaches syscall gate"
+    (validStatus == 0 && validCalls == 1)
+
   -- ── 8. epoll deregister and close ─────────────────────────────────────
   let dereg_r ← Unsafe.Epoll.deregister (toFd32 epfd) (toFd32 lfd)
   check "epoll deregister" (dereg_r == 0)

@@ -38,12 +38,16 @@ v0.2+ once benchmarks show it matters.
 
 ```
 1. Lean caller passes   a read-only ByteArray slice
-2. C shim calls         send(fd, buf, len, MSG_NOSIGNAL)
-3. C shim returns       bytes_written (or error/would-block)
-4. Lean caller retains  the unsent suffix
+2. Lean wrapper checks  offset <= size and len <= size - offset
+3. C shim repeats       the subtraction-safe checks and enforces SSIZE_MAX
+4. C shim calls         send(fd, buf + offset, len, MSG_NOSIGNAL)
+5. C shim returns       bytes_written or a typed validation/native result
+6. Lean caller retains  the unsent suffix
 ```
 
-Partial writes are normal. iotakt does not retry.
+Invalid slices return `invalidSlice`; lengths above `SSIZE_MAX` return
+`nativeLengthLimit`. Neither case performs pointer arithmetic or reaches a syscall,
+and neither is shortened. Partial writes are normal. iotakt does not retry.
 
 ## SIGPIPE prevention
 
@@ -91,7 +95,12 @@ void iotakt_close(int fd);
 
 // I/O
 lean_obj_res iotakt_recv(int fd, size_t max_bytes);
-ssize_t iotakt_send(int fd, const uint8_t *buf, size_t len);
+lean_obj_res iotakt_send(
+    int32_t fd, b_lean_obj_arg ba, size_t offset, size_t len, lean_obj_arg w);
+lean_obj_res iotakt_sendto(
+    int32_t fd, b_lean_obj_arg ba, size_t offset, size_t len,
+    uint32_t addr_hbo, uint16_t port_hbo, lean_obj_arg w);
 ```
 
-Exact signatures are finalized in RFC 009 and RFC 011.
+These signatures use borrowed `ByteArray` ownership and return Lean `IO Int` values
+whose validation statuses are decoded into typed results.
