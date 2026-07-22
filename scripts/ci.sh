@@ -36,6 +36,11 @@ bash scripts/check-runtime-unsafe-surface.sh \
   && pass "runtime unsafe escapes are explicit and legacy names are unavailable" \
   || fail "runtime explicit unsafe boundary"
 
+step "1d. RFC 065 receive-allocation inventory"
+python3 scripts/check-receive-allocation-inventory.py \
+  && pass "receive-allocation inventory complete" \
+  || fail "receive-allocation inventory incomplete"
+
 step "2. Pure Lean model + fake poller (no C required)"
 lake build Iotakt && pass "lake build Iotakt (model pkg)" || fail "lake build Iotakt (model pkg)"
 

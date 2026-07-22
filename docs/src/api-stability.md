@@ -106,6 +106,8 @@ Native-effecting operations: `create`, `addListenerAt`, `addListener`, `runStep`
 
 The repository-derived classification and evidence bindings are verified from
 [`native-effect-inventory.tsv`](./native-effect-inventory.tsv).
+Receive allocation and syscall-length selection are independently verified from
+[`receive-allocation-inventory.tsv`](./receive-allocation-inventory.tsv).
 
 <!-- native-effect-stable: indirect::EventLoop.create -->
 <!-- native-effect-stable: indirect::EventLoop.addListenerAt -->
@@ -117,6 +119,7 @@ The repository-derived classification and evidence bindings are verified from
 <!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::disableWrite -->
 <!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::recvAck -->
 <!-- native-effect-stable: runtime/IotaktRuntime/Loop.lean::sendAck -->
+<!-- receive-allocation-stable: runtime/IotaktRuntime/Loop.lean::recvAck -->
 
 Pure/configuration operations `withIdleTimeout`, `withMaxConnections`,
 `connectionCount`, `atCapacity`, and `ackReady` remain stable but cause no native fd
@@ -152,6 +155,12 @@ external consumer module against the runtime package environment, exhaustively
 handles `EffectError`, and pins the exact result type of every stable key-based
 effect operation (`RFC064-TYPED-SURFACE-001`). Clean package-resolution probes remain
 an RFC 069 release-baseline obligation.
+
+`recvAck` is the only stable receive-allocation path. It checks the requested byte
+count against `DriverConfig.maxReadBytes` before calling the raw wrapper, so an
+oversized request returns `limitExceeded` before allocation or native I/O. Raw and
+protocol compatibility receive paths remain explicitly unsafe/internal and carry no
+stable configured-limit promise.
 
 ### Explicit unsafe and internal surface (no stability promise)
 

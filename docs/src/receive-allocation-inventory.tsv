@@ -1,0 +1,14 @@
+symbol	classification	governing_limit	allocation_or_length	test_ids	justification
+runtime/IotaktRuntime/Actor.lean::unsafeMkBuffered	unsafe-internal	none	Unsafe.Io.recv caller-selected maxRead	-	Explicit unsafe raw-fd actor helper outside the stable EventLoop receive surface.
+runtime/IotaktRuntime/Actor.lean::unsafeMkEcho	unsafe-internal	none	Unsafe.Io.recv fixed 4096-byte request	-	Explicit unsafe raw-fd actor helper outside the stable EventLoop receive surface.
+runtime/IotaktRuntime/Http.lean::unsafeReadAll	unsafe-internal	none	Unsafe.Io.recv caller-selected chunkSize	-	Protocol compatibility helper accepts a raw fd and is not a stable receive API.
+runtime/IotaktRuntime/Http.lean::unsafeReadHeaders	unsafe-internal	none	Unsafe.Io.recv caller-selected chunkSize	-	Protocol compatibility helper accepts a raw fd and is not a stable receive API.
+runtime/IotaktRuntime/Loop.lean::recvAck	limit-enforced	DriverConfig.maxReadBytes	maxBytes checked before Unsafe.Io.recv allocation and syscall length	RFC065-LEAN-BOUNDARY-001	The only stable receive operation rejects requests above the configured limit before allocation or native I/O.
+runtime/IotaktRuntime/Native/Io.lean::recv	unsafe-internal	none	recvRaw maxBytes conversion and native call	-	Raw native wrapper is explicitly under the Unsafe namespace; stable consumers use EventLoop.recvAck.
+runtime/IotaktRuntime/Native/Io.lean::recvFrom	unsafe-internal	none	recvFromRaw maxBytes conversion and native call	-	Raw UDP wrapper is explicitly under the Unsafe namespace and has no stable EventLoop operation yet.
+runtime/IotaktRuntime/RequestBody.lean::readChunked	unsafe-internal	none	Unsafe.Io.recv fixed 4096-byte requests	-	Protocol compatibility helper accepts a raw fd and is outside the stable receive surface.
+runtime/IotaktRuntime/RequestBody.lean::readContentLength	unsafe-internal	none	Unsafe.Io.recv fixed 4096-byte requests	-	Protocol compatibility helper accepts a raw fd and is outside the stable receive surface.
+runtime/IotaktRuntime/RequestBody.lean::readUntilHeaders	unsafe-internal	none	Unsafe.Io.recv fixed 4096-byte requests	-	Protocol compatibility helper accepts a raw fd and is outside the stable receive surface.
+runtime/IotaktRuntime/RequestBody.lean::unsafeReadFromBuffer	unsafe-internal	none	Unsafe.Io.recv fixed 4096-byte requests	-	Explicit unsafe raw-fd compatibility helper outside the stable EventLoop receive surface.
+runtime/native/iotakt_io.c::iotakt_recv	unsafe-internal	none	max_bytes selects ByteArray allocation and recv syscall length	-	Defensive native primitive trusts its explicitly unsafe caller; the stable chain supplies the checked configured limit.
+runtime/native/iotakt_io.c::iotakt_recvfrom	unsafe-internal	none	max_bytes selects payload allocation and recvfrom syscall length	-	Defensive UDP primitive is reachable only through the explicitly unsafe raw wrapper in the current stable surface.
