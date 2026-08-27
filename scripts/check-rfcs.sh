@@ -10,7 +10,7 @@ fail() { echo "FAIL: $1"; STATUS=1; }
 
 # ── 1. Naming check ───────────────────────────────────────────────────────
 echo "=== 1. Naming (NNN-slug.md) ==="
-find "$RFC_DIR" -name "*.md" ! -name "README.md" ! -path "*/handoff/*" | while read f; do
+find "$RFC_DIR" -name "*.md" ! -name "README.md" ! -path "*/handoff/*" ! -path "*/handoffs/*" | while read f; do
   base=$(basename "$f")
   if ! echo "$base" | grep -qE '^[0-9]{3}-[a-z0-9-]+\.md$'; then
     echo "FAIL: bad name: $f"
@@ -20,7 +20,7 @@ done && echo "PASS: all RFC filenames match NNN-slug.md"
 
 # ── 2. Duplicate numbers ────────────────────────────────────────────────
 echo "=== 2. No duplicate RFC numbers ==="
-NUMS=$(find "$RFC_DIR" -name "*.md" ! -name "README.md" ! -path "*/handoff/*" \
+NUMS=$(find "$RFC_DIR" -name "*.md" ! -name "README.md" ! -path "*/handoff/*" ! -path "*/handoffs/*" \
   | xargs -I{} basename {} | grep -oE '^[0-9]+' | sort)
 DUPES=$(echo "$NUMS" | uniq -d)
 if [ -n "$DUPES" ]; then fail "duplicate RFC numbers: $DUPES"; else echo "PASS: no duplicates"; fi
