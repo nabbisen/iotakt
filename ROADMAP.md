@@ -74,6 +74,14 @@ Work items use three distinct states:
 These windows are intentionally short but conditional. A missed exit criterion moves
 the following milestone; it does not get waived to preserve a date.
 
+### Schedule status (recorded 2026-08-27)
+
+The windows above were planned from 2026-07-13. R1 reached code completion on
+2026-07-22 and then paused pending architect re-review of RFC 065, which was returned on
+2026-08-27; the R2–R5 windows elapsed in the interim. Re-baselining them is a pending
+maintainer decision. The exit criteria are unchanged and continue to authorize
+progression: no milestone is treated as passed because its window expired.
+
 ## R0 — Freeze and approved work plan
 
 ### Objective
@@ -141,6 +149,23 @@ Close the two critical direct security paths before broader refactoring.
   and its receive-allocation inventory is complete. Its status remains Proposed with
   sanitizer evidence pending until RFC 067 supplies the R3 instrumented run.
 - New proof declarations contain no `sorry`, `admit`, or project `axiom`.
+
+### R1 status — exit criteria met (recorded 2026-08-27)
+
+| Item | State | Evidence |
+|---|---|---|
+| RFC 064 | **Accepted**; moved to `rfcs/done/` | Reviewed head `e3a6ca8`; acceptance recorded at `0a1608a` |
+| RFC 065 | **Code complete**; remains Proposed | Head `60d1884`; B1 closed by the 2026-08-27 re-review |
+| Effect-path inventory | Complete and gated | 23 discovered paths, 29 classified rows |
+| Receive-allocation inventory | Complete and gated | 13 discovered paths, 13 classified rows |
+
+RFC 065 stays in `rfcs/proposed/` with ASan/UBSan evidence pending RFC 067 in R3,
+exactly as this milestone's exit rule permits. One `unreachable` inventory row remains —
+`EventLoop.closeListener` — and is owned by RFC 070 in R2; RFC 064's acceptance does not
+grant it an exemption.
+
+All R1 evidence is development-grade. `scripts/ci.sh` remains fail-open, so no R1 output
+is release evidence until RFC 067 lands.
 
 ## R2 — Event and state integrity
 

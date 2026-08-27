@@ -1,6 +1,7 @@
 # RFC 065 — Native buffer bounds and enforced runtime I/O limits
 
-**Status.** Proposed — release-blocking security remediation
+**Status.** Proposed — release-blocking security remediation; R1 code complete at
+`60d1884` (2026-08-27), ASan/UBSan evidence pending RFC 067 in R3
 **Tracks.** Architecture review B2; Go evidence 2.
 **Touches.** `IotaktRuntime.Native.Io`, `runtime/native/iotakt_io.c`, `DriverConfig`, `EventLoop.recvAck`, native tests, sanitizer cases.
 
@@ -81,6 +82,9 @@ wrapper.
 - Maximum `Nat`/`USize` values and deliberately overflowing `(offset, len)` pairs.
 - TCP `send` and UDP `sendTo` parity.
 - Oversized receive requests with a small configured maximum.
+- A receive request equal to an equally large non-representable configured maximum:
+  the stable API returns `nativeLengthLimit` before conversion, allocation, native
+  I/O, or readiness acknowledgement.
 - Instrumented syscall-seam assertions that `len > remaining` returns
   `invalidSlice` and invokes no syscall through both the Lean pre-FFI path and a
   direct defensive-C-path test.
