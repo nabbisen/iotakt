@@ -45,6 +45,15 @@ and cannot be cited as current release truth. The canonical files must be tracke
 linked from the mdbook/README as appropriate, and included in RFC 068's release
 manifest.
 
+### Close and descriptor-ownership policy
+
+The rebaselined requirements must state one close policy that matches the implemented
+model, C, and stable API. The current requirements baseline says double close is invalid
+and that a native `EBADF` must be classified as an error and tested as a boundary
+behavior; the model proves close idempotent, RFC 064 made the stable API reject a second
+close, and the C shim ignores every close error. RFC 066 repairs the native half. This
+RFC must land the requirements text so that no two of those four artifacts disagree.
+
 ### HTTP/framing boundary
 
 Choose and record one option:
@@ -65,7 +74,12 @@ defer the ownership choice until the end of requalification.
 
 1. Requirements/external-design rebaseline and status approval.
 2. README quick start and downstream compile snippets.
-3. Proof/trust/test matrix and API stability/current namespace audit.
+3. Proof/trust/test matrix and API stability/current namespace audit. The matrix must
+   state the scope it actually counts: it currently claims its theorem total is "across
+   `Iotakt/`" while the CI check counts `Iotakt/` **plus** `runtime/IotaktRuntime/`
+   (74 versus 84 as of 2026-08-27), and it files at least one theorem under the wrong
+   source file. A count that passes CI while misdescribing its own scope is the failure
+   mode this document exists to prevent.
 4. One current roadmap; history delegates to CHANGELOG and implemented RFCs.
 5. RFC index rebuilt from actual folders.
 6. RFC checker upgraded for folder/status agreement, unique status, complete index,
@@ -82,6 +96,8 @@ truthfulness baseline.
 - RFC checker fails on a synthetic bad status, omitted index entry, duplicate number,
   and broken local link.
 - mdbook builds with no missing pages or orphaned intended chapters.
+- The proof/trust/test matrix's stated counting scope matches the scope the CI check
+  actually counts, and every theorem is attributed to the file that defines it.
 - Repository search finds no current runtime instruction using pre-split namespaces.
 - `git ls-files` contains both canonical baseline paths, and the RFC/documentation
   checker verifies that current README/mdbook navigation links to them.

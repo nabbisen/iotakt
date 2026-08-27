@@ -2,7 +2,7 @@
 
 **Status.** Proposed — release-blocking operational remediation
 **Tracks.** Architecture review B4 and part of N4; Go evidence 2 and 3.
-**Touches.** `scripts/ci.sh`, `scripts/build_native.sh`, GitHub workflows, smoke-test orchestration, retained evidence.
+**Touches.** `scripts/ci.sh`, `scripts/build_native.sh`, `scripts/check-rfcs.sh` and the other gate scripts, GitHub workflows, smoke-test orchestration, retained evidence.
 
 ## Summary
 
@@ -40,6 +40,32 @@ Each smoke step has this shape:
 
 Fixed ports must be isolated or allocated safely enough for clean CI execution.
 
+### Every gate script, not only `ci.sh`
+
+Fail-closed is a property of each script the gate invokes, not only of the top-level
+runner. A subordinate script that detects a defect and still exits 0 makes its `ci.sh`
+step unconditionally green.
+
+`scripts/check-rfcs.sh` has this defect today. Observed 2026-08-27: introducing a file
+that violates the `NNN-slug.md` rule produced
+
+```text
+FAIL: bad name: .../rfcs/handoffs/070-.../implementation-handoff.md
+...
+ALL CHECKS PASSED
+EXIT=0
+```
+
+Its naming check runs inside a `while read` subshell on the right of a pipe, so the
+`exit 1` terminates the subshell and never reaches the parent's `STATUS`. Step 1 of the
+gate therefore cannot fail on a naming violation.
+
+Every gate script must be audited for this class: `exit` or assignment inside a piped
+subshell, a `for`/`while` body whose status is discarded, and a final `echo` that
+outranks the accumulated failure count. The audit covers at least `check-rfcs.sh`,
+`check-provenance.sh`, `check-model-only-resolution.sh`,
+`check-runtime-typed-surface.sh`, and `check-runtime-unsafe-surface.sh`.
+
 ## Sanitizer design
 
 `build_native.sh` must use `runtime/native` and runtime build outputs. The workflow
@@ -60,6 +86,8 @@ stand in for sanitized linkage.
 ## Test obligations
 
 - A deliberate failing step makes `scripts/ci.sh` exit nonzero.
+- A synthetic violation makes each subordinate gate script exit nonzero on its own,
+  including a badly named RFC file for `check-rfcs.sh`.
 - Every required workflow command propagates failure.
 - The echo smoke test succeeds after building its own target in an empty cache.
 - Sanitized compilation failure stops the job.
@@ -82,6 +110,7 @@ payload bytes.
 
 - Required failure always produces nonzero process/workflow status.
 - The gate self-test demonstrates fail-closed behavior.
+- No subordinate gate script reports a detected failure while exiting 0.
 - Sanitizer job builds and runs the intended instrumented code.
 - A clean-checkout full-gate log reports all required steps passed.
 - CI documentation describes actual commands and evidence retention.

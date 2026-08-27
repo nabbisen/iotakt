@@ -2,7 +2,7 @@
 
 **Status.** Proposed — release-blocking remediation
 **Tracks.** Architecture review B3, N1, N2, and part of N4; Go evidence 4 and 5.
-**Touches.** `IotaktRuntime.Bridge`, `IotaktRuntime.Driver`, `IotaktRuntime.Loop`, event/result types, fault-injection seams, loop decomposition.
+**Touches.** `IotaktRuntime.Bridge`, `IotaktRuntime.Driver`, `IotaktRuntime.Loop`, `IotaktRuntime.Native.Socket`, `runtime/native/iotakt_socket.c`, event/result types, fault-injection seams, loop decomposition.
 
 ## Summary
 
@@ -116,7 +116,40 @@ close:
 3. commit the corresponding model transition only on success; and
 4. on partial failure, perform bounded cleanup and return a structured error.
 
-Errors may not be discarded with `let _ <- ...` on stable paths.
+Errors may not be discarded with `let _ <- ...` on stable paths. A wrapper whose
+return type cannot carry a failure discards it just as effectively: `IO Unit` on a
+stable native transition is a discarded error, not an infallible operation.
+
+### Close is a transition, not a fire-and-forget
+
+`Unsafe.Socket.closeFdRaw : IO Unit` and `iotakt_close`, which does
+`close(fd); /* ignore EINTR/EBADF */`, make close the one native transition whose
+outcome is structurally unobservable. The requirements state that a native close
+returning `EBADF` must be classified as an error and tested as a boundary behavior
+rather than treated as normal success; that obligation cannot be met while the result
+type is `Unit`.
+
+The close wrapper must return a status that the stable path classifies. `EBADF` in
+particular is evidence that iotakt's model and the kernel disagree about descriptor
+ownership — the exact divergence this RFC exists to prevent — and must not be silently
+absorbed. `EINTR` on close follows the platform's documented semantics and must be
+handled explicitly rather than ignored.
+
+This completes the coherent double-close decision RFC 064 required across
+requirements, model, C, tests, and documentation. RFC 064 delivered the authority
+half — the stable API rejects a second close without a second native call. The native
+and requirements halves land here and in RFC 069.
+
+### Failed deregistration must have a policy
+
+`EventLoop.closeConnection` currently returns a typed error when `epoll_ctl DEL` fails
+and performs no cleanup: the descriptor stays open, the model entry stays live, and
+nothing tells the caller whether a retry is expected. Under transaction rule 4 this is
+an unbounded partial failure.
+
+Choose and document one policy: retry-then-close, close-anyway-and-report, or
+caller-must-retry with a stated contract. Any of the three is acceptable; leaving it
+undefined is not. The same rule applies to RFC 070's `closeListener`.
 
 If mailbox validation or Henret injection fails, coalescing state must remain
 deliverable: validate before setting pending, or roll the pending slot back.
@@ -159,6 +192,10 @@ deliverable: validate before setting pending, or roll the pending slot back.
 - Successful close clears readable, writable, eof, hangup, and error pending slots;
   raw-fd reuse starts with no prior-generation pending/mailbox state.
 - Fatal poll failure is observable.
+- A native close failure is observable and classified; `EBADF` is surfaced, not
+  absorbed, and is distinguishable from success.
+- A fault-injected deregistration failure follows the documented policy and leaves no
+  descriptor whose disposition is unrecorded.
 - Fault-injected register/modify/deregister/accept/connect/close failures do not
   leave an active modeled resource with inconsistent kernel state.
 - RFC 029's deterministic failure matrix is updated and executed.
@@ -185,6 +222,8 @@ causing silent denial of service.
 - The normative acknowledgement table, EINTR/deferred rules, batch ordering, and
   clear-on-close behavior are implemented and tested.
 - Stable native transitions return and preserve structured failure information.
+- No stable native transition, close included, has a result type incapable of
+  carrying failure.
 - Required proofs and public-loop/fault-injection tests pass.
 - `Loop.lean` responsibilities are reduced enough to keep the security-sensitive
   transition logic independently reviewable.
