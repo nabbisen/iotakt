@@ -20,6 +20,7 @@ cross-team correspondence.
 ## Current design responses
 
 - [Jemmet M2C native-runtime consumer request response](./jemmet/iotakt-response-to-jemmet-m2c-native-runtime-request.md) — accepted architecture decisions; implementation and release evidence pending under RFCs 064, 066, and 070.
+- [Kroopt No-Go advisory and runtime-surface change notice](./kroopt/iotakt-no-go-advisory-and-runtime-surface-change-notice.md) — **draft, pending maintainer approval**; freeze notification, provisional-pin guidance, and the RFC 064/065/066/070 surface changes affecting a `IotaktRuntime.Loop` consumer.
 
 ## Convention: a release's own announcement is committed after the cut
 
