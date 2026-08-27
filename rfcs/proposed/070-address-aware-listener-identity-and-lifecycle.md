@@ -94,6 +94,23 @@ reported by the kernel. No implementation silently reuses an existing listener.
 Errors contain bounded enums and normalized errno values, not peer-controlled text,
 secret material, or unbounded native strings.
 
+### Ephemeral port (port 0)
+
+*Amendment recorded 2026-08-27. This documents a rule the R2 implementation already
+applies; it is not a change of behavior.*
+
+A `BindEndpoint` with `port = 0` is rejected as `invalidEndpoint` before any socket is
+created. Binding port 0 delegates port selection to the kernel, and the stable listener
+API has no way to report the selected port back: `ListenerKey` carries generation-safe
+identity, not an endpoint, and `BindEndpoint` is caller-supplied input rather than a
+result. Accepting port 0 would therefore publish a listener whose actual address no
+consumer could discover, which conflicts with this RFC's premise that listener identity
+selects plaintext versus TLS configuration.
+
+Supporting ephemeral ports requires an additive result carrying the bound endpoint, and
+is deferred with IPv6 rather than claimed through the current implementation. Consumers
+that need an arbitrary free port for tests select one themselves and pass it explicitly.
+
 ## Transaction and ownership rules
 
 Listener creation follows one failure-atomic sequence:
@@ -155,6 +172,7 @@ operational evidence/counters.
 
 - Bind IPv4 loopback, wildcard, and a specified local IPv4 address.
 - Reject an exact duplicate endpoint with a typed error; normalize kernel conflicts.
+- Reject `port = 0` with `invalidEndpoint` before any socket is created.
 - Bind multiple listeners and attribute each accepted connection to the correct key.
 - Demultiplex plaintext/TLS fixture configuration by listener key before reading.
 - Fault-inject socket-option, bind, listen, and epoll-register failures; observe no
@@ -201,6 +219,8 @@ or already-closed resource.
 ## Non-goals
 
 - No IPv6 claim in the first implementation.
+- No ephemeral-port (`port = 0`) binding, and no bound-endpoint reporting, in the
+  first implementation.
 - No TLS configuration or certificate ownership inside iotakt.
 - No protocol parsing, routing, or application deadline policy.
 - No public raw-fd escape hatch for accepted connections.
